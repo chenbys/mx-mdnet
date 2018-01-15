@@ -60,5 +60,17 @@ def test_smooth():
     print mx.ndarray.smooth_l1(data=score - label, scalar=1)
 
 
+def test_repet():
+    import matplotlib.pyplot as plt
+    import numpy as np
+    img = plt.imread('s.jpg')
+    print img.shape
+    pad_img = np.concatenate((img, img, img), 0)
+    pad_img = np.concatenate((pad_img, pad_img, pad_img), 1)
+    print pad_img.shape
+    plt.imshow(pad_img)
+    plt.show()
+
+
 if __name__ == '__main__':
-    test_train_on_one_frame()
+    test_repet()
