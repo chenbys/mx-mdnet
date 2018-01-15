@@ -47,6 +47,10 @@ def train_on_one_frame(args, image_path, region):
     print 'over'
 
 
+def test(model):
+    pass
+
+
 def get_train_iter(train_data):
     image_patches = list()
     feat_bboxes = list()
