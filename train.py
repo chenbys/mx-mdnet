@@ -109,17 +109,19 @@ class MDNetMetric(mx.metric.EvalMetric):
         self.pred, self.label = ['score'], ['label']
 
     def update(self, labels, preds):
-        label = labels[0].reshape((-1,)).asnumpy()
-        pred = preds[0].asnumpy()
-        loss = mx.ndarray.softmax_cross_entropy(preds[0], labels[0].reshape((-1,))).asnumpy()
+        label = labels[0].reshape((-1,)).as_in_context(mx.gpu(1))
+        pred = preds[0].as_in_context(mx.gpu(1))
+        label_np = label.asnumpy()
+        pred_np = pred.asnumpy()
+        loss = mx.ndarray.softmax_cross_entropy(pred, label).asnumpy()
         print loss
 
-        true_num = np.sum(pred.argmax(1) == label)
-        false_num = label.shape[0] - true_num
-        print 'success:%d,fail:%d' % (true_num, false_num)
+        true_num = np.sum(pred_np.argmax(1) == label_np)
+        false_num = label_np.shape[0] - true_num
+        # print 'success:%d,fail:%d' % (true_num, false_num)
 
         self.sum_metric += true_num
-        self.num_inst += label.shape[0]
+        self.num_inst += label_np.shape[0]
 
 
 def parse_args():
