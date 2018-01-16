@@ -30,17 +30,16 @@ def get_samples(label_feat, pos_number=200, neg_number=200):
     import random
 
     x, y, w, h = label_feat[0, :]
-    feat_bboxes = util.x1y2x2y22xywh(sample_on_feat(1, 1, 1, 1, w, h)[:, 1:5])
-    rat = util.overlap_ratio(label_feat, feat_bboxes)
+    feat_bboxes = sample_on_feat(1, 1, 1, 1, w, h)
+    feat_bboxes_ = util.x1y2x2y22xywh(feat_bboxes[:, 1:5])
+    rat = util.overlap_ratio(label_feat, feat_bboxes_)
     pos_samples = feat_bboxes[rat > 0.7, :]
     neg_samples = feat_bboxes[rat < 0.3, :]
     # print 'pos:%d ,neg:%d, all:%d;' % (pos_samples.shape[0], neg_samples.shape[0], feat_bboxes.shape[0])
     # select samples
     # ISSUE: what if pos_samples.shape[0] < pos_number?
-    pos_index = random.sample(range(0, pos_samples.shape[0]), pos_number)
-    neg_index = random.sample(range(0, neg_samples.shape[0]), pos_number)
+    pos_select_index = random.sample(range(0, pos_samples.shape[0]), pos_number)
+    neg_select_index = random.sample(range(0, neg_samples.shape[0]), pos_number)
 
-    pos = np.hstack((np.zeros((pos_number, 1)), pos_samples[pos_index, :]))
-    neg = np.hstack((np.zeros((neg_number, 1)), neg_samples[neg_index, :]))
-    return np.vstack((pos, neg)), \
+    return np.vstack((pos_samples[pos_select_index], neg_samples[neg_select_index])), \
            np.hstack((np.ones((pos_number,)), np.zeros((neg_number,))))

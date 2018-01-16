@@ -40,7 +40,7 @@ def check_train_data():
         return label
 
     check(16, 350)
-
+    return
 
 if __name__ == '__main__':
     check_train_data()

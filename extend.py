@@ -9,7 +9,7 @@ class MDNetMetric(mx.metric.EvalMetric):
 
     def update(self, labels, preds):
         # ctx = mx.cpu(0)
-        ctx = mx.gpu(1)
+        ctx = mx.gpu(2)
         label = labels[0].reshape((-1,)).as_in_context(ctx)
         pred = preds[0].as_in_context(ctx)
         loss = mx.ndarray.softmax_cross_entropy(pred, label).asnumpy()

@@ -34,7 +34,6 @@ def train_on_one_frame(args, img_path, region, model=None, begin_epoch=0, num_ep
                                 'wd'           : args.wd},
               eval_metric=extend.MDNetMetric(), num_epoch=begin_epoch + num_epoch, begin_epoch=begin_epoch,
               batch_end_callback=mx.callback.Speedometer(1))
-    print 'finished training on one frame'
     return model
 
 
@@ -60,13 +59,10 @@ def main():
     begin_epoch = 0
     count = 0
     for img_path, gt in zip(img_list, gt_list):
-        # validate
-        val_img = cv2.imread(img_list[count + 1])
-        val_gt = gt_list[count + 1]
-        val_iter = datahelper.get_train_iter(val_img, val_gt)
-
-        model = train_on_one_frame(args, img_path, gt, model, begin_epoch, args.num_epoch, ctx, val_iter)
+        model = train_on_one_frame(args, img_path, gt, model, begin_epoch, args.num_epoch, ctx,
+                                   val_image_path=img_list[count + 1], val_pre_region=gt_list[count + 1])
         begin_epoch += args.num_epoch
+        print 'finished training on frame %d.' % count
         count += 1
 
 
