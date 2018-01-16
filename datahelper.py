@@ -4,11 +4,15 @@ import sample
 import os
 import cv2
 from scipy.misc import imresize
+import util
 
 
-def get_train_iter(img_path, region, stride_w=0.2, stride_h=0.2):
+def get_train_data(img_path, region, stride_w=0.2, stride_h=0.2):
     img = cv2.imread(img_path)
     img_H, img_W, c = np.shape(img)
+    img_pad = np.concatenate((img, img, img), 0)
+    img_pad = np.concatenate((img_pad, img_pad, img_pad), 1)
+
     x, y, w, h = region
     X, Y, W, H = x - w / 2., y - h / 2., 2 * w, 2 * h
     patches = list()
@@ -16,9 +20,6 @@ def get_train_iter(img_path, region, stride_w=0.2, stride_h=0.2):
         for scale_h in np.arange(0.5, 1.6, stride_h):
             W_, H_ = W * scale_w, H * scale_h
             X_, Y_ = x + w / 2. - W_ / 2., y + h / 2. - H_ / 2.
-            # in case of out of range
-            X_, Y_ = max(0, X_), max(0, Y_)
-            W_, H_ = min(img_W - X_, W_), min(img_H - Y_, H_)
             patches.append([X_, Y_, W_, H_])
 
     image_patches = list()
@@ -27,22 +28,24 @@ def get_train_iter(img_path, region, stride_w=0.2, stride_h=0.2):
     for patch in patches:
         # crop image as train_data
         X, Y, W, H = patch
-        img_patch = imresize(img[int(Y):int(Y + H), int(X):int(X + W), :], [227, 227])
+        img_patch = imresize(img_pad[int(Y + img_H):int(Y + img_H + H), int(X + img_W):int(X + img_W + W), :],
+                             [227, 227])
         # ISSUE: change HWC to CHW
         img_patch = img_patch.reshape((3, 227, 227))
 
         # get region
         label_region = np.array([[227. * (x - X) / W, 227. * (y - Y) / H, 227. * w / W, 227. * h / H]])
-        # get 50 pos samples
-        # feat_boxes = sample()
-        # img_boxes = feat2img(feat_boxes)
-        label_feat = sample.x1y2x2y22xywh(sample.img2feat(sample.xywh2x1y1x2y2(label_region)))
+        label_feat = util.x1y2x2y22xywh(util.img2feat(util.xywh2x1y1x2y2(label_region)))
         feat_bbox, label = sample.get_samples(label_feat)
-        # get train_label
         image_patches.append(img_patch)
         feat_bboxes.append(feat_bbox)
         labels.append(label)
 
+    return image_patches, feat_bboxes, labels
+
+
+def get_train_iter(train_data):
+    image_patches, feat_bboxes, labels = train_data
     return mx.io.NDArrayIter({'image_patch': image_patches, 'feat_bbox': feat_bboxes}, {'label': labels},
                              batch_size=1, data_name=('image_patch', 'feat_bbox',), label_name=('label',))
 

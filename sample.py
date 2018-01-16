@@ -12,7 +12,7 @@ def sample_on_feat(stride_x=2, stride_y=2, stride_w=2, stride_h=2,
     :param stride_h:
     :param feat_w:
     :param feat_h:
-    :return: bbox on feature map, in format of (x1,y1,x2,y2)
+    :return: bbox on feature map, in format of (0,x1,y1,x2,y2)
     '''
     feat_boxes = list()
     for x in np.arange(0, feat_w - ideal_w / 2., stride_x):

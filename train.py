@@ -17,9 +17,9 @@ def train_on_one_frame(args, img_path, region, model=None, begin_epoch=0, num_ep
     :param region:
     :return:
     '''
-    train_iter = datahelper.get_train_iter(img_path, region)
+    train_iter = datahelper.get_train_iter(datahelper.get_train_data(img_path, region))
     if val_image_path is not None:
-        val_iter = datahelper.get_train_iter(val_image_path, val_pre_region)
+        val_iter = datahelper.get_train_iter(datahelper.get_train_data(val_image_path, val_pre_region))
     else:
         val_iter = None
 

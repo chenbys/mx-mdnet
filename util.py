@@ -1,6 +1,11 @@
 from scipy.misc import imresize
 import numpy as np
 import copy
+from config import info
+
+
+def crop_img(img, bbox):
+    return img[int(bbox[1]):int(bbox[1] + bbox[3]), int(bbox[0]):int(bbox[0] + bbox[2]), :]
 
 
 def feat2img(box):
@@ -14,13 +19,11 @@ def feat2img(box):
     bbox[:, 2] = bbox[:, 2] - bbox[:, 0] + 1
     bbox[:, 3] = bbox[:, 3] - bbox[:, 1] + 1
 
-    stride = 8
-    recf = 27
     # value range from 0~23
-    bbox[:, 0] = bbox[:, 0] * stride
-    bbox[:, 1] = bbox[:, 1] * stride
-    bbox[:, 2] = (bbox[:, 2] - 1) * stride + recf
-    bbox[:, 3] = (bbox[:, 3] - 1) * stride + recf
+    bbox[:, 0] = bbox[:, 0] * info.stride
+    bbox[:, 1] = bbox[:, 1] * info.stride
+    bbox[:, 2] = (bbox[:, 2] - 1) * info.stride + info.recf
+    bbox[:, 3] = (bbox[:, 3] - 1) * info.stride + info.recf
 
     return np.array(bbox)
 
@@ -32,8 +35,7 @@ def img2feat(bbox):
     :return: feat_bbox: in format of (x1,y1,x2,y2)
     '''
     img_bbox = copy.deepcopy(bbox)
-    s, r = 8., 43.
-    img_bbox = np.floor((img_bbox - r / 2) / s)
+    img_bbox = np.floor((img_bbox - info.recf / 2) / info.stride)
     img_bbox[img_bbox < 0] = 0
     img_bbox[img_bbox > 23] = 23
     return img_bbox
