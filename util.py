@@ -1,8 +1,67 @@
 from scipy.misc import imresize
 import numpy as np
+import copy
 
-def xywh2x1y1x2y2(box):
-    pass
+
+def feat2img(box):
+    '''
+        convert bboxes on feat to img
+    :param box: bbox on feature map in format of (x1,y1,x2,y2)
+    :return: bbox on img in format of (x,y,w,h)
+    '''
+    bbox = copy.deepcopy(box)
+    # in format of (x,y,w,h)
+    bbox[:, 2] = bbox[:, 2] - bbox[:, 0] + 1
+    bbox[:, 3] = bbox[:, 3] - bbox[:, 1] + 1
+
+    stride = 8
+    recf = 27
+    # value range from 0~23
+    bbox[:, 0] = bbox[:, 0] * stride
+    bbox[:, 1] = bbox[:, 1] * stride
+    bbox[:, 2] = (bbox[:, 2] - 1) * stride + recf
+    bbox[:, 3] = (bbox[:, 3] - 1) * stride + recf
+
+    return np.array(bbox)
+
+
+def img2feat(bbox):
+    '''
+
+    :param img_bbox: in format of (x1,y1,x2,y2)
+    :return: feat_bbox: in format of (x1,y1,x2,y2)
+    '''
+    img_bbox = copy.deepcopy(bbox)
+    s, r = 8., 43.
+    img_bbox = np.floor((img_bbox - r / 2) / s)
+    img_bbox[img_bbox < 0] = 0
+    img_bbox[img_bbox > 23] = 23
+    return img_bbox
+
+
+def xywh2x1y1x2y2(bbox):
+    '''
+
+    :param bbox: (x,y,w,h)
+    :return: (x1,y1,x2,y2)
+    '''
+    bbox = copy.deepcopy(bbox)
+    bbox[:, 2] = bbox[:, 0] + bbox[:, 2] - 1
+    bbox[:, 3] = bbox[:, 1] + bbox[:, 3] - 1
+    return bbox
+
+
+def x1y2x2y22xywh(bbox):
+    '''
+
+    :param bbox: (x1,y1,x2,y2)
+    :return: (x,y,w,h)
+    '''
+    bbox = copy.deepcopy(bbox)
+    bbox[:, 2] = bbox[:, 2] - bbox[:, 0] + 1
+    bbox[:, 3] = bbox[:, 3] - bbox[:, 1] + 1
+    return bbox
+
 
 def overlap_ratio(rect1, rect2):
     '''

@@ -1,20 +1,17 @@
 import mxnet as mx
 
 
-# mx.viz.plot_network(branch1, title='plots/branch1', save_format='jpg').view()
-# mx.viz.plot_network(branch2, title='plots/branch2', save_format='jpg').view()
-# rec of large_feat is 39
-# 223->24, stride=8, err=223/2/8=13
-# bbox(x1,y1,x2,y2) on large_feat -> bbox(x1,y1,x2,y2) on img
-
-def get_mdnet(image_patch, feat_bbox, label, prefix=''):
+def get_mdnet(prefix=''):
     '''
-    shape of image_patch: (3,211,211)
+    shape of image_patch: (3,227,227)
     :param image_patch: symbol of image data
     :param feat_bbox: symbol of bbox on feat
     :param prefix:
     :return: symbol of mdnet
     '''
+    image_patch = mx.symbol.Variable(name='image_patch')
+    feat_bbox = mx.symbol.Variable(name='feat_bbox')
+    label = mx.symbol.Variable(name='label')
     label_ = mx.symbol.reshape(label, (-1,), name='label_')
     feat_bbox_ = mx.symbol.reshape(feat_bbox, (-1, 5), name='feat_bbox_')
     # (1,3,211,211)
@@ -30,7 +27,6 @@ def get_mdnet(image_patch, feat_bbox, label, prefix=''):
     # shape of conv3: (1,512,24,24), recf=43
     rois = mx.symbol.ROIPooling(data=conv3, rois=feat_bbox_, pooled_size=(3, 3), spatial_scale=1.,
                                 name=prefix + 'roi_pool')
-    # shape of rois: (1521,512,3,3)
     conv4 = mx.symbol.Convolution(data=rois, kernel=(3, 3), stride=(1, 1), num_filter=512, name=prefix + 'conv4')
     relu4 = mx.symbol.Activation(data=conv4, act_type='relu', name=prefix + 'relu4')
     drop4 = mx.symbol.Dropout(data=relu4, p=0.5, name=prefix + 'drop4')
@@ -38,11 +34,9 @@ def get_mdnet(image_patch, feat_bbox, label, prefix=''):
     fc5 = mx.symbol.Convolution(data=drop4, kernel=(1, 1), stride=(1, 1), num_filter=512, name=prefix + 'fc5')
     relu5 = mx.symbol.Activation(data=fc5, act_type='relu', name=prefix + 'relu5')
     drop5 = mx.symbol.Dropout(data=relu5, p=0.5, name=prefix + 'drop5')
-    score_ = mx.symbol.Convolution(data=drop5, kernel=(1, 1), stride=(1, 1), num_filter=2, name=prefix + 'score_')
-    score = mx.symbol.Reshape(data=score_, shape=(-1, 2), name=prefix + 'score')
+    score = mx.symbol.Convolution(data=drop5, kernel=(1, 1), stride=(1, 1), num_filter=2, name=prefix + 'score_')
+    score_ = mx.symbol.Reshape(data=score, shape=(-1, 2), name=prefix + 'score_')
 
-    # data: shape(K,nclass)
-    # label: shape(K,)
-    loss = mx.symbol.SoftmaxOutput(data=score, label=label_, name=prefix + 'loss')
+    loss = mx.symbol.SoftmaxOutput(data=score_, label=label_, name=prefix + 'loss')
 
     return loss

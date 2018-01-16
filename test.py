@@ -1,19 +1,5 @@
-from symbol import mdnet
-import mxnet as mx
 import numpy as np
 
-
-# data = mx.symbol.Variable(name='data')
-# rois = mx.symbol.Variable(name='rois')
-# # sample_conv: (1,256,22,22)
-# sample_conv = mdnet.add_sample_part(data)
-# # rois: (N,5)
-# roi_pool = mx.symbol.ROIPooling(data=sample_conv, rois=rois,
-#                                 pooled_size=(5, 5), spatial_scale=1 / 8.0)
-# # fc6: (N,2,1,1)
-# net, fc6 = mdnet.add_score_part(roi_pool)
-#
-# print fc6.infer_shape(data=(1, 3, 195, 195), rois=(211, 5))[1]
 
 def test_sample():
     import cv2
