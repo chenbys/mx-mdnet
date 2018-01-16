@@ -61,14 +61,14 @@ def main():
 
     seq_name = 'Surfer'
     otb = datahelper.OTBHelper(args.OTB_path)
-    img_list = otb.get_img(seq_name)[0:30]
-    gt_list = otb.get_gt(seq_name)[0:30]
+    img_list = otb.get_img(seq_name)[1:30]
+    gt_list = otb.get_gt(seq_name)[1:30]
     model = None
     begin_epoch = 0
-    count = 0
+    count = 1
     for img_path, gt in zip(img_list, gt_list):
         model = train_on_one_frame(args, img_path, gt, model, begin_epoch, args.num_epoch,
-                                   val_image_path=img_list[count + 1], val_pre_region=gt_list[count + 1])
+                                   val_image_path=img_list[count - 1], val_pre_region=gt_list[count - 1])
         begin_epoch += args.num_epoch
         p('finished training on frame %d.' % count, level=constant.P_TEST)
         count += 1
