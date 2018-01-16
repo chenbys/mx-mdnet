@@ -1,11 +1,8 @@
 import argparse
 import logging
-import cv2
 import mxnet as mx
-import numpy as np
 import datahelper
-import sample
-import symbol
+import csym
 import extend
 
 
@@ -24,7 +21,7 @@ def train_on_one_frame(args, img_path, region, model=None, begin_epoch=0, num_ep
         val_iter = None
 
     if model is None:
-        sym = symbol.get_mdnet()
+        sym = csym.get_mdnet()
         model = mx.mod.Module(symbol=sym, context=ctx, data_names=('image_patch', 'feat_bbox',),
                               label_names=('label',))
 
