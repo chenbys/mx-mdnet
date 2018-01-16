@@ -39,11 +39,11 @@ def train_on_one_frame(args, img_path, region, model=None, begin_epoch=0, num_ep
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Train MDNet network')
-    parser.add_argument('--gpu', help='GPU device to train with', default=1, type=int)
-    parser.add_argument('--num_epoch', help='epoch of training', default=1, type=int)
+    parser.add_argument('--gpu', help='GPU device to train with', default=2, type=int)
+    parser.add_argument('--num_epoch', help='epoch of training', default=30, type=int)
     parser.add_argument('--lr', help='base learning rate', default=0.0001, type=float)
     parser.add_argument('--wd', help='base learning rate', default=0.005, type=float)
-    parser.add_argument('--OTB_path', help='OTB folder', default='/Users/chenjunjie/workspace/OTB', type=str)
+    parser.add_argument('--OTB_path', help='OTB folder', default='/home/chenjunjie/dataset/OTB', type=str)
     args = parser.parse_args()
     return args
 
