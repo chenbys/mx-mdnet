@@ -34,7 +34,7 @@ def train_on_one_frame(args, image_path, region, model=None, begin_epoch=0, num_
     model.fit(train_data=train_iter, eval_data=val_iter, optimizer='sgd',
               optimizer_params={'learning_rate': args.lr,
                                 'wd'           : args.wd},
-              eval_metric=eval_metrics, num_epoch=num_epoch, begin_epoch=begin_epoch,
+              eval_metric=eval_metrics, num_epoch=begin_epoch+num_epoch, begin_epoch=begin_epoch,
               batch_end_callback=mx.callback.Speedometer(1))
     print 'over'
     return model
@@ -123,12 +123,12 @@ class MDNetMetric(mx.metric.EvalMetric):
         label = labels[0].reshape((-1,)).as_in_context(ctx)
         pred = preds[0].as_in_context(ctx)
         loss = mx.ndarray.softmax_cross_entropy(pred, label).asnumpy()
-        print loss
+        #print loss
         label = label.asnumpy()
         pred = pred.asnumpy()
         true_num = np.sum(pred.argmax(1) == label)
         false_num = label.shape[0] - true_num
-        print 'success:%d,fail:%d' % (true_num, false_num)
+        #print 'success:%d,fail:%d' % (true_num, false_num)
 
         self.sum_metric += true_num
         self.num_inst += label.shape[0]
@@ -149,16 +149,16 @@ def main():
     args = parse_args()
     seq_name = 'Surfer'
     otb = OTBHelper(args.OTB_path)
-    img_list = otb.get_img(seq_name)
-    gt_list = otb.get_gt(seq_name)
+    img_list = otb.get_img(seq_name)[0:30]
+    gt_list = otb.get_gt(seq_name)[0:30]
     ctx = mx.gpu(args.gpu)
     model = None
     begin_epoch = 0
     count = 0
     for img_path, gt in zip(img_list, gt_list):
         # validate
-        val_img = plt.imread(img_list[count + 1])
-        val_gt = gt[count + 1]
+        val_img = cv2.imread(img_list[count + 1])
+        val_gt = gt_list[count + 1]
         val_iter = get_train_iter(val_img, val_gt)
 
         model = train_on_one_frame(args, img_path, gt, model, begin_epoch, args.num_epoch, ctx, val_iter)
