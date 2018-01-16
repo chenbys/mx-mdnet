@@ -9,7 +9,7 @@ import symbol
 import extend
 
 
-def train_on_one_frame(args, img_path, region, model=None, begin_epoch=0, num_epoch=50, ctx=mx.gpu(1),
+def train_on_one_frame(args, img_path, region, model=None, begin_epoch=0, num_epoch=50, ctx=mx.gpu(0),
                        val_image_path=None, val_pre_region=None):
     '''
 
@@ -29,11 +29,13 @@ def train_on_one_frame(args, img_path, region, model=None, begin_epoch=0, num_ep
                               label_names=('label',))
 
     logging.getLogger().setLevel(logging.DEBUG)
+    print 'begin fitting'
     model.fit(train_data=train_iter, eval_data=val_iter, optimizer='sgd',
               optimizer_params={'learning_rate': args.lr,
                                 'wd'           : args.wd},
-              eval_metric=extend.MDNetMetric(), num_epoch=begin_epoch + num_epoch, begin_epoch=begin_epoch,
+              eval_metric=extend.MDNetMetric(ctx), num_epoch=begin_epoch + num_epoch, begin_epoch=begin_epoch,
               batch_end_callback=mx.callback.Speedometer(1))
+    print 'finish fitting'
     return model
 
 
@@ -50,11 +52,15 @@ def parse_args():
 
 def main():
     args = parse_args()
+    if args.gpu == -1:
+        ctx = mx.cpu(0)
+    else:
+        ctx = mx.gpu(args.gpu)
+
     seq_name = 'Surfer'
     otb = datahelper.OTBHelper(args.OTB_path)
     img_list = otb.get_img(seq_name)[0:30]
     gt_list = otb.get_gt(seq_name)[0:30]
-    ctx = mx.gpu(args.gpu)
     model = None
     begin_epoch = 0
     count = 0
