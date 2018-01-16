@@ -4,9 +4,11 @@ import mxnet as mx
 import datahelper
 import csym
 import extend
+from setting import config, constant
+from kit import p
 
 
-def train_on_one_frame(args, img_path, region, model=None, begin_epoch=0, num_epoch=50, ctx=mx.gpu(0),
+def train_on_one_frame(args, img_path, region, model=None, begin_epoch=0, num_epoch=50,
                        val_image_path=None, val_pre_region=None):
     '''
 
@@ -22,17 +24,17 @@ def train_on_one_frame(args, img_path, region, model=None, begin_epoch=0, num_ep
 
     if model is None:
         sym = csym.get_mdnet()
-        model = mx.mod.Module(symbol=sym, context=ctx, data_names=('image_patch', 'feat_bbox',),
+        model = mx.mod.Module(symbol=sym, context=config.ctx, data_names=('image_patch', 'feat_bbox',),
                               label_names=('label',))
 
     logging.getLogger().setLevel(logging.DEBUG)
-    print 'begin fitting'
+    p('begin fitting')
     model.fit(train_data=train_iter, eval_data=val_iter, optimizer='sgd',
               optimizer_params={'learning_rate': args.lr,
                                 'wd'           : args.wd},
-              eval_metric=extend.MDNetMetric(ctx), num_epoch=begin_epoch + num_epoch, begin_epoch=begin_epoch,
+              eval_metric=extend.MDNetMetric(), num_epoch=begin_epoch + num_epoch, begin_epoch=begin_epoch,
               batch_end_callback=mx.callback.Speedometer(1))
-    print 'finish fitting'
+    p('finish fitting')
     return model
 
 
@@ -43,16 +45,19 @@ def parse_args():
     parser.add_argument('--lr', help='base learning rate', default=0.0001, type=float)
     parser.add_argument('--wd', help='base learning rate', default=0.005, type=float)
     parser.add_argument('--OTB_path', help='OTB folder', default='/home/chenjunjie/dataset/OTB', type=str)
+    parser.add_argument('--p_level', help='print level, default is 0 for debug mode', default=0, type=int)
     args = parser.parse_args()
     return args
 
 
 def main():
     args = parse_args()
+    config.p_level = args.p_level
+
     if args.gpu == -1:
-        ctx = mx.cpu(0)
+        config.ctx = mx.cpu(0)
     else:
-        ctx = mx.gpu(args.gpu)
+        config.ctx = mx.gpu(args.gpu)
 
     seq_name = 'Surfer'
     otb = datahelper.OTBHelper(args.OTB_path)
@@ -62,10 +67,10 @@ def main():
     begin_epoch = 0
     count = 0
     for img_path, gt in zip(img_list, gt_list):
-        model = train_on_one_frame(args, img_path, gt, model, begin_epoch, args.num_epoch, ctx,
+        model = train_on_one_frame(args, img_path, gt, model, begin_epoch, args.num_epoch,
                                    val_image_path=img_list[count + 1], val_pre_region=gt_list[count + 1])
         begin_epoch += args.num_epoch
-        print 'finished training on frame %d.' % count
+        p('finished training on frame %d.' % count, level=constant.P_TEST)
         count += 1
 
 

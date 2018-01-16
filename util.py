@@ -1,7 +1,7 @@
 from scipy.misc import imresize
 import numpy as np
 import copy
-from config import info
+from setting import constant
 
 
 def crop_img(img, bbox):
@@ -20,10 +20,10 @@ def feat2img(box):
     bbox[:, 3] = bbox[:, 3] - bbox[:, 1] + 1
 
     # value range from 0~23
-    bbox[:, 0] = bbox[:, 0] * info.stride
-    bbox[:, 1] = bbox[:, 1] * info.stride
-    bbox[:, 2] = (bbox[:, 2] - 1) * info.stride + info.recf
-    bbox[:, 3] = (bbox[:, 3] - 1) * info.stride + info.recf
+    bbox[:, 0] = bbox[:, 0] * constant.stride
+    bbox[:, 1] = bbox[:, 1] * constant.stride
+    bbox[:, 2] = (bbox[:, 2] - 1) * constant.stride + constant.recf
+    bbox[:, 3] = (bbox[:, 3] - 1) * constant.stride + constant.recf
 
     return np.array(bbox)
 
@@ -35,7 +35,7 @@ def img2feat(bbox):
     :return: feat_bbox: in format of (x1,y1,x2,y2)
     '''
     img_bbox = copy.deepcopy(bbox)
-    img_bbox = np.floor((img_bbox - info.recf / 2) / info.stride)
+    img_bbox = np.floor((img_bbox - constant.recf / 2) / constant.stride)
     img_bbox[img_bbox < 0] = 0
     img_bbox[img_bbox > 23] = 23
     return img_bbox
