@@ -42,5 +42,11 @@ def check_train_data():
     check(16, 350)
     return
 
+
+def test_load_net():
+    import extend
+    arg_param = extend.load_net()
+
+
 if __name__ == '__main__':
-    check_train_data()
+    test_load_net()

@@ -17,18 +17,18 @@ def get_mdnet(prefix=''):
     # (1,3,211,211)
     conv1 = mx.symbol.Convolution(data=image_patch, kernel=(7, 7), stride=(2, 2), num_filter=96, name=prefix + 'conv1')
     rl1 = mx.symbol.Activation(data=conv1, act_type='relu', name=prefix + 'rl1')
-    bn1 = mx.symbol.BatchNorm(data=rl1, name=prefix + 'bn1')
-    pool1 = mx.symbol.Pooling(data=bn1, pool_type='max', kernel=(3, 3), stride=(2, 2), name=prefix + 'pool1')
+    lrn1 = mx.symbol.LRN(data=rl1, knorm=2, nsize=5, alpha=1e-4, beta=0.75, name=prefix + 'lrn1')
+    pool1 = mx.symbol.Pooling(data=lrn1, pool_type='max', kernel=(3, 3), stride=(2, 2), name=prefix + 'pool1')
     conv2 = mx.symbol.Convolution(data=pool1, kernel=(5, 5), stride=(2, 2), num_filter=256, name=prefix + 'conv2')
     rl2 = mx.symbol.Activation(data=conv2, act_type='relu', name=prefix + 'rl2')
-    bn2 = mx.symbol.BatchNorm(data=rl2, name=prefix + 'bn2')
+    lrn2 = mx.symbol.LRN(data=rl2, alpha=1e-4, beta=0.75, knorm=2, nsize=5, name=prefix + 'lrn2')
     # shape of bn2: (1,512,22,22) , recf=27
-    conv3 = mx.symbol.Convolution(data=bn2, kernel=(3, 3), stride=(1, 1), num_filter=512, name=prefix + 'conv3')
+    conv3 = mx.symbol.Convolution(data=lrn2, kernel=(3, 3), stride=(1, 1), num_filter=512, name=prefix + 'conv3')
     # shape of conv3: (1,512,24,24), recf=43
     rois = mx.symbol.ROIPooling(data=conv3, rois=feat_bbox_, pooled_size=(3, 3), spatial_scale=1.,
                                 name=prefix + 'roi_pool')
-    conv4 = mx.symbol.Convolution(data=rois, kernel=(3, 3), stride=(1, 1), num_filter=512, name=prefix + 'conv4')
-    relu4 = mx.symbol.Activation(data=conv4, act_type='relu', name=prefix + 'relu4')
+    fc4 = mx.symbol.Convolution(data=rois, kernel=(3, 3), stride=(1, 1), num_filter=512, name=prefix + 'fc4')
+    relu4 = mx.symbol.Activation(data=fc4, act_type='relu', name=prefix + 'relu4')
     drop4 = mx.symbol.Dropout(data=relu4, p=0.5, name=prefix + 'drop4')
 
     fc5 = mx.symbol.Convolution(data=drop4, kernel=(1, 1), stride=(1, 1), num_filter=512, name=prefix + 'fc5')
