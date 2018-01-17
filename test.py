@@ -45,7 +45,20 @@ def check_train_data():
 
 def test_load_net():
     import extend
-    arg_param = extend.load_net()
+    import csym
+    import mxnet as mx
+    import numpy as np
+
+    conv123_param = extend.get_mdnet_conv123_params()
+    conv123_param['image_patch'] = np.ones((1, 3, 219, 227))
+    loss, conv1, lrn2 = csym.get_mdnet()
+    sym = conv1
+    param = dict()
+    for k in sym.list_inputs():
+        param[k] = mx.ndarray.array(conv123_param.get(k))
+    e = sym.bind(mx.cpu(0), param)
+    res = e.forward()[0].asnumpy()
+    return
 
 
 if __name__ == '__main__':

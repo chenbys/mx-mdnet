@@ -24,19 +24,31 @@ class MDNetMetric(mx.metric.EvalMetric):
         self.num_inst += label.shape[0]
 
 
-def load_net(prefix='', mat_path='saved/conv123.mat'):
+def get_mdnet_conv123_params(prefix='', mat_path='saved/conv123.mat'):
     import scipy.io as sio
+    import numpy as np
     conv123 = sio.loadmat(mat_path)
     conv123 = conv123['conv123']
-    conv1_filters = conv123[0, 0][0]
-    conv1_biases = conv123[0, 0][1]
-    conv2_filters = conv123[0, 0][2]
-    conv2_biases = conv123[0, 0][3]
-    conv3_filters = conv123[0, 0][4]
-    conv3_biases = conv123[0, 0][5]
+    conv1_weight = conv123[0, 0][0]
+    conv1_bias = conv123[0, 0][1]
+    conv2_weight = conv123[0, 0][2]
+    conv2_bias = conv123[0, 0][3]
+    conv3_weight = conv123[0, 0][4]
+    conv3_bias = conv123[0, 0][5]
+
+    conv1_weight_ = np.transpose(conv1_weight, [3, 2, 0, 1])
+    conv1_bias_ = conv1_bias.reshape((96,))
+    conv2_weight_ = np.transpose(conv2_weight, [3, 2, 0, 1])
+    conv2_bias_ = conv2_bias.reshape((256,))
+    conv3_weight_ = np.transpose(conv3_weight, [3, 2, 0, 1])
+    conv3_bias_ = conv3_bias.reshape((512,))
+
     arg_params = dict()
-    # arg_params[prefix + 'conv1'] = conv1
-    # arg_params[prefix + 'conv2'] = conv2
-    # arg_params[prefix + 'conv3'] = conv3
+    arg_params[prefix + 'conv1_weight'] = conv1_weight_
+    arg_params[prefix + 'conv1_bias'] = conv1_bias_
+    arg_params[prefix + 'conv2_weight'] = conv2_weight_
+    arg_params[prefix + 'conv2_bias'] = conv2_bias_
+    arg_params[prefix + 'conv3_weight'] = conv3_weight_
+    arg_params[prefix + 'conv3_bias'] = conv3_bias_
 
     return arg_params
