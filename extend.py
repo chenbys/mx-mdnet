@@ -22,3 +22,21 @@ class MDNetMetric(mx.metric.EvalMetric):
 
         self.sum_metric += true_num
         self.num_inst += label.shape[0]
+
+
+def load_net(prefix='', mat_path='saved/conv123.mat'):
+    import scipy.io as sio
+    conv123 = sio.loadmat(mat_path)
+    conv123 = conv123['conv123']
+    conv1_filters = conv123[0, 0][0]
+    conv1_biases = conv123[0, 0][1]
+    conv2_filters = conv123[0, 0][2]
+    conv2_biases = conv123[0, 0][3]
+    conv3_filters = conv123[0, 0][4]
+    conv3_biases = conv123[0, 0][5]
+    arg_params = dict()
+    # arg_params[prefix + 'conv1'] = conv1
+    # arg_params[prefix + 'conv2'] = conv2
+    # arg_params[prefix + 'conv3'] = conv3
+
+    return arg_params
