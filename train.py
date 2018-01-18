@@ -9,7 +9,7 @@ from kit import p
 
 
 def train_on_one_frame(args, img_path, region, model=None, begin_epoch=0, num_epoch=50,
-                       val_image_path=None, val_pre_region=None):
+                       val_image_path=None, val_pre_region=None, arg_params=None):
     '''
 
     :param img_path:
@@ -25,7 +25,14 @@ def train_on_one_frame(args, img_path, region, model=None, begin_epoch=0, num_ep
     if model is None:
         sym = csym.get_mdnet()
         model = mx.mod.Module(symbol=sym, context=config.ctx, data_names=('image_patch', 'feat_bbox',),
-                              label_names=('label',))
+                              label_names=('label',),
+                              fixed_param_names=('conv1_weight', 'conv1_bias', 'conv2_weight', 'conv2_bias',
+                                                 'conv3_weight', 'conv3_bias'))
+        model.bind(train_iter.provide_data, train_iter.provide_label)
+        if arg_params is not None:
+            for k in arg_params.keys():
+                arg_params[k] = mx.ndarray.array(arg_params.get(k))
+            model.init_params(arg_params=arg_params, allow_missing=True, force_init=False, allow_extra=True)
 
     logging.getLogger().setLevel(logging.DEBUG)
     p('begin fitting')
@@ -66,9 +73,11 @@ def main():
     model = None
     begin_epoch = 0
     count = 1
+    arg_params = extend.get_mdnet_conv123_params()
     for img_path, gt in zip(img_list, gt_list):
         model = train_on_one_frame(args, img_path, gt, model, begin_epoch, args.num_epoch,
-                                   val_image_path=img_list[count - 2], val_pre_region=gt_list[count - 2])
+                                   val_image_path=img_list[count - 2], val_pre_region=gt_list[count - 2],
+                                   arg_params=arg_params)
         begin_epoch += args.num_epoch
         p('finished training on frame %d.' % count, level=constant.P_TEST)
         count += 1

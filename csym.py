@@ -39,4 +39,5 @@ def get_mdnet(prefix=''):
 
     loss = mx.symbol.SoftmaxOutput(data=score_, label=label_, name=prefix + 'loss')
 
-    return loss, conv1, lrn2
+    # return loss, conv1, lrn2
+    return loss

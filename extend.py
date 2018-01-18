@@ -19,7 +19,11 @@ class MDNetMetric(mx.metric.EvalMetric):
         true_num = np.sum(pred.argmax(1) == label)
         false_num = label.shape[0] - true_num
         p('success:%d,fail:%d' % (true_num, false_num))
-
+        if loss > 1000:
+            print pred
+        if loss > 7000:
+            print pred
+            exit(0)
         self.sum_metric += true_num
         self.num_inst += label.shape[0]
 
