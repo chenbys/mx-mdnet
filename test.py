@@ -50,7 +50,7 @@ def test_load_net():
     import numpy as np
 
     conv123_param = extend.get_mdnet_conv123_params()
-    conv123_param['image_patch'] = np.ones((1, 3, 219, 227))
+    conv123_param['image_patch'] = np.ones((1, 3, 219, 227)).astype('float')
     loss, conv1, lrn2 = csym.get_mdnet()
     sym = conv1
     param = dict()
