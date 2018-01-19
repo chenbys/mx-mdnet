@@ -4,27 +4,34 @@ from setting import config
 from kit import p
 
 
-class MDNetMetric(mx.metric.EvalMetric):
+class MDNetACC(mx.metric.EvalMetric):
     def __init__(self):
-        super(MDNetMetric, self).__init__('MDNetAcc')
+        super(MDNetACC, self).__init__('MDNetAcc')
+        self.pred, self.label = ['score'], ['label']
+
+    def update(self, labels, preds):
+        label = labels[0].reshape((-1,)).asnumpy()
+        pred = preds[0].asnumpy()
+        true_num = np.sum(pred.argmax(1) == label)
+        self.sum_metric += true_num
+        self.num_inst += label.shape[0]
+
+
+class MDNetLoss(mx.metric.EvalMetric):
+    def __init__(self):
+        super(MDNetLoss, self).__init__('MDNetLoss')
         self.pred, self.label = ['score'], ['label']
 
     def update(self, labels, preds):
         label = labels[0].reshape((-1,)).as_in_context(config.ctx)
         pred = preds[0].as_in_context(config.ctx)
         loss = mx.ndarray.softmax_cross_entropy(pred, label).asnumpy()
-        p(loss)
-        label = label.asnumpy()
-        pred = pred.asnumpy()
-        true_num = np.sum(pred.argmax(1) == label)
-        false_num = label.shape[0] - true_num
-        p('success:%d,fail:%d' % (true_num, false_num))
         if loss > 1000:
-            print pred
+            print pred.asnumpy()
         if loss > 7000:
-            print pred
+            print pred.asnumpy()
             exit(0)
-        self.sum_metric += true_num
+        self.sum_metric += loss
         self.num_inst += label.shape[0]
 
 

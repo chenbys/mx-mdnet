@@ -35,12 +35,15 @@ def train_on_one_frame(args, img_path, region, model=None, begin_epoch=0, num_ep
             model.init_params(arg_params=arg_params, allow_missing=True, force_init=False, allow_extra=True)
 
     logging.getLogger().setLevel(logging.DEBUG)
+    metric = mx.metric.CompositeEvalMetric()
+    metric.add(extend.MDNetACC())
+    metric.add(extend.MDNetLoss())
     p('begin fitting')
     model.fit(train_data=train_iter, eval_data=val_iter, optimizer='sgd',
               optimizer_params={'learning_rate': args.lr,
                                 'wd'           : args.wd},
-              eval_metric=extend.MDNetMetric(), num_epoch=begin_epoch + num_epoch, begin_epoch=begin_epoch,
-              batch_end_callback=mx.callback.Speedometer(1))
+              eval_metric=metric, num_epoch=begin_epoch + num_epoch, begin_epoch=begin_epoch,
+              batch_end_callback=mx.callback.Speedometer(1, frequent=10))
     p('finish fitting')
     return model
 
