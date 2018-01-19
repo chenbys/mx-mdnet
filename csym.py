@@ -34,7 +34,7 @@ def get_mdnet(prefix=''):
     fc5 = mx.symbol.Convolution(data=drop4, kernel=(1, 1), stride=(1, 1), num_filter=512, name=prefix + 'fc5')
     relu5 = mx.symbol.Activation(data=fc5, act_type='relu', name=prefix + 'relu5')
     drop5 = mx.symbol.Dropout(data=relu5, p=0.5, name=prefix + 'drop5')
-    score = mx.symbol.Convolution(data=drop5, kernel=(1, 1), stride=(1, 1), num_filter=2, name=prefix + 'score_')
+    score = mx.symbol.Convolution(data=drop5, kernel=(1, 1), stride=(1, 1), num_filter=2, name=prefix + 'score')
     score_ = mx.symbol.Reshape(data=score, shape=(-1, 2), name=prefix + 'score_')
 
     loss = mx.symbol.SoftmaxOutput(data=score_, label=label_, name=prefix + 'loss')
