@@ -42,9 +42,7 @@ def train_on_one_frame(args, img_path, region, model=None, begin_epoch=0, num_ep
     model.fit(train_data=train_iter, eval_data=val_iter, optimizer='sgd',
               optimizer_params={'learning_rate': args.lr,
                                 'wd'           : args.wd},
-              eval_metric=metric, num_epoch=begin_epoch + num_epoch, begin_epoch=begin_epoch,
-              batch_end_callback=mx.callback.Speedometer(1, frequent=10),
-              epoch_end_callback=mx.callback.Speedometer(1, frequent=50))
+              eval_metric=metric, num_epoch=begin_epoch + num_epoch, begin_epoch=begin_epoch)
     p('finish fitting')
     return model
 
