@@ -43,7 +43,8 @@ def train_on_one_frame(args, img_path, region, model=None, begin_epoch=0, num_ep
               optimizer_params={'learning_rate': args.lr,
                                 'wd'           : args.wd},
               eval_metric=metric, num_epoch=begin_epoch + num_epoch, begin_epoch=begin_epoch,
-              batch_end_callback=mx.callback.Speedometer(1, frequent=10))
+              batch_end_callback=mx.callback.Speedometer(1, frequent=10),
+              epoch_end_callback=mx.callback.Speedometer(1, frequent=50))
     p('finish fitting')
     return model
 
@@ -71,18 +72,18 @@ def main():
 
     seq_name = 'Surfer'
     otb = datahelper.OTBHelper(args.OTB_path)
-    img_list = otb.get_img(seq_name)[1:30]
-    gt_list = otb.get_gt(seq_name)[1:30]
+    img_list = otb.get_img(seq_name)
+    gt_list = otb.get_gt(seq_name)
     model = None
     begin_epoch = 0
     count = 1
     arg_params = extend.get_mdnet_conv123_params()
-    for img_path, gt in zip(img_list, gt_list):
+    for img_path, gt in zip(img_list[0:2], gt_list[0:2]):
         model = train_on_one_frame(args, img_path, gt, model, begin_epoch, args.num_epoch,
-                                   val_image_path=img_list[count - 2], val_pre_region=gt_list[count - 2],
+                                   val_image_path=img_list[count + 1], val_pre_region=gt_list[count + 1],
                                    arg_params=arg_params)
         begin_epoch += args.num_epoch
-        p('finished training on frame %d.' % count, level=constant.P_TEST)
+        p('finished training on frame %d.' % count, level=constant.P_RUN)
         count += 1
 
 
