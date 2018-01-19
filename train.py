@@ -37,7 +37,8 @@ def train(args, model=None, train_iter=None, val_iter=None, begin_epoch=0, num_e
     p('begin fitting')
     model.fit(train_data=train_iter, eval_data=val_iter, optimizer='sgd',
               optimizer_params={'learning_rate': args.lr,
-                                'wd'           : args.wd},
+                                'wd'           : args.wd,
+                                'lr_scheduler' : mx.lr_scheduler.FactorScheduler(36 * 10, 0.9, 1e-8), },
               eval_metric=metric, num_epoch=begin_epoch + num_epoch, begin_epoch=begin_epoch)
     p('finish fitting')
     return model
@@ -85,10 +86,6 @@ def main():
         count += 1
 
 
-if __name__ == '__main__':
-    main()
-
-
 def test_track_speed():
     args = parse_args()
     config.p_level = args.p_level
@@ -113,3 +110,7 @@ def test_track_speed():
     t2 = time.time()
     print t2 - t1
     print box
+
+
+if __name__ == '__main__':
+    main()

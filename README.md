@@ -7,7 +7,7 @@
 
 问题：
 1.loss越来越大，pred出现nan，最终pred全是nan
-2.过拟合严重,一般是train0.8,val0.5
+2.过拟合严重,一般是train0.95,val0.6
 
 隐患：
 1.image reshape HWC to CHW
