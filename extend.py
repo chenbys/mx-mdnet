@@ -26,8 +26,6 @@ class MDNetLoss(mx.metric.EvalMetric):
         label = labels[0].reshape((-1,)).as_in_context(config.ctx)
         pred = preds[0].as_in_context(config.ctx)
         loss = mx.ndarray.softmax_cross_entropy(pred, label).asnumpy()
-        if loss > 1000:
-            print pred.asnumpy()
         if loss > 7000:
             print pred.asnumpy()
             exit(0)
