@@ -61,5 +61,14 @@ def test_load_net():
     return
 
 
+def test_train_iter():
+    import datahelper
+    img_path = '/Users/chenjunjie/workspace/OTB/Liquor/img/0001.jpg'
+    region = [256, 152, 73, 210]
+    train_data = datahelper.get_train_data(img_path, region, iou_label=True)
+    trian_iter = datahelper.get_train_iter(train_data)
+    return
+
+
 if __name__ == '__main__':
-    test_load_net()
+    test_train_iter()
