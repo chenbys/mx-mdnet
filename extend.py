@@ -1,7 +1,6 @@
 import mxnet as mx
 import numpy as np
 from setting import config
-from kit import p
 
 
 class MDNetACC(mx.metric.EvalMetric):
@@ -31,6 +30,19 @@ class MDNetLoss(mx.metric.EvalMetric):
             exit(0)
         self.sum_metric += loss
         self.num_inst += label.shape[0]
+
+
+class MDNetIOUACC(mx.metric.EvalMetric):
+    def __init__(self):
+        super(MDNetIOUACC, self).__init__('MDNetIOUACC')
+        self.pred, self.label = ['pos_pred'], ['label_']
+
+    def update(self, labels, preds):
+        label = labels[0].asnumpy().reshape((-1,))
+        pred = preds[0].asnumpy()
+        acc = np.sum(abs(label - pred) < 0.1)
+        self.sum_metric += acc
+        self.num_inst += len(label)
 
 
 def get_mdnet_conv123_params(prefix='', mat_path='saved/conv123.mat'):
