@@ -88,7 +88,7 @@ def get_mdnet_with_smooth_l1_loss(prefix=''):
     # pos_pred: (K,)
     pos_pred = mx.symbol.slice(softmax, begin=(None, 0), end=(None, 1)).reshape((-1,), name=prefix + 'pos_pred')
     smooth_l1 = mx.symbol.smooth_l1(data=pos_pred - label_, scalar=1, name=prefix + 'smooth_l1')
-    loss = mx.symbol.MakeLoss(data=smooth_l1, normalization='null')
+    loss = mx.symbol.MakeLoss(data=smooth_l1, normalization='batch')
 
     # return loss, conv1, lrn2
     return loss

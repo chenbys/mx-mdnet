@@ -35,7 +35,6 @@ class MDNetLoss(mx.metric.EvalMetric):
 class MDNetIOUACC(mx.metric.EvalMetric):
     def __init__(self):
         super(MDNetIOUACC, self).__init__('MDNetIOUACC')
-        self.pred, self.label = ['pos_pred'], ['label']
 
     def update(self, labels, preds):
         label = labels[0].asnumpy().reshape((-1,))
@@ -48,7 +47,6 @@ class MDNetIOUACC(mx.metric.EvalMetric):
 class MDNetIOULoss(mx.metric.EvalMetric):
     def __init__(self):
         super(MDNetIOULoss, self).__init__('MDNetIOULoss')
-        self.pred, self.label = ['pos_pred'], ['label']
 
     def update(self, labels, preds):
         label = labels[0].reshape((-1,)).as_in_context(config.ctx)
