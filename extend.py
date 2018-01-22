@@ -51,8 +51,8 @@ class MDNetIOULoss(mx.metric.EvalMetric):
         self.pred, self.label = ['pos_pred'], ['label']
 
     def update(self, labels, preds):
-        label = labels[0].reshape((-1,))
-        pred = preds[0]
+        label = labels[0].reshape((-1,)).as_in_context(config.ctx)
+        pred = preds[0].as_in_context(config.ctx)
         loss = mx.ndarray.smooth_l1(pred - label, scalar=1)
         self.sum_metric += loss
         self.num_inst += len(label)
