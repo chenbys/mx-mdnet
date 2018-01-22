@@ -40,7 +40,7 @@ class MDNetIOUACC(mx.metric.EvalMetric):
         label = labels[0].asnumpy().reshape((-1,))
         pred = preds[0].asnumpy()
         acc = np.sum(abs(label - pred) < 0.1)
-        self.sum_metric += acc
+        self.sum_metric += acc * 100
         self.num_inst += len(label)
 
 
@@ -52,7 +52,7 @@ class MDNetIOULoss(mx.metric.EvalMetric):
         label = labels[0].reshape((-1,)).as_in_context(config.ctx)
         pred = preds[0].as_in_context(config.ctx)
         loss = mx.ndarray.smooth_l1(pred - label, scalar=1).asnumpy().sum()
-        self.sum_metric += loss
+        self.sum_metric += loss * 1000
         self.num_inst += len(label)
 
 
