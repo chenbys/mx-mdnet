@@ -46,7 +46,7 @@ def train(args, model=None, train_iter=None, val_iter=None, begin_epoch=0, num_e
     model.fit(train_data=train_iter, eval_data=val_iter, optimizer='sgd',
               optimizer_params={'learning_rate': args.lr,
                                 'wd'           : args.wd,
-                                'lr_scheduler' : mx.lr_scheduler.FactorScheduler(args.lr_step, args.factor,
+                                'lr_scheduler' : mx.lr_scheduler.FactorScheduler(args.lr_step, args.lr_factor,
                                                                                  args.lr_stop), },
               eval_metric=metric, num_epoch=begin_epoch + num_epoch, begin_epoch=begin_epoch,
               batch_end_callback=mx.callback.Speedometer(1, args.batch_callback_freq))
