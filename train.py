@@ -40,6 +40,7 @@ def train(args, model=None, train_iter=None, val_iter=None, begin_epoch=0, num_e
         metric.add(extend.MDNetLoss())
     else:
         metric.add(extend.MDNetIOUACC())
+        metric.add(extend.MDNetIOULoss())
 
     p('begin fitting')
     model.fit(train_data=train_iter, eval_data=val_iter, optimizer='sgd',
