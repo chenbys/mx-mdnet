@@ -43,6 +43,36 @@ def check_train_data():
     return
 
 
+def check_train_data_IOU():
+    import datahelper
+    import util
+    import matplotlib.pyplot as plt
+    import matplotlib.patches as patches
+    img_path = '/Users/chenjunjie/workspace/OTB/Liquor/img/0001.jpg'
+    region = [256, 152, 73, 210]
+    img_patches, feat_bboxes_list, labels_list = datahelper.get_train_data(img_path, region, iou_label=True)
+
+    def check(patch_i, sample_j):
+        img_patch = img_patches[patch_i]
+        img_patch_ = img_patch.reshape((227, 227, 3))
+        feat_bbox = np.array([feat_bboxes_list[patch_i][sample_j][1:]])
+        img_bbox = util.feat2img(feat_bbox)[0, :]
+        label = labels_list[patch_i][sample_j]
+
+        print label
+        print img_bbox
+        print feat_bbox
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+        ax.imshow(img_patch_)
+        ax.add_patch(patches.Rectangle((img_bbox[0], img_bbox[1]), img_bbox[2], img_bbox[3],
+                                       linewidth=2, edgecolor='y', facecolor='none'))
+        return label
+
+    check(16, 350)
+    return
+
+
 def test_load_net():
     import extend
     import csym
@@ -71,4 +101,4 @@ def test_train_iter():
 
 
 if __name__ == '__main__':
-    test_train_iter()
+    check_train_data_IOU()
