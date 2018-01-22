@@ -57,7 +57,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description='Train MDNet network')
     parser.add_argument('--gpu', help='GPU device to train with', default=2, type=int)
     parser.add_argument('--num_epoch', help='epoch of training', default=30, type=int)
-    parser.add_argument('--batch_callback_freq', default=6, type=int)
+    parser.add_argument('--batch_callback_freq', default=7, type=int)
     parser.add_argument('--lr', help='base learning rate', default=0.0001, type=float)
     parser.add_argument('--wd', help='base learning rate', default=0.005, type=float)
     parser.add_argument('--OTB_path', help='OTB folder', default='/home/chenjunjie/dataset/OTB', type=str)
