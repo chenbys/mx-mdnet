@@ -50,6 +50,7 @@ def train(args, model=None, train_iter=None, val_iter=None, begin_epoch=0, num_e
               optimizer_params={'learning_rate': args.lr,
                                 'wd'           : args.wd,
                                 'momentum'     : args.momentum,
+                                'clip_gradient': 5,
                                 'lr_scheduler' : mx.lr_scheduler.FactorScheduler(args.lr_step, args.lr_factor,
                                                                                  args.lr_stop), },
               eval_metric=metric, num_epoch=begin_epoch + num_epoch, begin_epoch=begin_epoch,
@@ -75,7 +76,6 @@ def parse_args():
     parser.add_argument('--lr_stop', default=1e-10, type=float)
     parser.add_argument('--iou_acc_th', default=0.1, type=float)
     parser.add_argument('--momentum', default=0.5, type=float)
-
 
     args = parser.parse_args()
     return args
