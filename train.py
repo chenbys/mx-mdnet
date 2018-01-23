@@ -20,7 +20,8 @@ def train(args, model=None, train_iter=None, val_iter=None, begin_epoch=0, num_e
         if args.loss_type == 0:
             sym = csym.get_mdnet()
         elif args.loss_type == 1:
-            sym = csym.get_mdnet_with_smooth_l1_loss()
+            # sym = csym.get_mdnet_with_smooth_l1_loss()
+            sym = csym.get_mdnet_c()
         fixed_param_names = []
         for i in range(1, args.fixed_conv + 1):
             fixed_param_names.append('conv' + str(i) + '_weight')
@@ -39,7 +40,9 @@ def train(args, model=None, train_iter=None, val_iter=None, begin_epoch=0, num_e
         metric.add(extend.MDNetACC())
         metric.add(extend.MDNetLoss())
     else:
-        metric.add(extend.MDNetIOUACC())
+        metric.add(extend.MDNetIOUACC(args.iou_acc_th))
+        metric.add(extend.MDNetIOUACC(args.iou_acc_th * 2))
+        metric.add(extend.MDNetIOUACC(args.iou_acc_th * 3))
         metric.add(extend.MDNetIOULoss())
 
     p('begin fitting')
@@ -69,6 +72,7 @@ def parse_args():
     parser.add_argument('--lr_step', default=36 * 1, type=int)
     parser.add_argument('--lr_factor', default=0.9, type=float)
     parser.add_argument('--lr_stop', default=1e-10, type=float)
+    parser.add_argument('--iou_acc_th', default=0.1, type=float)
 
     args = parser.parse_args()
     return args

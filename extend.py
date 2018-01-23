@@ -33,13 +33,14 @@ class MDNetLoss(mx.metric.EvalMetric):
 
 
 class MDNetIOUACC(mx.metric.EvalMetric):
-    def __init__(self):
-        super(MDNetIOUACC, self).__init__('MDNetIOUACC')
+    def __init__(self, acc_th=0.1):
+        super(MDNetIOUACC, self).__init__('MDNetIOUACC_' + str(acc_th))
+        self.acc_th = acc_th
 
     def update(self, labels, preds):
         label = labels[0].asnumpy().reshape((-1,))
         pred = preds[0].asnumpy()
-        acc = np.sum(abs(label - pred) < 0.1)
+        acc = np.sum(abs(label - pred) < self.acc_th)
         self.sum_metric += acc * 100
         self.num_inst += len(label)
 
