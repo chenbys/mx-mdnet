@@ -127,7 +127,11 @@ def get_mdnet_c(prefix=''):
     relu4 = mx.symbol.Activation(data=fc4, act_type='relu', name=prefix + 'relu4')
     drop4 = mx.symbol.Dropout(data=relu4, p=0.5, name=prefix + 'drop4')
 
-    fc5 = mx.symbol.Convolution(data=drop4, kernel=(1, 1), stride=(1, 1), num_filter=512, name=prefix + 'fc5')
+    fc0 = mx.symbol.Convolution(data=drop4, kernel=(1, 1), stride=(1, 1), num_filter=1024, name=prefix + 'fc0')
+    relu0 = mx.symbol.Activation(data=fc0, act_type='relu', name=prefix + 'relu0')
+    drop0 = mx.symbol.Dropout(data=relu0, p=0.5, name=prefix + 'drop0')
+
+    fc5 = mx.symbol.Convolution(data=drop0, kernel=(1, 1), stride=(1, 1), num_filter=512, name=prefix + 'fc5')
     relu5 = mx.symbol.Activation(data=fc5, act_type='relu', name=prefix + 'relu5')
     drop5 = mx.symbol.Dropout(data=relu5, p=0.5, name=prefix + 'drop5')
     score = mx.symbol.Convolution(data=drop5, kernel=(1, 1), stride=(1, 1), num_filter=2, name=prefix + 'score')
@@ -137,7 +141,7 @@ def get_mdnet_c(prefix=''):
     # pos_pred: (K,)
     pos_pred = mx.symbol.slice(softmax, begin=(None, 0), end=(None, 1)).reshape((-1,), name=prefix + 'pos_pred')
     smooth_l1 = mx.symbol.smooth_l1(data=pos_pred - label_, scalar=1, name=prefix + 'smooth_l1')
-    loss = mx.symbol.MakeLoss(data=smooth_l1, normalization='batch')
+    loss = mx.symbol.MakeLoss(data=smooth_l1, normalization='null', grad_scale=1. / 8000)
 
     # return loss, conv1, lrn2
     return loss

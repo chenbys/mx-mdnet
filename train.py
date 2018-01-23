@@ -20,8 +20,8 @@ def train(args, model=None, train_iter=None, val_iter=None, begin_epoch=0, num_e
         if args.loss_type == 0:
             sym = csym.get_mdnet()
         elif args.loss_type == 1:
-            sym = csym.get_mdnet_with_smooth_l1_loss()
-            # sym = csym.get_mdnet_c()
+            # sym = csym.get_mdnet_with_smooth_l1_loss()
+            sym = csym.get_mdnet_c()
         fixed_param_names = []
         for i in range(1, args.fixed_conv + 1):
             fixed_param_names.append('conv' + str(i) + '_weight')
@@ -50,7 +50,7 @@ def train(args, model=None, train_iter=None, val_iter=None, begin_epoch=0, num_e
               optimizer_params={'learning_rate': args.lr,
                                 'wd'           : args.wd,
                                 'momentum'     : args.momentum,
-                                'clip_gradient': 5,
+                                'clip_gradient': 3,
                                 'lr_scheduler' : mx.lr_scheduler.FactorScheduler(args.lr_step, args.lr_factor,
                                                                                  args.lr_stop), },
               eval_metric=metric, num_epoch=begin_epoch + num_epoch, begin_epoch=begin_epoch,
