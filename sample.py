@@ -45,7 +45,7 @@ def get_samples(label_feat, pos_number=200, neg_number=200):
            np.hstack((np.ones((pos_number,)), np.zeros((neg_number,))))
 
 
-def get_samples_with_iou_label(label_feat, pos_number=40, neg_number=40):
+def get_samples_with_iou_label(label_feat, pos_number=4000, neg_number=4000):
     import mxnet as mx
     x, y, w, h = label_feat[0, :]
     feat_bboxes = sample_on_feat(1, 1, 1, 1, w, h)
@@ -53,6 +53,6 @@ def get_samples_with_iou_label(label_feat, pos_number=40, neg_number=40):
     rat = util.overlap_ratio(label_feat, feat_bboxes_)
     pos_idx = mx.ndarray.topk(mx.ndarray.array(rat), axis=0, k=pos_number).asnumpy().astype('int32')
     neg_idx = mx.ndarray.topk(mx.ndarray.array(rat * -1), axis=0, k=neg_number).asnumpy().astype('int32')
-    all_idx=np.hstack((pos_idx, neg_idx))
+    all_idx = np.hstack((pos_idx, neg_idx))
 
-    return feat_bboxes[all_idx,:], rat[all_idx]
+    return feat_bboxes[all_idx, :], rat[all_idx]

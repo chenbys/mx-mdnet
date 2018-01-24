@@ -10,7 +10,7 @@ def get_mdnet(prefix=''):
     :param prefix:
     :return: symbol of mdnet
     '''
-    p('use {0,1} cross-entropy loss')
+    # p('use {0,1} cross-entropy loss')
     image_patch = mx.symbol.Variable(name='image_patch')
     feat_bbox = mx.symbol.Variable(name='feat_bbox')
     label = mx.symbol.Variable(name='label')
@@ -53,7 +53,7 @@ def get_mdnet_with_smooth_l1_loss(prefix=''):
     :param prefix:
     :return: symbol of mdnet
     '''
-    p('use smooth_l1 loss')
+    # p('use smooth_l1 loss')
     image_patch = mx.symbol.Variable(name='image_patch')
     feat_bbox = mx.symbol.Variable(name='feat_bbox')
     # label: (1,K)
@@ -102,7 +102,7 @@ def get_mdnet_c(prefix=''):
     :param prefix:
     :return: symbol of mdnet
     '''
-    p('use smooth_l1 loss and cnet')
+    # p('use smooth_l1 loss and cnet')
     image_patch = mx.symbol.Variable(name='image_patch')
     feat_bbox = mx.symbol.Variable(name='feat_bbox')
     # label: (1,K)

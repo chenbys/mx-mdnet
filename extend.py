@@ -35,6 +35,19 @@ class MDNetLoss(mx.metric.EvalMetric):
 class MDNetIOUACC(mx.metric.EvalMetric):
     def __init__(self, acc_th=0.1):
         super(MDNetIOUACC, self).__init__('MDNetIOUACC_' + str(acc_th))
+        self.acc_th = acc_th * acc_th / 2.
+
+    def update(self, labels, preds):
+        label = labels[0].asnumpy().reshape((-1,))
+        pred = preds[0].asnumpy()
+        acc = np.sum(pred < self.acc_th)
+        self.sum_metric += acc * 100
+        self.num_inst += len(label)
+
+
+class MDNetIOUACC_(mx.metric.EvalMetric):
+    def __init__(self, acc_th=0.1):
+        super(MDNetIOUACC_, self).__init__('MDNetIOUACC__' + str(acc_th))
         self.acc_th = acc_th
 
     def update(self, labels, preds):
@@ -53,7 +66,7 @@ class MDNetIOULoss(mx.metric.EvalMetric):
         label = labels[0].reshape((-1,)).as_in_context(config.ctx)
         pred = preds[0].as_in_context(config.ctx)
         loss = mx.ndarray.smooth_l1(pred - label, scalar=1).asnumpy().sum()
-        self.sum_metric += loss * 1000
+        self.sum_metric += pred.sum().asnumpy() * 1000
         self.num_inst += len(label)
 
 
