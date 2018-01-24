@@ -20,8 +20,8 @@ def train(args, model=None, train_iter=None, val_iter=None, begin_epoch=0, num_e
         if args.loss_type == 0:
             sym = csym.get_mdnet()
         elif args.loss_type == 1:
-            # sym = csym.get_mdnet_with_smooth_l1_loss()
-            sym = csym.get_mdnet_c()
+            sym = csym.get_mdnet_with_smooth_l1_loss()
+            # sym = csym.get_mdnet_c()
         fixed_param_names = []
         for i in range(1, args.fixed_conv + 1):
             fixed_param_names.append('conv' + str(i) + '_weight')
@@ -62,13 +62,13 @@ def train(args, model=None, train_iter=None, val_iter=None, begin_epoch=0, num_e
 def parse_args():
     parser = argparse.ArgumentParser(description='Train MDNet network')
     parser.add_argument('--gpu', help='GPU device to train with', default=2, type=int)
-    parser.add_argument('--num_epoch', help='epoch of training', default=30, type=int)
+    parser.add_argument('--num_epoch', help='epoch of training', default=5, type=int)
     parser.add_argument('--batch_callback_freq', default=6, type=int)
-    parser.add_argument('--lr', help='base learning rate', default=1e-8, type=float)
-    parser.add_argument('--wd', help='base learning rate', default=1e-3, type=float)
+    parser.add_argument('--lr', help='base learning rate', default=1e1, type=float)
+    parser.add_argument('--wd', help='base learning rate', default=1e-4, type=float)
     parser.add_argument('--OTB_path', help='OTB folder', default='/home/chenjunjie/dataset/OTB', type=str)
     parser.add_argument('--p_level', help='print level, default is 0 for debug mode', default=0, type=int)
-    parser.add_argument('--fixed_conv', help='the params before(include) which conv are all fixed', default=2, type=int)
+    parser.add_argument('--fixed_conv', help='the params before(include) which conv are all fixed', default=0, type=int)
     parser.add_argument('--loss_type', type=int, default=1,
                         help='0 for {0,1} corss-entropy, 1 for smooth_l1, 2 for {pos_pred} corss-entropy')
     parser.add_argument('--lr_step', default=36 * 1, type=int)

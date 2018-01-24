@@ -1,5 +1,7 @@
 计划：
 1.代价函数该用CE(pred,overlap)
+2. debug IOU_loss, 核对梯度和更新值等
+3. hard minibatch mining
 
 待解决问题：
 1.每一帧提取36个patch，每个patch200正例，200负例。可以增加。一般patch有正例400，负例3000
