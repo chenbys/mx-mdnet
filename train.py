@@ -18,7 +18,7 @@ def train(args, model=None, train_iter=None, val_iter=None, begin_epoch=0, num_e
     if model is None:
         logging.getLogger().setLevel(logging.DEBUG)
         if args.loss_type == 0:
-            sym = csym.get_mdnet()
+            sym = csym.get_mdnet()  # lr=1e-6 is perfect overfitting
         elif args.loss_type == 1:
             sym = csym.get_mdnet_with_smooth_l1_loss()
             # sym = csym.get_mdnet_c()
@@ -41,11 +41,17 @@ def train(args, model=None, train_iter=None, val_iter=None, begin_epoch=0, num_e
         metric.add(extend.MDNetLoss())
     else:
         metric.add(extend.MDNetIOUACC(args.iou_acc_th))
-        metric.add(extend.MDNetIOUACC(args.iou_acc_th * 2))
-        metric.add(extend.MDNetIOUACC(args.iou_acc_th * 3))
+        # metric.add(extend.MDNetIOUACC(args.iou_acc_th * 2))
+        # metric.add(extend.MDNetIOUACC(args.iou_acc_th * 3))
         metric.add(extend.MDNetIOULoss())
 
     p('begin fitting')
+
+    def sf(x):
+        # return mx.ndarray.array(x.shape)
+        return x
+
+    mon = mx.monitor.Monitor(interval=1, stat_func=sf, pattern='sum|softmax|smooth_l1|loss|label|_minus0|pos_pred', sort=True)
     model.fit(train_data=train_iter, eval_data=val_iter, optimizer='sgd',
               optimizer_params={'learning_rate': args.lr,
                                 'wd'           : args.wd,
@@ -54,7 +60,7 @@ def train(args, model=None, train_iter=None, val_iter=None, begin_epoch=0, num_e
                                 'lr_scheduler' : mx.lr_scheduler.FactorScheduler(args.lr_step, args.lr_factor,
                                                                                  args.lr_stop), },
               eval_metric=metric, num_epoch=begin_epoch + num_epoch, begin_epoch=begin_epoch,
-              batch_end_callback=mx.callback.Speedometer(1, args.batch_callback_freq))
+              batch_end_callback=mx.callback.Speedometer(1, args.batch_callback_freq), monitor=mon)
     p('finish fitting')
     return model
 
@@ -63,9 +69,9 @@ def parse_args():
     parser = argparse.ArgumentParser(description='Train MDNet network')
     parser.add_argument('--gpu', help='GPU device to train with', default=2, type=int)
     parser.add_argument('--num_epoch', help='epoch of training', default=5, type=int)
-    parser.add_argument('--batch_callback_freq', default=6, type=int)
-    parser.add_argument('--lr', help='base learning rate', default=1e1, type=float)
-    parser.add_argument('--wd', help='base learning rate', default=1e-4, type=float)
+    parser.add_argument('--batch_callback_freq', default=1, type=int)
+    parser.add_argument('--lr', help='base learning rate', default=1e-1, type=float)
+    parser.add_argument('--wd', help='base learning rate', default=0, type=float)
     parser.add_argument('--OTB_path', help='OTB folder', default='/home/chenjunjie/dataset/OTB', type=str)
     parser.add_argument('--p_level', help='print level, default is 0 for debug mode', default=0, type=int)
     parser.add_argument('--fixed_conv', help='the params before(include) which conv are all fixed', default=0, type=int)
@@ -75,7 +81,7 @@ def parse_args():
     parser.add_argument('--lr_factor', default=0.9, type=float)
     parser.add_argument('--lr_stop', default=1e-10, type=float)
     parser.add_argument('--iou_acc_th', default=0.1, type=float)
-    parser.add_argument('--momentum', default=0.5, type=float)
+    parser.add_argument('--momentum', default=0, type=float)
 
     args = parser.parse_args()
     return args

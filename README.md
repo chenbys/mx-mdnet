@@ -1,7 +1,9 @@
 计划：
 1.代价函数该用CE(pred,overlap)
-2. debug IOU_loss, 核对梯度和更新值等
+2. debug IOU_loss, 核对梯度和更新值等.可以用Monito，不过很奇异，label_re_0应该是label符号reshape出来的，名字上多了个_0，值还面目全非，
+smooth_l1_0还有负数。不知道是什么情况！
 3. hard minibatch mining
+4. MD训练。查看MDNet论文不MD训练和MD训练的精度。如何解决过拟合。
 
 待解决问题：
 1.每一帧提取36个patch，每个patch200正例，200负例。可以增加。一般patch有正例400，负例3000
