@@ -214,3 +214,33 @@ class OTBHelper(object):
             size = np.shape(cv2.imread(self.path + seq_name + '/img/' + img_paths[0]))
             info[seq_name] = list([length, size])
         return info
+
+
+class VOTHelper(object):
+    def __init__(self, vot_path='/Users/chenjunjie/workspace/VOT2015'):
+        self.home_path = vot_path
+        self.seq_names = []
+        list_path = os.path.join(self.home_path, 'list.txt')
+        for line in open(list_path):
+            self.seq_names.append(line.replace('\n', ''))
+
+    def get_img_path(self, seq_name):
+        img_paths = []
+        for file in os.listdir(os.path.join(self.home_path, seq_name)):
+            if file.endswith('.jpg'):
+                img_paths.append(os.path.join(self.home_path, seq_name, file))
+
+        return img_paths
+
+    def get_gts(self, seq_name):
+        gt_path = os.path.join(self.home_path, seq_name, 'groundtruth.txt')
+        gt = list()
+        for line in open(gt_path):
+            r = line.replace('\n', '').split(',')
+            r = [float(x) for x in r]
+            x = r[::2]
+            y = r[1::2]
+            x1, y1, x2, y2 = min(x), min(y), max(x), max(y)
+            gt.append([x1, y1, x2 - x1 + 1, y2 - y1 + 1])
+
+        return gt
