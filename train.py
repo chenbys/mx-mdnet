@@ -20,17 +20,17 @@ def train_SD_on_VOT():
     model = extend.init_model(args.loss_type, args.fixed_conv, sample_iter, load_params=True)
 
     vot = datahelper.VOTHelper(args.VOT_path)
-    logging.getLogger().setLevel(logging.DEBUG)
+    logging.getLogger().setLevel(logging.WARNING)
     begin_epoch = 0
     N = 5
     for n in range(N):
         for seq_name in vot.seq_names:
-            print seq_name + ' in ' + str(n)
+            print '@CHEN->%s in %d/%d ' % (seq_name, n, N)
             img_list = vot.get_img_paths(seq_name)
             gt_list = vot.get_gts(seq_name)
             length = len(img_list)
             for i in range(length):
-                print i
+                print '@CHEN->frame:%d/%d' % (i, length)
                 train_iter = datahelper.get_train_iter(
                     datahelper.get_train_data(img_list[i], gt_list[i], iou_label=bool(args.loss_type)))
                 val_iter = datahelper.get_train_iter(
@@ -64,7 +64,7 @@ def one_step_train(args, model, train_iter=None, val_iter=None, begin_epoch=0, n
     mon = mx.monitor.Monitor(interval=1, stat_func=sf, pattern='sum|softmax|smooth_l1|loss|label|_minus0|pos_pred',
                              sort=True)
     mon = None
-    model.fit(train_data=train_iter, eval_data=val_iter, optimizer='sgd',
+    model.fit(train_data=train_iter, optimizer='sgd',
               optimizer_params={'learning_rate': args.lr,
                                 'wd'           : args.wd,
                                 'momentum'     : args.momentum,
@@ -74,6 +74,14 @@ def one_step_train(args, model, train_iter=None, val_iter=None, begin_epoch=0, n
                                 },
               eval_metric=metric, num_epoch=begin_epoch + num_epoch, begin_epoch=begin_epoch,
               batch_end_callback=mx.callback.Speedometer(1, args.batch_callback_freq), monitor=mon)
+
+    # Do val
+    train_res = model.score(train_iter, metric)
+    val_res = model.score(val_iter, metric)
+    for name, val in train_res:
+        logging.getLogger().warning('train-%s=%f', name, val)
+    for name, val in val_res:
+        logging.getLogger().warning('valid-%s=%f', name, val)
     return model
 
 
