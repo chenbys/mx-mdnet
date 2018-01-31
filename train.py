@@ -49,9 +49,11 @@ def train_SD_on_VOT():
                 t2 = time.time()
                 print '@CHEN->track on frame %d, iou of res is %f, cost time %f s' % (
                     i + 1, util.overlap_ratio(res, np.array(gt_list[(i + 1) % length])), t2 - t1)
+                print res
+                print gt_list[(i + 1) % length]
 
 
-def one_step_train(args, model, train_iter=None, val_iter=None, begin_epoch=0, num_epoch=50):
+def one_step_train(args, model, train_iter=None, val_iter=None, begin_epoch=0, end_epoch=50):
     '''
 
     :param img_path:
@@ -84,7 +86,7 @@ def one_step_train(args, model, train_iter=None, val_iter=None, begin_epoch=0, n
                                 # 'lr_scheduler' : mx.lr_scheduler.FactorScheduler(args.lr_step, args.lr_factor,
                                 #                                                  args.lr_stop),
                                 },
-              eval_metric=metric, num_epoch=begin_epoch + num_epoch, begin_epoch=begin_epoch,
+              eval_metric=metric, num_epoch=end_epoch, begin_epoch=begin_epoch,
               batch_end_callback=mx.callback.Speedometer(1, args.batch_callback_freq), monitor=mon)
     t2 = time.time()
     # Do val
