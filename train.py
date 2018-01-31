@@ -7,6 +7,8 @@ from setting import config, constant
 from kit import p
 import run
 import util
+import numpy as np
+import time
 
 
 def train_SD_on_VOT():
@@ -41,11 +43,12 @@ def train_SD_on_VOT():
                 model = one_step_train(args, model, train_iter, val_iter, begin_epoch, begin_epoch + args.num_epoch)
                 begin_epoch += args.num_epoch
 
-
                 # try tracking for validation
+                t1 = time.time()
                 res = run.track(model, img_list[(i + 1) % length], gt_list[i])
-                print '@CHEN->track on frame %d, iou of res is %f' % (
-                i + 1, util.overlap_ratio(res, gt_list[(i + 1) % length]))
+                t2 = time.time()
+                print '@CHEN->track on frame %d, iou of res is %f, cost time %f s' % (
+                    i + 1, util.overlap_ratio(res, np.array(gt_list[(i + 1) % length])), t2 - t1)
 
 
 def one_step_train(args, model, train_iter=None, val_iter=None, begin_epoch=0, num_epoch=50):
@@ -72,6 +75,7 @@ def one_step_train(args, model, train_iter=None, val_iter=None, begin_epoch=0, n
     mon = mx.monitor.Monitor(interval=1, stat_func=sf, pattern='sum|softmax|smooth_l1|loss|label|_minus0|pos_pred',
                              sort=True)
     mon = None
+    t1 = time.time()
     model.fit(train_data=train_iter, optimizer='sgd',
               optimizer_params={'learning_rate': args.lr,
                                 'wd'           : args.wd,
@@ -82,14 +86,17 @@ def one_step_train(args, model, train_iter=None, val_iter=None, begin_epoch=0, n
                                 },
               eval_metric=metric, num_epoch=begin_epoch + num_epoch, begin_epoch=begin_epoch,
               batch_end_callback=mx.callback.Speedometer(1, args.batch_callback_freq), monitor=mon)
-
+    t2 = time.time()
     # Do val
     train_res = model.score(train_iter, metric)
+    t3 = time.time()
     val_res = model.score(val_iter, metric)
+    t4 = time.time()
     for name, val in train_res:
         logging.getLogger().error('train-%s=%f', name, val)
     for name, val in val_res:
         logging.getLogger().error('valid-%s=%f', name, val)
+    print '@CHEN->fitting cost %f,score cost %f,valid cost %f' % (t2 - t1, t3 - t2, t4 - t3)
     return model
 
 
