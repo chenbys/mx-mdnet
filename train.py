@@ -44,17 +44,15 @@ def train_SD_on_VOT():
                 begin_epoch += args.num_epoch
 
                 # try tracking for validation
-                t1 = time.time()
                 res = run.track(model, img_list[(i + 1) % length], gt_list[i])
-                t2 = time.time()
-                print '@CHEN->track on frame %d, iou of res is %f, cost time %f s' % (
-                    i + 1, util.overlap_ratio(res, np.array(gt_list[(i + 1) % length])), t2 - t1)
+                print '@CHEN->track on frame %d, iou of res is %f' % (
+                    i + 1, util.overlap_ratio(res, np.array(gt_list[(i + 1) % length])))
                 print res
                 print gt_list[(i + 1) % length]
                 res2 = run.track(model, img_list[(i) % length], gt_list[(i - 1) % length])
-                print '@CHEN->track on frame %d, iou of res is %f, cost time %f s' % (
+                print '@CHEN->track on frame %d, iou of res is %f' % (
                     i, util.overlap_ratio(res2, np.array(gt_list[(i) % length])))
-                print res
+                print res2
                 print gt_list[(i) % length]
 
 
