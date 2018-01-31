@@ -5,6 +5,8 @@ import datahelper
 import extend
 from setting import config, constant
 from kit import p
+import run
+import util
 
 
 def train_SD_on_VOT():
@@ -20,7 +22,7 @@ def train_SD_on_VOT():
     model = extend.init_model(args.loss_type, args.fixed_conv, sample_iter, load_params=True)
 
     vot = datahelper.VOTHelper(args.VOT_path)
-    logging.getLogger().setLevel(logging.WARNING)
+    logging.getLogger().setLevel(logging.ERROR)
     begin_epoch = 0
     N = 5
     for n in range(N):
@@ -38,6 +40,12 @@ def train_SD_on_VOT():
                                               iou_label=bool(args.loss_type)))
                 model = one_step_train(args, model, train_iter, val_iter, begin_epoch, begin_epoch + args.num_epoch)
                 begin_epoch += args.num_epoch
+
+
+                # try tracking for validation
+                res = run.track(model, img_list[(i + 1) % length], gt_list[i])
+                print '@CHEN->track on frame %d, iou of res is %f' % (
+                i + 1, util.overlap_ratio(res, gt_list[(i + 1) % length]))
 
 
 def one_step_train(args, model, train_iter=None, val_iter=None, begin_epoch=0, num_epoch=50):
@@ -79,9 +87,9 @@ def one_step_train(args, model, train_iter=None, val_iter=None, begin_epoch=0, n
     train_res = model.score(train_iter, metric)
     val_res = model.score(val_iter, metric)
     for name, val in train_res:
-        logging.getLogger().warning('train-%s=%f', name, val)
+        logging.getLogger().error('train-%s=%f', name, val)
     for name, val in val_res:
-        logging.getLogger().warning('valid-%s=%f', name, val)
+        logging.getLogger().error('valid-%s=%f', name, val)
     return model
 
 
@@ -188,12 +196,12 @@ def test_track_speed():
     gt_list = otb.get_gt(seq_name)
     img_path = img_list[0]
     gt = gt_list[0]
-    import track
+    import run
     import time
     train_iter = datahelper.get_train_iter(datahelper.get_train_data(img_path, gt))
     model = one_step_train(args, None, train_iter, num_epoch=1)
     t1 = time.time()
-    box = track.track(model, img_path, gt)
+    box = run.track(model, img_path, gt)
     t2 = time.time()
     print t2 - t1
     print box
