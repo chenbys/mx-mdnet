@@ -51,6 +51,11 @@ def train_SD_on_VOT():
                     i + 1, util.overlap_ratio(res, np.array(gt_list[(i + 1) % length])), t2 - t1)
                 print res
                 print gt_list[(i + 1) % length]
+                res2 = run.track(model, img_list[(i) % length], gt_list[(i - 1) % length])
+                print '@CHEN->track on frame %d, iou of res is %f, cost time %f s' % (
+                    i, util.overlap_ratio(res2, np.array(gt_list[(i) % length])))
+                print res
+                print gt_list[(i) % length]
 
 
 def one_step_train(args, model, train_iter=None, val_iter=None, begin_epoch=0, end_epoch=50):
