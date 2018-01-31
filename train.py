@@ -191,4 +191,4 @@ def test_track_speed():
 
 
 if __name__ == '__main__':
-    main()
+    train_SD_on_VOT()
