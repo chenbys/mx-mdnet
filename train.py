@@ -7,6 +7,38 @@ from setting import config, constant
 from kit import p
 
 
+def train_SD_on_VOT():
+    args = parse_args()
+    config.p_level = args.p_level
+
+    if args.gpu == -1:
+        config.ctx = mx.cpu(0)
+    else:
+        config.ctx = mx.gpu(args.gpu)
+    sample_iter = datahelper.get_train_iter(
+        datahelper.get_train_data('saved/mx-mdnet_01CE.jpg', [24, 24, 24, 24], iou_label=bool(args.loss_type)))
+    model = extend.init_model(args.loss_type, args.fixed_conv, sample_iter, load_params=True)
+
+    vot = datahelper.VOTHelper(args.VOT_path)
+    begin_epoch = 0
+    N = 5
+    for i in range(N):
+        for seq_name in vot.seq_names:
+            print seq_name + ' in ' + str(N)
+            img_list = vot.get_img_paths(seq_name)
+            gt_list = vot.get_gts(seq_name)
+            length = len(img_list)
+            for i in range(length):
+                print i
+                train_iter = datahelper.get_train_iter(
+                    datahelper.get_train_data(img_list[i], gt_list[i], iou_label=bool(args.loss_type)))
+                val_iter = datahelper.get_train_iter(
+                    datahelper.get_train_data(img_list[(i + 1) % length], gt_list[(i + 1) % length],
+                                              iou_label=bool(args.loss_type)))
+                model = one_step_train(args, model, train_iter, val_iter, begin_epoch, begin_epoch + args.num_epoch)
+                begin_epoch += args.num_epoch
+
+
 def one_step_train(args, model, train_iter=None, val_iter=None, begin_epoch=0, num_epoch=50):
     '''
 
@@ -35,15 +67,16 @@ def one_step_train(args, model, train_iter=None, val_iter=None, begin_epoch=0, n
               optimizer_params={'learning_rate': args.lr,
                                 'wd'           : args.wd,
                                 'momentum'     : args.momentum,
-                                'clip_gradient': 3,
-                                'lr_scheduler' : mx.lr_scheduler.FactorScheduler(args.lr_step, args.lr_factor,
-                                                                                 args.lr_stop), },
+                                'clip_gradient': 5,
+                                # 'lr_scheduler' : mx.lr_scheduler.FactorScheduler(args.lr_step, args.lr_factor,
+                                #                                                  args.lr_stop),
+                                },
               eval_metric=metric, num_epoch=begin_epoch + num_epoch, begin_epoch=begin_epoch,
               batch_end_callback=mx.callback.Speedometer(1, args.batch_callback_freq), monitor=mon)
     return model
 
 
-def train_SD():
+def train_SD_on_OTB():
     args = parse_args()
     config.p_level = args.p_level
 
@@ -57,6 +90,7 @@ def train_SD():
 
     otb = datahelper.OTBHelper(args.OTB_path)
     begin_epoch = 0
+
     for seq_name in otb.seq_names:
         img_list = otb.get_img(seq_name)
         gt_list = otb.get_gt(seq_name)
@@ -74,17 +108,18 @@ def train_SD():
         img_list = otb.get_img(do_name)
         gt_list_1 = otb.get_gt(do_name, '.1')
         gt_list_2 = otb.get_gt(do_name, '.2')
-        length=len()
+        length = len()
 
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Train MDNet network')
     parser.add_argument('--gpu', help='GPU device to train with', default=2, type=int)
-    parser.add_argument('--num_epoch', help='epoch of training', default=5, type=int)
-    parser.add_argument('--batch_callback_freq', default=1, type=int)
+    parser.add_argument('--num_epoch', help='epoch of training for every frame', default=5, type=int)
+    parser.add_argument('--batch_callback_freq', default=50, type=int)
     parser.add_argument('--lr', help='base learning rate', default=1e-6, type=float)
     parser.add_argument('--wd', help='base learning rate', default=0, type=float)
     parser.add_argument('--OTB_path', help='OTB folder', default='/home/chenjunjie/dataset/OTB', type=str)
+    parser.add_argument('--VOT_path', help='VOT folder', default='/home/chenjunjie/dataset/VOT2015', type=str)
     parser.add_argument('--p_level', help='print level, default is 0 for debug mode', default=0, type=int)
     parser.add_argument('--fixed_conv', help='the params before(include) which conv are all fixed', default=0, type=int)
     parser.add_argument('--loss_type', type=int, default=0,

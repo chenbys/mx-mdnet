@@ -224,7 +224,7 @@ class VOTHelper(object):
         for line in open(list_path):
             self.seq_names.append(line.replace('\n', ''))
 
-    def get_img_path(self, seq_name):
+    def get_img_paths(self, seq_name):
         img_paths = []
         for file in os.listdir(os.path.join(self.home_path, seq_name)):
             if file.endswith('.jpg'):
