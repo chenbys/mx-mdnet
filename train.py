@@ -2,39 +2,18 @@ import argparse
 import logging
 import mxnet as mx
 import datahelper
-import csym
 import extend
 from setting import config, constant
 from kit import p
 
 
-def train(args, model=None, train_iter=None, val_iter=None, begin_epoch=0, num_epoch=50, saved_params=None):
+def one_step_train(args, model, train_iter=None, val_iter=None, begin_epoch=0, num_epoch=50):
     '''
 
     :param img_path:
     :param region:
     :return:
     '''
-    if model is None:
-        logging.getLogger().setLevel(logging.DEBUG)
-        if args.loss_type == 0:
-            sym = csym.get_mdnet()  # lr=1e-6 is perfect overfitting
-        elif args.loss_type == 1:
-            sym = csym.get_mdnet_with_smooth_l1_loss()
-            # sym = csym.get_mdnet_c()
-        fixed_param_names = []
-        for i in range(1, args.fixed_conv + 1):
-            fixed_param_names.append('conv' + str(i) + '_weight')
-            fixed_param_names.append('conv' + str(i) + '_bias')
-        model = mx.mod.Module(symbol=sym, context=config.ctx, data_names=('image_patch', 'feat_bbox',),
-                              label_names=('label',),
-                              fixed_param_names=fixed_param_names)
-        model.bind(train_iter.provide_data, train_iter.provide_label)
-        if saved_params is not None:
-            for k in saved_params.keys():
-                saved_params[k] = mx.ndarray.array(saved_params.get(k))
-            model.init_params(arg_params=saved_params, allow_missing=True, force_init=False, allow_extra=True)
-
     metric = mx.metric.CompositeEvalMetric()
     if args.loss_type == 0:
         metric.add(extend.MDNetACC())
@@ -45,13 +24,13 @@ def train(args, model=None, train_iter=None, val_iter=None, begin_epoch=0, num_e
         # metric.add(extend.MDNetIOUACC(args.iou_acc_th * 3))
         metric.add(extend.MDNetIOULoss())
 
-    p('begin fitting')
-
     def sf(x):
         # return mx.ndarray.array(x.shape)
         return x
 
-    mon = mx.monitor.Monitor(interval=1, stat_func=sf, pattern='sum|softmax|smooth_l1|loss|label|_minus0|pos_pred', sort=True)
+    mon = mx.monitor.Monitor(interval=1, stat_func=sf, pattern='sum|softmax|smooth_l1|loss|label|_minus0|pos_pred',
+                             sort=True)
+    mon = None
     model.fit(train_data=train_iter, eval_data=val_iter, optimizer='sgd',
               optimizer_params={'learning_rate': args.lr,
                                 'wd'           : args.wd,
@@ -61,8 +40,41 @@ def train(args, model=None, train_iter=None, val_iter=None, begin_epoch=0, num_e
                                                                                  args.lr_stop), },
               eval_metric=metric, num_epoch=begin_epoch + num_epoch, begin_epoch=begin_epoch,
               batch_end_callback=mx.callback.Speedometer(1, args.batch_callback_freq), monitor=mon)
-    p('finish fitting')
     return model
+
+
+def train_SD():
+    args = parse_args()
+    config.p_level = args.p_level
+
+    if args.gpu == -1:
+        config.ctx = mx.cpu(0)
+    else:
+        config.ctx = mx.gpu(args.gpu)
+    sample_iter = datahelper.get_train_iter(
+        datahelper.get_train_data('saved/mx-mdnet_01CE.jpg', [24, 24, 24, 24], iou_label=bool(args.loss_type)))
+    model = extend.init_model(args.loss_type, args.fixed_conv, sample_iter, load_params=True)
+
+    otb = datahelper.OTBHelper(args.OTB_path)
+    begin_epoch = 0
+    for seq_name in otb.seq_names:
+        img_list = otb.get_img(seq_name)
+        gt_list = otb.get_gt(seq_name)
+        length = len(img_list)
+        for i in range(length):
+            train_iter = datahelper.get_train_iter(
+                datahelper.get_train_data(img_list[i], gt_list[i], iou_label=bool(args.loss_type)))
+            val_iter = datahelper.get_train_iter(
+                datahelper.get_train_data(img_list[(i + 1) % length], gt_list[(i + 1) % length],
+                                          iou_label=bool(args.loss_type)))
+            model = one_step_train(args, model, train_iter, val_iter, begin_epoch, begin_epoch + args.num_epoch)
+            begin_epoch += args.num_epoch
+
+    for do_name in otb.double_names:
+        img_list = otb.get_img(do_name)
+        gt_list_1 = otb.get_gt(do_name, '.1')
+        gt_list_2 = otb.get_gt(do_name, '.2')
+        length=len()
 
 
 def parse_args():
@@ -70,12 +82,12 @@ def parse_args():
     parser.add_argument('--gpu', help='GPU device to train with', default=2, type=int)
     parser.add_argument('--num_epoch', help='epoch of training', default=5, type=int)
     parser.add_argument('--batch_callback_freq', default=1, type=int)
-    parser.add_argument('--lr', help='base learning rate', default=1e-1, type=float)
+    parser.add_argument('--lr', help='base learning rate', default=1e-6, type=float)
     parser.add_argument('--wd', help='base learning rate', default=0, type=float)
     parser.add_argument('--OTB_path', help='OTB folder', default='/home/chenjunjie/dataset/OTB', type=str)
     parser.add_argument('--p_level', help='print level, default is 0 for debug mode', default=0, type=int)
     parser.add_argument('--fixed_conv', help='the params before(include) which conv are all fixed', default=0, type=int)
-    parser.add_argument('--loss_type', type=int, default=1,
+    parser.add_argument('--loss_type', type=int, default=0,
                         help='0 for {0,1} corss-entropy, 1 for smooth_l1, 2 for {pos_pred} corss-entropy')
     parser.add_argument('--lr_step', default=36 * 1, type=int)
     parser.add_argument('--lr_factor', default=0.9, type=float)
@@ -100,17 +112,18 @@ def main():
     otb = datahelper.OTBHelper(args.OTB_path)
     img_list = otb.get_img(seq_name)
     gt_list = otb.get_gt(seq_name)
-    model = None
+    train_iter = datahelper.get_train_iter(
+        datahelper.get_train_data(img_list[0], gt_list[0], iou_label=bool(args.loss_type)))
+    model = extend.init_model(args.loss_type, args.fixed_conv, train_iter, True)
+    logging.getLogger().setLevel(logging.DEBUG)
     begin_epoch = 0
     count = 1
-    saved_params = extend.get_mdnet_conv123_params()
     for img_path, gt in zip(img_list[0:2], gt_list[0:2]):
         train_iter = datahelper.get_train_iter(datahelper.get_train_data(img_path, gt, iou_label=bool(args.loss_type)))
         val_iter = datahelper.get_train_iter(
             datahelper.get_train_data(img_list[count + 1], gt_list[count + 1], iou_label=bool(args.loss_type)))
 
-        model = train(args, model, train_iter, val_iter, begin_epoch, args.num_epoch,
-                      saved_params=saved_params)
+        model = one_step_train(args, model, train_iter, val_iter, begin_epoch, args.num_epoch)
         begin_epoch += args.num_epoch
         p('finished training on frame %d.' % count, level=constant.P_RUN)
         count += 1
@@ -134,7 +147,7 @@ def test_track_speed():
     import track
     import time
     train_iter = datahelper.get_train_iter(datahelper.get_train_data(img_path, gt))
-    model = train(args, None, train_iter, num_epoch=1)
+    model = one_step_train(args, None, train_iter, num_epoch=1)
     t1 = time.time()
     box = track.track(model, img_path, gt)
     t2 = time.time()

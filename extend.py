@@ -1,6 +1,7 @@
 import mxnet as mx
 import numpy as np
 from setting import config
+import csym
 
 
 class MDNetACC(mx.metric.EvalMetric):
@@ -98,3 +99,25 @@ def get_mdnet_conv123_params(prefix='', mat_path='saved/conv123.mat'):
     arg_params[prefix + 'conv3_bias'] = conv3_bias_
 
     return arg_params
+
+
+def init_model(loss_type, fixed_conv, sample_iter, load_params=True):
+    if loss_type == 0:
+        sym = csym.get_mdnet()
+    elif loss_type == 1:
+        sym = csym.get_mdnet_with_smooth_l1_loss()
+    fixed_param_names = []
+    for i in range(1, fixed_conv + 1):
+        fixed_param_names.append('conv' + str(i) + '_weight')
+        fixed_param_names.append('conv' + str(i) + '_bias')
+    model = mx.mod.Module(symbol=sym, context=config.ctx, data_names=('image_patch', 'feat_bbox',),
+                          label_names=('label',),
+                          fixed_param_names=fixed_param_names)
+    model.bind(sample_iter.provide_data, sample_iter.provide_label)
+    if load_params:
+        saved_params = get_mdnet_conv123_params()
+        for k in saved_params.keys():
+            saved_params[k] = mx.ndarray.array(saved_params.get(k))
+        model.init_params(arg_params=saved_params, allow_missing=True, force_init=False, allow_extra=True)
+
+    return model
