@@ -20,11 +20,12 @@ def train_SD_on_VOT():
     model = extend.init_model(args.loss_type, args.fixed_conv, sample_iter, load_params=True)
 
     vot = datahelper.VOTHelper(args.VOT_path)
+    logging.getLogger().setLevel(logging.DEBUG)
     begin_epoch = 0
     N = 5
-    for i in range(N):
+    for n in range(N):
         for seq_name in vot.seq_names:
-            print seq_name + ' in ' + str(N)
+            print seq_name + ' in ' + str(n)
             img_list = vot.get_img_paths(seq_name)
             gt_list = vot.get_gts(seq_name)
             length = len(img_list)
