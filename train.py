@@ -28,8 +28,7 @@ def train_SD_on_VOT():
     for n in range(N):
         for seq_name in vot.seq_names:
             print '@CHEN->%s in %d/%d ' % (seq_name, n, N)
-            img_list = vot.get_img_paths(seq_name)
-            gt_list = vot.get_gts(seq_name)
+            img_list, gt_list = vot.get_seq(seq_name)
             length = len(img_list)
             for i in range(length):
                 print '@CHEN->frame:%d/%d' % (i, length)
@@ -37,7 +36,7 @@ def train_SD_on_VOT():
                 train_iter = datahelper.get_train_iter(
                     datahelper.get_train_data(img_list[i], gt_list[i], iou_label=bool(args.loss_type)))
                 val_iter = datahelper.get_train_iter(
-                    datahelper.get_train_data(img_list[(i) % length], gt_list[(i) % length],
+                    datahelper.get_train_data(img_list[(i + 1) % length], gt_list[(i + 1) % length],
                                               iou_label=bool(args.loss_type)))
                 model = one_step_train(args, model, train_iter, val_iter, begin_epoch, begin_epoch + args.num_epoch)
                 begin_epoch += args.num_epoch
@@ -53,6 +52,7 @@ def train_SD_on_VOT():
                     i, util.overlap_ratio(res2, np.array(gt_list[(i) % length])))
                 print res2
                 print gt_list[(i) % length]
+            model.save_params('saved/t')
 
 
 def one_step_train(args, model, train_iter=None, val_iter=None, begin_epoch=0, end_epoch=50):
@@ -99,12 +99,6 @@ def one_step_train(args, model, train_iter=None, val_iter=None, begin_epoch=0, e
     for name, val in val_res:
         logging.getLogger().error('valid-%s=%f', name, val)
     print '@CHEN->fitting cost %.2f' % (t2 - t1)
-
-    model.save_params('saved/t')
-    model = extend.init_model(0, 0, 0, 'saved/t')
-    train_res = model.score(train_iter, metric)
-    for name, val in train_res:
-        logging.getLogger().error('2train-%s=%f', name, val)
     return model
 
 
