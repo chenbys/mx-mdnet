@@ -30,7 +30,7 @@ def train_SD_on_VOT():
             print '@CHEN->%s in %d/%d ' % (seq_name, n, N)
             img_list, gt_list = vot.get_seq(seq_name)
             length = len(img_list)
-            for i in range(10):
+            for i in range(6):
                 print '@CHEN->frame:%d/%d' % (i, length)
                 print img_list[i]
                 train_iter = datahelper.get_train_iter(
@@ -52,7 +52,7 @@ def train_SD_on_VOT():
                     i, util.overlap_ratio(res2, np.array(gt_list[(i) % length])))
                 print res2
                 print gt_list[(i) % length]
-            model.save_params('saved/t')
+            model.save_params('saved/finished_6.jpg')
 
 
 def one_step_train(args, model, train_iter=None, val_iter=None, begin_epoch=0, end_epoch=50):
