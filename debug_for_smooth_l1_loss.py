@@ -34,8 +34,8 @@ def one_step_train(args, model, train_iter=None, val_iter=None, begin_epoch=0, e
                                 'wd'           : args.wd,
                                 'momentum'     : args.momentum,
                                 'clip_gradient': 5,
-                                # 'lr_scheduler' : mx.lr_scheduler.FactorScheduler(args.lr_step, args.lr_factor,
-                                #                                                  args.lr_stop),
+                                'lr_scheduler' : mx.lr_scheduler.FactorScheduler(args.lr_step, args.lr_factor,
+                                                                                 args.lr_stop),
                                 },
               eval_metric=metric, num_epoch=end_epoch, begin_epoch=begin_epoch,
               batch_end_callback=mx.callback.Speedometer(1, args.batch_callback_freq), monitor=mon)
@@ -55,9 +55,9 @@ def parse_args():
     parser.add_argument('--fixed_conv', help='the params before(include) which conv are all fixed', default=0, type=int)
     parser.add_argument('--loss_type', type=int, default=1,
                         help='0 for {0,1} corss-entropy, 1 for smooth_l1, 2 for {pos_pred} corss-entropy')
-    parser.add_argument('--lr_step', default=36 * 1, type=int)
+    parser.add_argument('--lr_step', default=36 * 5, type=int)
     parser.add_argument('--lr_factor', default=0.9, type=float)
-    parser.add_argument('--lr_stop', default=1e-10, type=float)
+    parser.add_argument('--lr_stop', default=1e-7, type=float)
     parser.add_argument('--iou_acc_th', default=0.1, type=float)
     parser.add_argument('--momentum', default=0, type=float)
 
