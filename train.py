@@ -38,7 +38,7 @@ def train_SD_on_VOT():
                 train_iter = datahelper.get_train_iter(
                     datahelper.get_train_data(img_list[i], gt_list[i], iou_label=bool(args.loss_type)))
                 val_iter = datahelper.get_train_iter(
-                    datahelper.get_train_data(img_list[(i + 1) % length], gt_list[(i + 1) % length],
+                    datahelper.get_train_data(img_list[(i) % length], gt_list[(i) % length],
                                               iou_label=bool(args.loss_type)))
                 model = one_step_train(args, model, train_iter, val_iter, begin_epoch, begin_epoch + args.num_epoch)
                 begin_epoch += args.num_epoch
