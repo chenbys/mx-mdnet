@@ -19,9 +19,7 @@ def train_SD_on_VOT():
         config.ctx = mx.cpu(0)
     else:
         config.ctx = mx.gpu(args.gpu)
-    sample_iter = datahelper.get_train_iter(
-        datahelper.get_train_data('saved/mx-mdnet_01CE.jpg', [24, 24, 24, 24], iou_label=bool(args.loss_type)))
-    model = extend.init_model(args.loss_type, args.fixed_conv, sample_iter, load_params=True)
+    model = extend.init_model(args.loss_type, args.fixed_conv, load_conv123=True)
 
     vot = datahelper.VOTHelper(args.VOT_path)
     logging.getLogger().setLevel(logging.ERROR)
@@ -33,7 +31,7 @@ def train_SD_on_VOT():
             img_list = vot.get_img_paths(seq_name)
             gt_list = vot.get_gts(seq_name)
             length = len(img_list)
-            for i in range(2):
+            for i in range(length):
                 print '@CHEN->frame:%d/%d' % (i, length)
                 train_iter = datahelper.get_train_iter(
                     datahelper.get_train_data(img_list[i], gt_list[i], iou_label=bool(args.loss_type)))
@@ -45,16 +43,15 @@ def train_SD_on_VOT():
 
                 # try tracking for validation
                 res = run.track(model, img_list[(i + 1) % length], gt_list[i])
-                print '@CHEN->track on frame %d, iou of res is %f' % (
+                print '@CHEN->track on frame %d, iou of res is %.2f' % (
                     i + 1, util.overlap_ratio(res, np.array(gt_list[(i + 1) % length])))
                 print res
                 print gt_list[(i + 1) % length]
                 res2 = run.track(model, img_list[(i) % length], gt_list[(i - 1) % length])
-                print '@CHEN->track on frame %d, iou of res is %f' % (
+                print '@CHEN->track on frame %d, iou of res is %.2f' % (
                     i, util.overlap_ratio(res2, np.array(gt_list[(i) % length])))
                 print res2
                 print gt_list[(i) % length]
-            model.save_params('saved/t')
 
 
 def one_step_train(args, model, train_iter=None, val_iter=None, begin_epoch=0, end_epoch=50):
@@ -95,14 +92,18 @@ def one_step_train(args, model, train_iter=None, val_iter=None, begin_epoch=0, e
     t2 = time.time()
     # Do val
     train_res = model.score(train_iter, metric)
-    t3 = time.time()
     val_res = model.score(val_iter, metric)
-    t4 = time.time()
     for name, val in train_res:
         logging.getLogger().error('train-%s=%f', name, val)
     for name, val in val_res:
         logging.getLogger().error('valid-%s=%f', name, val)
-    print '@CHEN->fitting cost %f,score cost %f,valid cost %f' % (t2 - t1, t3 - t2, t4 - t3)
+    print '@CHEN->fitting cost %.2f' % (t2 - t1)
+
+    model.save_params('saved/t')
+    model = extend.init_model(0, 0, 0, 'saved/t')
+    train_res = model.score(train_iter, metric)
+    for name, val in train_res:
+        logging.getLogger().error('2train-%s=%f', name, val)
     return model
 
 
@@ -116,7 +117,7 @@ def train_SD_on_OTB():
         config.ctx = mx.gpu(args.gpu)
     sample_iter = datahelper.get_train_iter(
         datahelper.get_train_data('saved/mx-mdnet_01CE.jpg', [24, 24, 24, 24], iou_label=bool(args.loss_type)))
-    model = extend.init_model(args.loss_type, args.fixed_conv, sample_iter, load_params=True)
+    model = extend.init_model(args.loss_type, args.fixed_conv, sample_iter, load_conv123=True)
 
     otb = datahelper.OTBHelper(args.OTB_path)
     begin_epoch = 0

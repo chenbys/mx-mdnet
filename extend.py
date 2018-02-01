@@ -101,7 +101,9 @@ def get_mdnet_conv123_params(prefix='', mat_path='saved/conv123.mat'):
     return arg_params
 
 
-def init_model(loss_type, fixed_conv, sample_iter, load_params=True):
+def init_model(loss_type=0, fixed_conv=0, load_conv123=True, saved_fname=None):
+    import datahelper
+
     if loss_type == 0:
         sym = csym.get_mdnet()
     elif loss_type == 1:
@@ -113,11 +115,14 @@ def init_model(loss_type, fixed_conv, sample_iter, load_params=True):
     model = mx.mod.Module(symbol=sym, context=config.ctx, data_names=('image_patch', 'feat_bbox',),
                           label_names=('label',),
                           fixed_param_names=fixed_param_names)
+    sample_iter = datahelper.get_train_iter(
+        datahelper.get_train_data('saved/mx-mdnet_01CE.jpg', [24, 24, 24, 24], iou_label=bool(loss_type)))
     model.bind(sample_iter.provide_data, sample_iter.provide_label)
-    if load_params:
-        saved_params = get_mdnet_conv123_params()
-        for k in saved_params.keys():
-            saved_params[k] = mx.ndarray.array(saved_params.get(k))
-        model.init_params(arg_params=saved_params, allow_missing=True, force_init=False, allow_extra=True)
-
+    if load_conv123:
+        conv123 = get_mdnet_conv123_params()
+        for k in conv123.keys():
+            conv123[k] = mx.ndarray.array(conv123.get(k))
+        model.init_params(arg_params=conv123, allow_missing=True, force_init=False, allow_extra=True)
+    if saved_fname:
+        model.load_params(saved_fname)
     return model

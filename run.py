@@ -1,9 +1,10 @@
 import mxnet as mx
-import cv2
 import numpy as np
 import sample
 import datahelper
 import util
+import extend
+from setting import config
 
 
 def track(model, img_path, pre_region):
@@ -17,3 +18,17 @@ def track(model, img_path, pre_region):
     opt_img_bbox = opt_img_bboxes.mean(0)
     return opt_img_bbox
 
+
+if __name__ == '__main__':
+    config.ctx = mx.cpu(0)
+
+    vot = datahelper.VOTHelper()
+    img_list = vot.get_img_paths('bag')
+    gts = vot.get_gts('bag')
+    val_iter = datahelper.get_train_iter(datahelper.get_train_data(img_list[1], gts[1]))
+    img_path = img_list[1]
+    pre_region = gts[0]
+
+    model = extend.init_model(0, 0, False, 'saved/t')
+    res = model.score(val_iter, extend.MDNetACC())
+    track(model, img_path, pre_region)
