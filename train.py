@@ -33,6 +33,7 @@ def train_SD_on_VOT():
             length = len(img_list)
             for i in range(length):
                 print '@CHEN->frame:%d/%d' % (i, length)
+                print img_list[i]
                 train_iter = datahelper.get_train_iter(
                     datahelper.get_train_data(img_list[i], gt_list[i], iou_label=bool(args.loss_type)))
                 val_iter = datahelper.get_train_iter(
