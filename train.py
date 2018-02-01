@@ -33,7 +33,7 @@ def train_SD_on_VOT():
             img_list = vot.get_img_paths(seq_name)
             gt_list = vot.get_gts(seq_name)
             length = len(img_list)
-            for i in range(length):
+            for i in range(2):
                 print '@CHEN->frame:%d/%d' % (i, length)
                 train_iter = datahelper.get_train_iter(
                     datahelper.get_train_data(img_list[i], gt_list[i], iou_label=bool(args.loss_type)))
@@ -54,6 +54,7 @@ def train_SD_on_VOT():
                     i, util.overlap_ratio(res2, np.array(gt_list[(i) % length])))
                 print res2
                 print gt_list[(i) % length]
+            model.save_params('saved/t')
 
 
 def one_step_train(args, model, train_iter=None, val_iter=None, begin_epoch=0, end_epoch=50):
@@ -143,7 +144,7 @@ def train_SD_on_OTB():
 def parse_args():
     parser = argparse.ArgumentParser(description='Train MDNet network')
     parser.add_argument('--gpu', help='GPU device to train with', default=2, type=int)
-    parser.add_argument('--num_epoch', help='epoch of training for every frame', default=5, type=int)
+    parser.add_argument('--num_epoch', help='epoch of training for every frame', default=0, type=int)
     parser.add_argument('--batch_callback_freq', default=50, type=int)
     parser.add_argument('--lr', help='base learning rate', default=1e-6, type=float)
     parser.add_argument('--wd', help='base learning rate', default=0, type=float)
