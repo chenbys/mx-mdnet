@@ -30,7 +30,7 @@ def train_SD_on_VOT():
             print '@CHEN->%s in %d/%d ' % (seq_name, n, N)
             img_list, gt_list = vot.get_seq(seq_name)
             length = len(img_list)
-            for i in range(length):
+            for i in range(10):
                 print '@CHEN->frame:%d/%d' % (i, length)
                 print img_list[i]
                 train_iter = datahelper.get_train_iter(
