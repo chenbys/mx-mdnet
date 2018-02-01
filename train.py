@@ -53,6 +53,7 @@ def train_SD_on_VOT():
                 print res2
                 print gt_list[(i) % length]
             model.save_params('saved/finished_6f.d')
+            exit(0)
 
 
 def one_step_train(args, model, train_iter=None, val_iter=None, begin_epoch=0, end_epoch=50):
