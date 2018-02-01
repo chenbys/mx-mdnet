@@ -52,7 +52,7 @@ def train_SD_on_VOT():
                     i, util.overlap_ratio(res2, np.array(gt_list[(i) % length])))
                 print res2
                 print gt_list[(i) % length]
-            model.save_params('saved/finished_6f.d')
+            model.save_params('saved/finished6frame')
             exit(0)
 
 

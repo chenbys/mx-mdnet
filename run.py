@@ -23,12 +23,11 @@ if __name__ == '__main__':
     config.ctx = mx.cpu(0)
 
     vot = datahelper.VOTHelper()
-    img_list = vot.get_img_paths('bag')
-    gts = vot.get_gts('bag')
+    img_list, gts = vot.get_seq('bag')
     val_iter = datahelper.get_train_iter(datahelper.get_train_data(img_list[1], gts[1]))
     img_path = img_list[1]
     pre_region = gts[0]
 
-    model = extend.init_model(0, 0, False, 'saved/t')
+    model = extend.init_model(0, 0, False, 'saved/finished6frame')
     res = model.score(val_iter, extend.MDNetACC())
     track(model, img_path, pre_region)
