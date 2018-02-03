@@ -22,7 +22,7 @@ def train_SD_on_VOT():
     model = extend.init_model(args.loss_type, args.fixed_conv, load_conv123=True)
 
     vot = datahelper.VOTHelper(args.VOT_path)
-    logging.getLogger().setLevel(logging.ERROR)
+    logging.getLogger().setLevel(logging.DEBUG)
     begin_epoch = 0
     N = 5
     for n in range(N):
@@ -52,8 +52,6 @@ def train_SD_on_VOT():
                     i, util.overlap_ratio(res2, np.array(gt_list[(i) % length])))
                 print res2
                 print gt_list[(i) % length]
-            model.save_params('saved/finished3frame')
-            exit(0)
 
 
 def one_step_train(args, model, train_iter=None, val_iter=None, begin_epoch=0, end_epoch=50):

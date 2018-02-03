@@ -45,7 +45,7 @@ def get_samples(label_feat, pos_number=200, neg_number=200):
            np.hstack((np.ones((pos_number,)), np.zeros((neg_number,))))
 
 
-def get_samples_with_iou_label(label_feat, pos_number=400, neg_number=400):
+def get_samples_with_iou_label(label_feat, pos_number=4000, neg_number=4000):
     import mxnet as mx
     x, y, w, h = label_feat[0, :]
     feat_bboxes = sample_on_feat(1, 1, 1, 1, w, h)
