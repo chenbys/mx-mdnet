@@ -41,9 +41,9 @@ def train_SD_on_VOT():
                 model = one_step_train(args, model, train_iter, val_iter, begin_epoch, begin_epoch + args.num_epoch)
                 begin_epoch += args.num_epoch
 
-                model.save_params('saved/finished_' + str(i + 1) + 'frame')
+                model.save_params('finished_' + str(i + 1) + 'frame')
                 model = extend.init_model(loss_type=1, fixed_conv=args.fixed_conv, load_conv123=False,
-                                          saved_fname='saved/finished' + str(i + 1) + 'frame')
+                                          saved_fname='finished' + str(i + 1) + 'frame')
                 train_res = model.score(train_iter, extend.MDNetIOUACC())
                 val_res = model.score(val_iter, extend.MDNetIOUACC())
                 for name, val in train_res:
