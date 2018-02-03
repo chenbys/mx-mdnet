@@ -30,7 +30,7 @@ def train_SD_on_VOT():
             print '@CHEN->%s in %d/%d ' % (seq_name, n, N)
             img_list, gt_list = vot.get_seq(seq_name)
             length = len(img_list)
-            for i in range(3):
+            for i in range(5):
                 print '@CHEN->frame:%d/%d' % (i, length)
                 print img_list[i]
                 train_iter = datahelper.get_train_iter(
@@ -40,23 +40,21 @@ def train_SD_on_VOT():
                                               iou_label=bool(args.loss_type)))
                 model = one_step_train(args, model, train_iter, val_iter, begin_epoch, begin_epoch + args.num_epoch)
                 begin_epoch += args.num_epoch
-                if i == 2:
-                    print 'saved!'
-                    model.save_params('saved/finished_3')
-                    model = extend.init_model(loss_type=1, fixed_conv=args.fixed_conv, load_conv123=False,
-                                              saved_fname='saved/finished_3')
+                model.save_params('saved/finished_' + str(i + 1) + 'frame')
+                model = extend.init_model(loss_type=1, fixed_conv=args.fixed_conv, load_conv123=False,
+                                          saved_fname='saved/finished' + str(i + 1) + 'frame')
 
-                    # try tracking for validation
-                    # res = run.track(args, model, img_list[(i + 1) % length], gt_list[i])
-                    # print '@CHEN->track on frame %d, iou of res is %.2f' % (
-                    #     i + 1, util.overlap_ratio(res, np.array(gt_list[(i + 1) % length])))
-                    # print res
-                    # print gt_list[(i + 1) % length]
-                    # res2 = run.track(args, model, img_list[(i) % length], gt_list[(i - 1) % length])
-                    # print '@CHEN->track on frame %d, iou of res is %.2f' % (
-                    #     i, util.overlap_ratio(res2, np.array(gt_list[(i) % length])))
-                    # print res2
-                    # print gt_list[(i) % length]
+                # try tracking for validation
+                # res = run.track(args, model, img_list[(i + 1) % length], gt_list[i])
+                # print '@CHEN->track on frame %d, iou of res is %.2f' % (
+                #     i + 1, util.overlap_ratio(res, np.array(gt_list[(i + 1) % length])))
+                # print res
+                # print gt_list[(i + 1) % length]
+                # res2 = run.track(args, model, img_list[(i) % length], gt_list[(i - 1) % length])
+                # print '@CHEN->track on frame %d, iou of res is %.2f' % (
+                #     i, util.overlap_ratio(res2, np.array(gt_list[(i) % length])))
+                # print res2
+                # print gt_list[(i) % length]
 
 
 def one_step_train(args, model, train_iter=None, val_iter=None, begin_epoch=0, end_epoch=50):
@@ -96,8 +94,8 @@ def one_step_train(args, model, train_iter=None, val_iter=None, begin_epoch=0, e
               batch_end_callback=mx.callback.Speedometer(1, args.batch_callback_freq), monitor=mon)
     t2 = time.time()
     # Do val
-    train_res = model.score(train_iter, metric)
-    val_res = model.score(val_iter, metric)
+    train_res = model.score(train_iter, extend.MDNetIOUACC())
+    val_res = model.score(val_iter, extend.MDNetIOUACC())
     for name, val in train_res:
         logging.getLogger().error('train-%s=%f', name, val)
     for name, val in val_res:
