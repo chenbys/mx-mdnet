@@ -7,12 +7,16 @@ import extend
 from setting import config
 
 
-def track(model, img_path, pre_region):
+def track(args, model, img_path, pre_region):
     feat_bbox = sample.sample_on_feat()
     predict_iter = datahelper.get_predict_iter(img_path, pre_region, feat_bbox)
     res = model.predict(predict_iter)
-    pos_score = res[:, 1]
-    opt_idx = mx.ndarray.topk(pos_score, k=5).asnumpy().astype('int32')
+
+    if args.loss_type == 0:
+        res = res[:, 1]
+    elif args.loss_type == 1:
+        res = res * -1
+    opt_idx = mx.ndarray.topk(res, k=5).asnumpy().astype('int32')
     opt_feat_bboxes = feat_bbox[opt_idx, 1:]
     opt_img_bboxes = util.feat2img(opt_feat_bboxes)
     opt_img_bbox = opt_img_bboxes.mean(0)

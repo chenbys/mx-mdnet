@@ -42,12 +42,12 @@ def train_SD_on_VOT():
                 begin_epoch += args.num_epoch
 
                 # try tracking for validation
-                res = run.track(model, img_list[(i + 1) % length], gt_list[i])
+                res = run.track(args, model, img_list[(i + 1) % length], gt_list[i])
                 print '@CHEN->track on frame %d, iou of res is %.2f' % (
                     i + 1, util.overlap_ratio(res, np.array(gt_list[(i + 1) % length])))
                 print res
                 print gt_list[(i + 1) % length]
-                res2 = run.track(model, img_list[(i) % length], gt_list[(i - 1) % length])
+                res2 = run.track(args, model, img_list[(i) % length], gt_list[(i - 1) % length])
                 print '@CHEN->track on frame %d, iou of res is %.2f' % (
                     i, util.overlap_ratio(res2, np.array(gt_list[(i) % length])))
                 print res2
@@ -149,7 +149,7 @@ def parse_args():
     parser.add_argument('--VOT_path', help='VOT folder', default='/home/chenjunjie/dataset/VOT2015', type=str)
     parser.add_argument('--p_level', help='print level, default is 0 for debug mode', default=0, type=int)
     parser.add_argument('--fixed_conv', help='the params before(include) which conv are all fixed', default=0, type=int)
-    parser.add_argument('--loss_type', type=int, default=0,
+    parser.add_argument('--loss_type', type=int, default=1,
                         help='0 for {0,1} corss-entropy, 1 for smooth_l1, 2 for {pos_pred} corss-entropy')
     parser.add_argument('--lr_step', default=36 * 1, type=int)
     parser.add_argument('--lr_factor', default=0.9, type=float)
