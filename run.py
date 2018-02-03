@@ -25,7 +25,8 @@ def track(args, model, img_path, pre_region):
         ax.imshow(img_patch_)
         ax.add_patch(patches.Rectangle((img_bbox[0], img_bbox[1]), img_bbox[2], img_bbox[3],
                                        linewidth=2, edgecolor='y', facecolor='none'))
-    check_pred(0)
+
+    # check_pred(0)
     res = model.predict(predict_iter)
 
     if args.loss_type == 0:
@@ -48,8 +49,8 @@ if __name__ == '__main__':
     img_path = img_list[1]
     pre_region = gts[0]
 
-    model = extend.init_model(1, 0, False, 'saved/finished6frame')
-    # res = model.score(val_iter, extend.MDNetACC())
+    model = extend.init_model(loss_type=1, fixed_conv=0, load_conv123=False, saved_fname='saved/finished3frame')
+    res = model.score(val_iter, extend.MDNetIOUACC())
     import easydict
 
     args = easydict.EasyDict()

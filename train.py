@@ -19,7 +19,7 @@ def train_SD_on_VOT():
         config.ctx = mx.cpu(0)
     else:
         config.ctx = mx.gpu(args.gpu)
-    model = extend.init_model(args.loss_type, args.fixed_conv, load_conv123=True)
+    model = extend.init_model(args.loss_type, args.fixed_conv, load_conv123=args.load_conv123)
 
     vot = datahelper.VOTHelper(args.VOT_path)
     logging.getLogger().setLevel(logging.DEBUG)
@@ -40,18 +40,18 @@ def train_SD_on_VOT():
                                               iou_label=bool(args.loss_type)))
                 model = one_step_train(args, model, train_iter, val_iter, begin_epoch, begin_epoch + args.num_epoch)
                 begin_epoch += args.num_epoch
-
-                # try tracking for validation
-                res = run.track(args, model, img_list[(i + 1) % length], gt_list[i])
-                print '@CHEN->track on frame %d, iou of res is %.2f' % (
-                    i + 1, util.overlap_ratio(res, np.array(gt_list[(i + 1) % length])))
-                print res
-                print gt_list[(i + 1) % length]
-                res2 = run.track(args, model, img_list[(i) % length], gt_list[(i - 1) % length])
-                print '@CHEN->track on frame %d, iou of res is %.2f' % (
-                    i, util.overlap_ratio(res2, np.array(gt_list[(i) % length])))
-                print res2
-                print gt_list[(i) % length]
+            model.save_params('saved/finished_3')
+            # try tracking for validation
+            # res = run.track(args, model, img_list[(i + 1) % length], gt_list[i])
+            # print '@CHEN->track on frame %d, iou of res is %.2f' % (
+            #     i + 1, util.overlap_ratio(res, np.array(gt_list[(i + 1) % length])))
+            # print res
+            # print gt_list[(i + 1) % length]
+            # res2 = run.track(args, model, img_list[(i) % length], gt_list[(i - 1) % length])
+            # print '@CHEN->track on frame %d, iou of res is %.2f' % (
+            #     i, util.overlap_ratio(res2, np.array(gt_list[(i) % length])))
+            # print res2
+            # print gt_list[(i) % length]
 
 
 def one_step_train(args, model, train_iter=None, val_iter=None, begin_epoch=0, end_epoch=50):
@@ -67,8 +67,8 @@ def one_step_train(args, model, train_iter=None, val_iter=None, begin_epoch=0, e
         metric.add(extend.MDNetLoss())
     else:
         metric.add(extend.MDNetIOUACC(args.iou_acc_th))
-        # metric.add(extend.MDNetIOUACC(args.iou_acc_th * 2))
-        # metric.add(extend.MDNetIOUACC(args.iou_acc_th * 3))
+        metric.add(extend.MDNetIOUACC(args.iou_acc_th * 2))
+        metric.add(extend.MDNetIOUACC(args.iou_acc_th * 3))
         metric.add(extend.MDNetIOULoss())
 
     def sf(x):
@@ -139,6 +139,7 @@ def train_SD_on_OTB():
 def parse_args():
     parser = argparse.ArgumentParser(description='Train MDNet network')
     parser.add_argument('--gpu', help='GPU device to train with', default=2, type=int)
+    parser.add_argument('--load_conv123', help='load conv123', default=True, type=bool)
     parser.add_argument('--num_epoch', help='epoch of training for every frame', default=0, type=int)
     parser.add_argument('--batch_callback_freq', default=50, type=int)
     parser.add_argument('--lr', help='base learning rate', default=1e-6, type=float)
