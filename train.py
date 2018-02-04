@@ -52,12 +52,13 @@ def train_SD_on_VOT():
 
                 # save and load
                 print 'be'
-                run.run_test(args)
-                model.save_params('saved/finished_' + str(i + 1) + 'frame')
-
+                run.run_test(args, model)
+                # model.save_params('saved/finished_' + str(i + 1) + 'frame')
+                model.save_params('saved/test')
                 model = extend.init_model(loss_type=1, fixed_conv=args.fixed_conv, load_conv123=False,
-                                          saved_fname='saved/finished_' + str(i + 1) + 'frame')
+                                          saved_fname='test')
                 print 'af'
+                run.run_test(args, model)
                 run.run_test(args)
 
                 # val

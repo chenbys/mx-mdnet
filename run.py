@@ -42,13 +42,16 @@ def track(args, model, img_path, pre_region):
     return opt_img_bbox
 
 
-def run_test(args):
+def run_test(args, model=None):
     vot = datahelper.VOTHelper(args.VOT_path)
     img_list, gts = vot.get_seq('bag')
-    v0 = datahelper.get_train_iter(datahelper.get_train_data(img_list[0], gts[0]))
+    print img_list[0]
+    print gts[0]
+    v0 = datahelper.get_train_iter(datahelper.get_train_data())
     v1 = datahelper.get_train_iter(datahelper.get_train_data(img_list[1], gts[1]))
     v2 = datahelper.get_train_iter(datahelper.get_train_data(img_list[2], gts[2]))
-    model = extend.init_model(loss_type=1, fixed_conv=0, load_conv123=False, saved_fname='saved/finished_3frame')
+    if model is None:
+        model = extend.init_model(loss_type=1, fixed_conv=0, load_conv123=False, saved_fname='saved/test')
     r0 = model.score(v0, extend.MDNetIOUACC())
     r1 = model.score(v1, extend.MDNetIOUACC())
     r2 = model.score(v2, extend.MDNetIOUACC())
