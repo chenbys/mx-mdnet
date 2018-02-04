@@ -19,11 +19,11 @@ def train_SD_on_VOT():
         config.ctx = mx.cpu(0)
     else:
         config.ctx = mx.gpu(args.gpu)
-    model = extend.init_model(args.loss_type, args.fixed_conv, load_conv123=args.load_conv123)
+    model = extend.init_model(args.loss_type, args.fixed_conv, load_conv123=args.load_conv123,
+                              saved_fname=args.saved_fname)
 
     vot = datahelper.VOTHelper(args.VOT_path)
     logging.getLogger().setLevel(logging.DEBUG)
-    begin_epoch = 0
     N = 5
     for n in range(N):
         for seq_name in vot.seq_names:
@@ -31,6 +31,7 @@ def train_SD_on_VOT():
             img_list, gt_list = vot.get_seq(seq_name)
             length = len(img_list)
             for i in range(5):
+                begin_epoch = 0
                 print '@CHEN->frame:%d/%d' % (i, length)
                 print img_list[i]
                 train_iter = datahelper.get_train_iter(
@@ -93,8 +94,8 @@ def one_step_train(args, model, train_iter=None, val_iter=None, begin_epoch=0, e
                                 'wd'           : args.wd,
                                 'momentum'     : args.momentum,
                                 'clip_gradient': 5,
-                                # 'lr_scheduler' : mx.lr_scheduler.FactorScheduler(args.lr_step, args.lr_factor,
-                                #                                                  args.lr_stop),
+                                'lr_scheduler' : mx.lr_scheduler.FactorScheduler(args.lr_step, args.lr_factor,
+                                                                                 args.lr_stop),
                                 },
               eval_metric=metric, num_epoch=end_epoch, begin_epoch=begin_epoch,
               batch_end_callback=mx.callback.Speedometer(1, args.batch_callback_freq), monitor=mon)
@@ -156,9 +157,10 @@ def parse_args():
                         help='0 for {0,1} corss-entropy, 1 for smooth_l1, 2 for {pos_pred} corss-entropy')
     parser.add_argument('--lr_step', default=36 * 1, type=int)
     parser.add_argument('--lr_factor', default=0.9, type=float)
-    parser.add_argument('--lr_stop', default=1e-10, type=float)
+    parser.add_argument('--lr_stop', default=1e-6, type=float)
     parser.add_argument('--iou_acc_th', default=0.1, type=float)
     parser.add_argument('--momentum', default=0, type=float)
+    parser.add_argument('--saved_fname', default=None, type=str)
 
     args = parser.parse_args()
     return args
