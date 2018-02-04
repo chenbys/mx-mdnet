@@ -68,17 +68,18 @@ def train_SD_on_VOT():
                     logging.getLogger().error('train-%s=%f', name, val)
                 for name, val in val_res:
                     logging.getLogger().error('valid-%s=%f', name, val)
-                    # try tracking for validation
-                    # res = run.track(args, model, img_list[(i + 1) % length], gt_list[i])
-                    # print '@CHEN->track on frame %d, iou of res is %.2f' % (
-                    #     i + 1, util.overlap_ratio(res, np.array(gt_list[(i + 1) % length])))
-                    # print res
-                    # print gt_list[(i + 1) % length]
-                    # res2 = run.track(args, model, img_list[(i) % length], gt_list[(i - 1) % length])
-                    # print '@CHEN->track on frame %d, iou of res is %.2f' % (
-                    #     i, util.overlap_ratio(res2, np.array(gt_list[(i) % length])))
-                    # print res2
-                    # print gt_list[(i) % length]
+                exit(0)
+                # try tracking for validation
+                # res = run.track(args, model, img_list[(i + 1) % length], gt_list[i])
+                # print '@CHEN->track on frame %d, iou of res is %.2f' % (
+                #     i + 1, util.overlap_ratio(res, np.array(gt_list[(i + 1) % length])))
+                # print res
+                # print gt_list[(i + 1) % length]
+                # res2 = run.track(args, model, img_list[(i) % length], gt_list[(i - 1) % length])
+                # print '@CHEN->track on frame %d, iou of res is %.2f' % (
+                #     i, util.overlap_ratio(res2, np.array(gt_list[(i) % length])))
+                # print res2
+                # print gt_list[(i) % length]
 
 
 def one_step_train(args, model, train_iter=None, val_iter=None, begin_epoch=0, end_epoch=50):

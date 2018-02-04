@@ -47,7 +47,7 @@ def run_test(args, model=None):
     img_list, gts = vot.get_seq('bag')
     print img_list[0]
     print gts[0]
-    v0 = datahelper.get_train_iter(datahelper.get_train_data())
+    v0 = datahelper.get_train_iter(datahelper.get_train_data(img_list[0], gts[0]))
     v1 = datahelper.get_train_iter(datahelper.get_train_data(img_list[1], gts[1]))
     v2 = datahelper.get_train_iter(datahelper.get_train_data(img_list[2], gts[2]))
     if model is None:
