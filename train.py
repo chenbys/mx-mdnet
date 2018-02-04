@@ -43,6 +43,13 @@ def train_SD_on_VOT():
                 model = one_step_train(args, model, train_iter, val_iter, begin_epoch, begin_epoch + args.num_epoch)
                 begin_epoch += args.num_epoch
 
+                train_res = model.score(train_iter, extend.MDNetIOUACC())
+                val_res = model.score(val_iter, extend.MDNetIOUACC())
+                for name, val in train_res:
+                    logging.getLogger().error('train-%s=%f', name, val)
+                for name, val in val_res:
+                    logging.getLogger().error('valid-%s=%f', name, val)
+
                 # save and load
                 print 'be'
                 run.run_test(args)
