@@ -7,7 +7,7 @@ from scipy.misc import imresize
 import util
 
 
-def get_train_data(img_path, region, stride_w=0.2, stride_h=0.2, iou_label=False):
+def get_train_data(img_path, region, stride_w=0.2, stride_h=0.2, iou_label=True):
     img = cv2.imread(img_path)
     img_H, img_W, c = np.shape(img)
     img_pad = np.concatenate((img, img, img), 0)
