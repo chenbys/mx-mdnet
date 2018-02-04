@@ -42,11 +42,8 @@ def track(args, model, img_path, pre_region):
     return opt_img_bbox
 
 
-if __name__ == '__main__':
-    # config.ctx = mx.cpu(0)
-    # vot = datahelper.VOTHelper()
-    config.ctx = mx.gpu(2)
-    vot = datahelper.VOTHelper('/home/chenjunjie/dataset/VOT2015')
+def run_test(args):
+    vot = datahelper.VOTHelper(args.VOT_path)
     img_list, gts = vot.get_seq('bag')
     v0 = datahelper.get_train_iter(datahelper.get_train_data(img_list[0], gts[0]))
     v1 = datahelper.get_train_iter(datahelper.get_train_data(img_list[1], gts[1]))
@@ -58,6 +55,13 @@ if __name__ == '__main__':
     print r0
     print r1
     print r2
+
+
+if __name__ == '__main__':
+    config.ctx = mx.cpu(0)
+    # config.ctx = mx.gpu(2)
+    # vot = datahelper.VOTHelper('/home/chenjunjie/dataset/VOT2015')
+
     import easydict
 
     # args = easydict.EasyDict()

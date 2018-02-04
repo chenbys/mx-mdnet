@@ -43,9 +43,17 @@ def train_SD_on_VOT():
                 model = one_step_train(args, model, train_iter, val_iter, begin_epoch, begin_epoch + args.num_epoch)
                 begin_epoch += args.num_epoch
 
+                # save and load
+                print 'be'
+                run.run_test(args)
                 model.save_params('saved/finished_' + str(i + 1) + 'frame')
+
                 model = extend.init_model(loss_type=1, fixed_conv=args.fixed_conv, load_conv123=False,
                                           saved_fname='saved/finished_' + str(i + 1) + 'frame')
+                print 'af'
+                run.run_test(args)
+
+                # val
                 train_res = model.score(train_iter, extend.MDNetIOUACC())
                 val_res = model.score(val_iter, extend.MDNetIOUACC())
                 for name, val in train_res:
@@ -165,62 +173,6 @@ def parse_args():
 
     args = parser.parse_args()
     return args
-
-
-def main():
-    args = parse_args()
-    config.p_level = args.p_level
-
-    if args.gpu == -1:
-        config.ctx = mx.cpu(0)
-    else:
-        config.ctx = mx.gpu(args.gpu)
-
-    seq_name = 'Surfer'
-    otb = datahelper.OTBHelper(args.OTB_path)
-    img_list = otb.get_img(seq_name)
-    gt_list = otb.get_gt(seq_name)
-    train_iter = datahelper.get_train_iter(
-        datahelper.get_train_data(img_list[0], gt_list[0], iou_label=bool(args.loss_type)))
-    model = extend.init_model(args.loss_type, args.fixed_conv, train_iter, True)
-    logging.getLogger().setLevel(logging.DEBUG)
-    begin_epoch = 0
-    count = 1
-    for img_path, gt in zip(img_list[0:2], gt_list[0:2]):
-        train_iter = datahelper.get_train_iter(datahelper.get_train_data(img_path, gt, iou_label=bool(args.loss_type)))
-        val_iter = datahelper.get_train_iter(
-            datahelper.get_train_data(img_list[count + 1], gt_list[count + 1], iou_label=bool(args.loss_type)))
-
-        model = one_step_train(args, model, train_iter, val_iter, begin_epoch, args.num_epoch)
-        begin_epoch += args.num_epoch
-        p('finished training on frame %d.' % count, level=constant.P_RUN)
-        count += 1
-
-
-def test_track_speed():
-    args = parse_args()
-    config.p_level = args.p_level
-
-    if args.gpu == -1:
-        config.ctx = mx.cpu(0)
-    else:
-        config.ctx = mx.gpu(args.gpu)
-
-    seq_name = 'Surfer'
-    otb = datahelper.OTBHelper(args.OTB_path)
-    img_list = otb.get_img(seq_name)
-    gt_list = otb.get_gt(seq_name)
-    img_path = img_list[0]
-    gt = gt_list[0]
-    import run
-    import time
-    train_iter = datahelper.get_train_iter(datahelper.get_train_data(img_path, gt))
-    model = one_step_train(args, None, train_iter, num_epoch=1)
-    t1 = time.time()
-    box = run.track(model, img_path, gt)
-    t2 = time.time()
-    print t2 - t1
-    print box
 
 
 if __name__ == '__main__':

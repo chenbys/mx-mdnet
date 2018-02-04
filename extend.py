@@ -124,5 +124,6 @@ def init_model(loss_type=0, fixed_conv=0, load_conv123=True, saved_fname=None):
             conv123[k] = mx.ndarray.array(conv123.get(k))
         model.init_params(arg_params=conv123, allow_missing=True, force_init=False, allow_extra=True)
     if saved_fname:
+        print 'load from:' + saved_fname
         model.load_params(saved_fname)
     return model
