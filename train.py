@@ -92,7 +92,7 @@ def one_step_train(args, model, train_iter=None, val_iter=None, begin_epoch=0, e
                              sort=True)
     mon = None
     t1 = time.time()
-    model.fit(train_data=train_iter, val_iter=val_iter, optimizer='sgd',
+    model.fit(train_data=train_iter, eval_data=val_iter, optimizer='sgd',
               optimizer_params={'learning_rate': args.lr,
                                 'wd'           : args.wd,
                                 'momentum'     : args.momentum,
