@@ -9,6 +9,22 @@ import matplotlib.pyplot as plt
 from matplotlib import patches
 
 
+def track_seq(model, img_paths, gts, topk=5):
+    res = []
+    length = len(img_paths)
+    pre_region = gts[0]
+    for T in range(1, length):
+        print T
+        img_path = img_paths[T]
+        pre_region = track(model, img_path, pre_region, topk=topk)
+        res.append(pre_region)
+
+    r = np.array(res)
+    g = np.array(gts[1:])
+    iou = util.overlap_ratio(r, g)
+    return res
+
+
 def track(model, img_path, pre_region, topk=5):
     # only for iou loss
     feat_bboxes = sample.sample_on_feat()
@@ -37,7 +53,7 @@ def track(model, img_path, pre_region, topk=5):
 
     # check_pred(0)
     res = model.predict(pred_iter)
-    opt_idx = mx.ndarray.topk(res*-1, k=topk).asnumpy().astype('int32')
+    opt_idx = mx.ndarray.topk(res, k=topk).asnumpy().astype('int32')
     opt_feat_bboxes = feat_bboxes[opt_idx, 1:]
     opt_patch_bboxes = util.feat2img(opt_feat_bboxes)
     opt_patch_bbox = opt_patch_bboxes.mean(0)
@@ -55,10 +71,11 @@ if __name__ == '__main__':
     # v0 = datahelper.get_train_iter(datahelper.get_train_data(img_list[0], gts[0]))
     # v1 = datahelper.get_train_iter(datahelper.get_train_data(img_list[1], gts[1]))
     # v2 = datahelper.get_train_iter(datahelper.get_train_data(img_list[2], gts[2]))
-    model = extend.init_model(loss_type=1, fixed_conv=0, load_conv123=False, saved_fname='saved/finished_3frame')
+    model = extend.init_model(loss_type=1, fixed_conv=0, load_conv123=True, saved_fname='saved/finished_3frame')
     # r0 = model.score(v0, extend.MDNetIOUACC())
     # r1 = model.score(v1, extend.MDNetIOUACC())
     # r2 = model.score(v2, extend.MDNetIOUACC())
+    res = track_seq(model, img_list[:10], gts[:10])
 
     T = 3
     img_path = img_list[T - 1]
