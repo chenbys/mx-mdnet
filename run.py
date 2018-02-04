@@ -15,7 +15,7 @@ def track(args, model, img_path, pre_region):
         # R = res.asnumpy()
         # R[i]
         feat_bbox = feat_bboxes[i, 1:].reshape(1, 4)
-        img_bbox = util.feat2img(feat_bbox)
+        img_bbox = util.feat2img(feat_bbox).reshape(4, )
         img_patch_ = np.reshape(img_patch, (227, 227, 3))
         import matplotlib.pyplot as plt
         from matplotlib import patches
@@ -25,6 +25,8 @@ def track(args, model, img_path, pre_region):
         ax.imshow(img_patch_)
         ax.add_patch(patches.Rectangle((img_bbox[0], img_bbox[1]), img_bbox[2], img_bbox[3],
                                        linewidth=2, edgecolor='y', facecolor='none'))
+        fig.show()
+        return fig
 
     # check_pred(0)
     res = model.predict(predict_iter)
@@ -32,7 +34,7 @@ def track(args, model, img_path, pre_region):
     if args.loss_type == 0:
         res = res[:, 1]
     elif args.loss_type == 1:
-        res = res * -1
+        res = res
     opt_idx = mx.ndarray.topk(res, k=5).asnumpy().astype('int32')
     opt_feat_bboxes = feat_bboxes[opt_idx, 1:]
     opt_img_bboxes = util.feat2img(opt_feat_bboxes)
@@ -48,14 +50,17 @@ if __name__ == '__main__':
     v0 = datahelper.get_train_iter(datahelper.get_train_data(img_list[0], gts[0]))
     v1 = datahelper.get_train_iter(datahelper.get_train_data(img_list[1], gts[1]))
     v2 = datahelper.get_train_iter(datahelper.get_train_data(img_list[2], gts[2]))
-    model = extend.init_model(loss_type=1, fixed_conv=0, load_conv123=False, saved_fname='saved/finished_3')
+    model = extend.init_model(loss_type=1, fixed_conv=0, load_conv123=False, saved_fname='saved/finished_3frame')
     r0 = model.score(v0, extend.MDNetIOUACC())
     r1 = model.score(v1, extend.MDNetIOUACC())
     r2 = model.score(v2, extend.MDNetIOUACC())
+    print r0
+    print r1
+    print r2
     import easydict
 
-    args = easydict.EasyDict()
-    args.loss_type = 1
-    img_path = img_list[1]
-    pre_region = gts[0]
-    track(args, model, img_path, pre_region)
+    # args = easydict.EasyDict()
+    # args.loss_type = 1
+    # img_path = img_list[1]
+    # pre_region = gts[0]
+    # track(args, model, img_path, pre_region)

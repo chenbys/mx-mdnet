@@ -34,6 +34,7 @@ def train_SD_on_VOT():
                 begin_epoch = 0
                 print '@CHEN->frame:%d/%d' % (i, length)
                 print img_list[i]
+                print gt_list[i]
                 train_iter = datahelper.get_train_iter(
                     datahelper.get_train_data(img_list[i], gt_list[i], iou_label=bool(args.loss_type)))
                 val_iter = datahelper.get_train_iter(
