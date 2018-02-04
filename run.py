@@ -43,9 +43,10 @@ def track(args, model, img_path, pre_region):
 
 
 if __name__ == '__main__':
-    config.ctx = mx.cpu(0)
-
-    vot = datahelper.VOTHelper()
+    # config.ctx = mx.cpu(0)
+    # vot = datahelper.VOTHelper()
+    config.ctx = mx.gpu(2)
+    vot = datahelper.VOTHelper('/home/chenjunjie/dataset/VOT2015')
     img_list, gts = vot.get_seq('bag')
     v0 = datahelper.get_train_iter(datahelper.get_train_data(img_list[0], gts[0]))
     v1 = datahelper.get_train_iter(datahelper.get_train_data(img_list[1], gts[1]))
