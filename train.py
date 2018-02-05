@@ -22,7 +22,11 @@ def train_SD_on_VOT():
     model = extend.init_model(loss_type=args.loss_type, fixed_conv=args.fixed_conv, saved_fname=args.saved_fname)
 
     vot = datahelper.VOTHelper(args.VOT_path)
-    logging.getLogger().setLevel(logging.DEBUG)
+    if args.log == 0:
+        logging.getLogger().setLevel(logging.DEBUG)
+    else:
+        logging.getLogger().setLevel(logging.ERROR)
+
     N = 5
     for n in range(N):
         for seq_name in vot.seq_names:
@@ -112,6 +116,7 @@ def parse_args():
     parser.add_argument('--iou_acc_th', default=0.1, type=float)
     parser.add_argument('--momentum', default=0, type=float)
     parser.add_argument('--saved_fname', default=None, type=str)
+    parser.add_argument('--log', default=1, type=int)
 
     args = parser.parse_args()
     return args
