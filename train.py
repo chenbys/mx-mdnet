@@ -22,7 +22,7 @@ def train_SD_on_VOT():
     model = extend.init_model(loss_type=args.loss_type, fixed_conv=args.fixed_conv, saved_fname=args.saved_fname)
 
     vot = datahelper.VOTHelper(args.VOT_path)
-    logging.getLogger().setLevel(logging.ERROR)
+    logging.getLogger().setLevel(logging.DEBUG)
     N = 5
     for n in range(N):
         for seq_name in vot.seq_names:
@@ -37,7 +37,7 @@ def train_SD_on_VOT():
                 val_iter = datahelper.get_train_iter(
                     datahelper.get_train_data(img_list[(i + 1) % length], gt_list[(i + 1) % length],
                                               iou_label=bool(args.loss_type)))
-                model = one_step_train(args, model, train_iter, None, begin_epoch, begin_epoch + args.num_epoch)
+                model = one_step_train(args, model, train_iter, val_res, begin_epoch, begin_epoch + args.num_epoch)
                 begin_epoch += args.num_epoch
 
                 # val
