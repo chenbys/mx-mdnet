@@ -101,7 +101,7 @@ def get_mdnet_conv123_params(prefix='', mat_path='saved/conv123.mat'):
     return arg_params
 
 
-def init_model(loss_type=0, fixed_conv=0, load_conv123=True, saved_fname=None):
+def init_model(loss_type=0, fixed_conv=0, saved_fname='conv123'):
     import datahelper
 
     if loss_type == 0:
@@ -118,12 +118,18 @@ def init_model(loss_type=0, fixed_conv=0, load_conv123=True, saved_fname=None):
     sample_iter = datahelper.get_train_iter(
         datahelper.get_train_data('saved/mx-mdnet_01CE.jpg', [24, 24, 24, 24], iou_label=bool(loss_type)))
     model.bind(sample_iter.provide_data, sample_iter.provide_label)
-    if load_conv123:
+
+    if saved_fname == 'conv123':
+        print '@CHEN->load params from conv123'
         conv123 = get_mdnet_conv123_params()
         for k in conv123.keys():
             conv123[k] = mx.ndarray.array(conv123.get(k))
         model.init_params(arg_params=conv123, allow_missing=True, force_init=False, allow_extra=True)
-    if saved_fname:
-        print 'load from:' + saved_fname
+    elif saved_fname is not None:
+        print '@CHEN->load params from:' + saved_fname
         model.load_params(saved_fname)
+    else:
+        print '@CHEN->init params.'
+        model.init_params()
+
     return model

@@ -101,4 +101,4 @@ def test_train_iter():
 
 
 if __name__ == '__main__':
-    check_train_data_IOU()
+    test_train_iter()

@@ -1,2 +1,2 @@
 #!/usr/bin/env bash
-python train.py --gpu 3 --lr 1e-7 --wd 5e-4 --num_epoch 100 --batch_callback_freq 50 --lr_step 72 --lr_stop 1e-12 --momentum 0.9
+python train.py --gpu 1 --loss_type 1 --fixed_conv 0 --batch_callback_freq 50 --momentum 0.5 --num_epoch 20 --lr 5e-5 --wd 1e-0
