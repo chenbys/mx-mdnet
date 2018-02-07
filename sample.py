@@ -45,17 +45,50 @@ def get_samples(label_feat, pos_number=200, neg_number=200):
            np.hstack((np.ones((pos_number,)), np.zeros((neg_number,))))
 
 
-def get_samples_with_iou_label(label_feat, pos_number=1000, rand_number=500, neg_number=500):
+def get_samples_with_iou_label(label_feat, p_number=200, h_number=200, m_number=300, s_number=100):
+    '''
+    :param label_feat:
+    :param pos_number:
+    :param rand_number:
+    :param neg_number:
+    :return:
+    '''
     import mxnet as mx
     import random
 
     x, y, w, h = label_feat[0, :]
+    # generate pos samples
     feat_bboxes = sample_on_feat(1, 1, 1, 1, w, h)
     feat_bboxes_ = util.x1y2x2y22xywh(feat_bboxes[:, 1:5])
     rat = util.overlap_ratio(label_feat, feat_bboxes_)
-    rand_idx = random.sample(range(0, rat.shape[0]), rand_number)
-    pos_idx = mx.ndarray.topk(mx.ndarray.array(rat), axis=0, k=pos_number).asnumpy().astype('int32')
-    neg_idx = mx.ndarray.topk(mx.ndarray.array(rat * -1), axis=0, k=neg_number).asnumpy().astype('int32')
-    all_idx = np.hstack((pos_idx, rand_idx, neg_idx))
+    # for p
+    p_samples, p_labels = feat_bboxes[rat > 0.8, :], rat[rat > 0.8]
+    num = p_samples.shape[0]
+    A, B = p_number / num, p_number % num
+    p_idx = random.sample(range(0, num), B)
+    p_samples = np.vstack((np.repeat(p_samples, A, axis=0), p_samples[p_idx, :]))
+    p_labels = np.hstack((np.repeat(p_labels, A, axis=0), p_labels[p_idx]))
+    # for h
+    h_samples, h_labels = feat_bboxes[rat > 0.7, :], rat[rat > 0.7]
+    num = h_samples.shape[0]
+    A, B = h_number / num, h_number % num
+    h_idx = random.sample(range(0, num), B)
+    h_samples = np.vstack((np.repeat(h_samples, A, axis=0), h_samples[h_idx, :]))
+    h_labels = np.hstack((np.repeat(h_labels, A, axis=0), h_labels[h_idx]))
+    # for m
+    m_samples, m_labels = feat_bboxes[0.7 > rat, :], rat[0.7 > rat]
+    num = m_samples.shape[0]
+    A, B = m_number / num, m_number % num
+    m_idx = random.sample(range(0, num), B)
+    m_samples = np.vstack((np.repeat(m_samples, A, axis=0), m_samples[m_idx, :]))
+    m_labels = np.hstack((np.repeat(m_labels, A, axis=0), m_labels[m_idx]))
+    # for s
+    s_samples, s_labels = feat_bboxes[0.3 > rat, :], rat[0.3 > rat]
+    num = s_samples.shape[0]
+    A, B = s_number / num, s_number % num
+    s_idx = random.sample(range(0, num), B)
+    s_samples = np.vstack((np.repeat(s_samples, A, axis=0), s_samples[s_idx, :]))
+    s_labels = np.hstack((np.repeat(s_labels, A, axis=0), s_labels[s_idx]))
 
-    return feat_bboxes[all_idx, :], rat[all_idx]
+    return np.vstack((p_samples, h_samples, m_samples, s_samples)), \
+           np.hstack((p_labels, h_labels, m_labels, s_labels))
