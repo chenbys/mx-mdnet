@@ -20,14 +20,14 @@ def train_MD_on_VOT():
         config.ctx = mx.cpu(0)
     else:
         config.ctx = mx.gpu(args.gpu)
-    model = extend.init_model(loss_type=args.loss_type, fixed_conv=args.fixed_conv, saved_fname=args.saved_fname)
+    model, all_params = extend.init_model(loss_type=args.loss_type, fixed_conv=args.fixed_conv,
+                                          saved_fname=args.saved_fname)
 
     vot = datahelper.VOTHelper(args.VOT_path)
     if args.log == 0:
         logging.getLogger().setLevel(logging.DEBUG)
     else:
         logging.getLogger().setLevel(logging.ERROR)
-    all_params = {}
 
     # seq num
     N = 60
