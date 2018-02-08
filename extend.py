@@ -119,6 +119,7 @@ def init_model(loss_type=0, fixed_conv=0, saved_fname='conv123'):
         datahelper.get_train_data('saved/mx-mdnet_01CE.jpg', [24, 24, 24, 24], iou_label=bool(loss_type)))
     model.bind(sample_iter.provide_data, sample_iter.provide_label)
 
+    all_params = {}
     if saved_fname == 'conv123':
         print '@CHEN->load params from conv123'
         conv123 = get_mdnet_conv123_params()
@@ -126,16 +127,17 @@ def init_model(loss_type=0, fixed_conv=0, saved_fname='conv123'):
             conv123[k] = mx.ndarray.array(conv123.get(k))
         model.init_params(arg_params=conv123, allow_missing=True, force_init=False, allow_extra=True)
     elif saved_fname is not None:
-        print '@CHEN->load params from:' + saved_fname
-        model.load_params(saved_fname)
+        print '@CHEN->load all params from:' + saved_fname
+        all_params, arg_params = load_all_params(saved_fname)
+        model.set_params(arg_params, None)
     else:
         print '@CHEN->init params.'
         model.init_params()
 
-    return model
+    return model, all_params
 
 
-def get_params(seq_name, arg_params, all_params):
+def get_MD_params(seq_name, arg_params, all_params):
     branch_params = all_params.get(seq_name)
     if branch_params is None:
         print 'branch_params is None'
@@ -148,3 +150,12 @@ def get_params(seq_name, arg_params, all_params):
 
     branch_params.update(shared_params)
     return branch_params
+
+
+def save_all_params(all_params, fname):
+    mx.ndarray.save(fname, all_params)
+
+
+def load_all_params(fname):
+    all_params = mx.ndarray.load(fname)
+    return all_params, all_params.get(all_params.keys()[-1])

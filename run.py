@@ -17,8 +17,8 @@ def track_seq(model, img_paths, first_gt):
     res = [first_gt]
     length = len(img_paths)
     region = first_gt
-    for T in range(length):
-        img_path = img_paths[T]
+    for cur in range(length):
+        img_path = img_paths[cur]
 
         # track
         region, score = track(model, img_path, region, topk=5)
@@ -27,19 +27,20 @@ def track_seq(model, img_paths, first_gt):
         # online update
         if score < 0:
             # short term update
-            model = online_update(model, img_paths, res)
-        elif T % 10 == 0:
+            model = online_update(model, img_paths, res, cur)
+        elif cur % 10 == 0:
             # long term update
-            model = online_update(model, img_paths, res)
+            model = online_update(model, img_paths, res, cur)
 
     return res
 
 
-def online_update(model, img_paths, res):
+def online_update(model, img_paths, res, cur):
+    train_iter=datahelper.get_train_iter(datahelper.get_train_data())
     return model
 
 
-def train_on_first(args, model, first_path, gt, num_epoch):
+def train_on_first(args, model, first_path, gt, num_epoch=100):
     metric = mx.metric.CompositeEvalMetric()
     metric.add(extend.MDNetIOUACC())
     metric.add(extend.MDNetIOULoss())
@@ -93,6 +94,7 @@ def track(model, img_path, pre_region, topk=5):
 
     return opt_img_bbox, opt_score
 
+
 def parse_args():
     parser = argparse.ArgumentParser(description='Train MDNet network')
     parser.add_argument('--gpu', help='GPU device to train with', default=2, type=int)
@@ -116,6 +118,7 @@ def parse_args():
 
     args = parser.parse_args()
     return args
+
 
 if __name__ == '__main__':
     config.ctx = mx.cpu(0)

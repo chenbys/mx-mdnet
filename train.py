@@ -32,7 +32,7 @@ def train_MD_on_VOT():
     # seq num
     N = 60
     # training step num for each seq , one step for one frame
-    K = N * 5 * 1000
+    K = N * args.K
 
     for k in range(K):
         seq_idx = k % 60
@@ -60,6 +60,9 @@ def train_MD_on_VOT():
         # save params for MD training
         arg_params, aux_params = model.get_params()
         all_params[seq_name] = copy.deepcopy(arg_params)
+
+        if (k % (60 * 3) == 0) & (k != 0):
+            extend.save_all_params(all_params, 'params/iter_%d' % (k))
 
 
 def train_SD_on_VOT():
@@ -127,11 +130,11 @@ def one_step_train(args, model, train_iter=None, val_iter=None, begin_epoch=0, e
     '''
     metric = mx.metric.CompositeEvalMetric()
     metric.add(extend.MDNetIOUACC(args.iou_acc_th))
-    metric.add(extend.MDNetIOUACC(args.iou_acc_th * 2))
-    metric.add(extend.MDNetIOUACC(args.iou_acc_th * 3))
+    # metric.add(extend.MDNetIOUACC(args.iou_acc_th * 2))
+    # metric.add(extend.MDNetIOUACC(args.iou_acc_th * 3))
     metric.add(extend.MDNetIOULoss())
 
-    t1 = time.time()
+    # t1 = time.time()
     model.fit(train_data=train_iter, eval_data=val_iter, optimizer='sgd',
               optimizer_params={'learning_rate': args.lr,
                                 'wd'           : args.wd,
@@ -141,9 +144,8 @@ def one_step_train(args, model, train_iter=None, val_iter=None, begin_epoch=0, e
                                     args.lr_step, args.lr_factor, args.lr_stop)},
               eval_metric=metric, num_epoch=end_epoch, begin_epoch=begin_epoch,
               batch_end_callback=mx.callback.Speedometer(1, args.batch_callback_freq))
-    t2 = time.time()
-
-    print '@CHEN->one_step cost %.2f' % (t2 - t1)
+    # t2 = time.time()
+    # print '@CHEN->one_step cost %.2f' % (t2 - t1)
     return model
 
 
@@ -167,6 +169,7 @@ def parse_args():
     parser.add_argument('--momentum', default=0, type=float)
     parser.add_argument('--saved_fname', default=None, type=str)
     parser.add_argument('--log', default=1, type=int)
+    parser.add_argument('--K', default=5 * 1000, type=int)
 
     args = parser.parse_args()
     return args
