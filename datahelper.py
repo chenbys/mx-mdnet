@@ -230,6 +230,18 @@ class VOTHelper(object):
         for line in open(list_path):
             self.seq_names.append(line.replace('\n', ''))
 
+        self.__load_seq__()
+
+    def __load_seq__(self):
+        self.seq_dict = {}
+        self.gt_dict = {}
+        self.length_dict = {}
+        for seq_name in self.seq_names:
+            seq, gt = self.get_seq(seq_name)
+            self.seq_dict[seq_name] = seq
+            self.gt_dict[seq_name] = gt
+            self.length_dict[seq_name] = len(gt)
+
     def get_seq(self, seq_name):
         gt_path = os.path.join(self.home_path, seq_name, 'groundtruth.txt')
         gts = []
@@ -247,3 +259,20 @@ class VOTHelper(object):
             img_paths.append(os.path.join(self.home_path, seq_name, img_name))
             frame_idx += 1
         return img_paths, gts
+
+    def get_data(self, k):
+        '''
+            call before load_seq
+        :param k:  in the k-th iter
+        :return:    rep_times,train_iter,val_iter
+        '''
+        seq_idx = k % 60
+        seq_name = self.seq_names[seq_idx]
+        img_paths, gts, length = self.seq_dict[seq_name], self.gt_dict[seq_name], self.length_dict[seq_name]
+
+        frame_num = k / 60
+        rep_times, frame_idx = frame_num / 60, frame_num % length
+
+        img_path, gt = img_paths[frame_idx], gts[frame_idx]
+        val_path, val_gt = img_paths[(frame_idx + 1) % length], gts[(frame_idx + 1) % length]
+        return rep_times, get_train_iter(get_train_data(img_path, gt)), get_train_iter(get_train_data(val_path, val_gt))

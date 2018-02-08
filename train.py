@@ -9,6 +9,57 @@ import run
 import util
 import numpy as np
 import time
+import easydict
+import copy
+
+
+def train_MD_on_VOT():
+    args = parse_args()
+    config.p_level = args.p_level
+    if args.gpu == -1:
+        config.ctx = mx.cpu(0)
+    else:
+        config.ctx = mx.gpu(args.gpu)
+    model = extend.init_model(loss_type=args.loss_type, fixed_conv=args.fixed_conv, saved_fname=args.saved_fname)
+
+    vot = datahelper.VOTHelper(args.VOT_path)
+    if args.log == 0:
+        logging.getLogger().setLevel(logging.DEBUG)
+    else:
+        logging.getLogger().setLevel(logging.ERROR)
+    all_params = {}
+
+    # seq num
+    N = 60
+    # training step num for each seq , one step for one frame
+    K = N * 5 * 1000
+
+    for k in range(K):
+        seq_idx = k % 60
+        seq_name = vot.seq_names[seq_idx]
+
+        # load params for MD training
+        arg_params, aux_params = model.get_params()
+        arg_params = extend.get_params(seq_name, arg_params, all_params)
+        model.set_params(arg_params=arg_params, aux_params=aux_params,
+                         allow_missing=True, force_init=True, allow_extra=False)
+
+        # train
+        rep_times, train_iter, val_iter = vot.get_data(k)
+        print '@CHEN->%d iter, in %s, %d repeat times' % (k, seq_name, rep_times)
+        model = one_step_train(args, model, train_iter, end_epoch=args.num_epoch)
+
+        # validate
+        train_res = model.score(train_iter, extend.MDNetIOUACC())
+        val_res = model.score(val_iter, extend.MDNetIOUACC())
+        for name, val in train_res:
+            logging.getLogger().error('@CHEN->train-%s=%f', name, val)
+        for name, val in val_res:
+            logging.getLogger().error('@CHEN->valid-%s=%f', name, val)
+
+        # save params for MD training
+        arg_params, aux_params = model.get_params()
+        all_params[seq_name] = copy.deepcopy(arg_params)
 
 
 def train_SD_on_VOT():
@@ -86,9 +137,8 @@ def one_step_train(args, model, train_iter=None, val_iter=None, begin_epoch=0, e
                                 'wd'           : args.wd,
                                 'momentum'     : args.momentum,
                                 'clip_gradient': 5,
-                                'lr_scheduler' : mx.lr_scheduler.FactorScheduler(args.lr_step, args.lr_factor,
-                                                                                 args.lr_stop),
-                                },
+                                'lr_scheduler' : mx.lr_scheduler.FactorScheduler(
+                                    args.lr_step, args.lr_factor, args.lr_stop)},
               eval_metric=metric, num_epoch=end_epoch, begin_epoch=begin_epoch,
               batch_end_callback=mx.callback.Speedometer(1, args.batch_callback_freq))
     t2 = time.time()

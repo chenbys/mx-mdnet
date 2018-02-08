@@ -133,3 +133,18 @@ def init_model(loss_type=0, fixed_conv=0, saved_fname='conv123'):
         model.init_params()
 
     return model
+
+
+def get_params(seq_name, arg_params, all_params):
+    branch_params = all_params.get(seq_name)
+    if branch_params is None:
+        print 'branch_params is None'
+        return arg_params
+
+    shared_params_names = ['conv1_weight', 'conv1_bias', 'conv2_weight', 'conv2_bias', 'conv3_weight', 'conv3_bias']
+    shared_params = {}
+    for name in shared_params_names:
+        shared_params[name] = arg_params[name]
+
+    branch_params.update(shared_params)
+    return branch_params
