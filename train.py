@@ -63,7 +63,7 @@ def train_MD_on_VOT():
 
         if (k % (60 * 3) == 0) & (k != 0):
             extend.save_all_params(all_params, 'params/iter_%d' % (k))
-            print 'time cost for 60*3 iter: %f' % time.time() - t
+            print 'time cost for 60*3 iter: %f' % (time.time() - t)
             t = time.time()
 
 
