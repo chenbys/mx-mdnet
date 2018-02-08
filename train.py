@@ -40,7 +40,7 @@ def train_MD_on_VOT():
 
         # load params for MD training
         arg_params, aux_params = model.get_params()
-        arg_params = extend.get_params(seq_name, arg_params, all_params)
+        arg_params = extend.get_MD_params(seq_name, arg_params, all_params)
         model.set_params(arg_params=arg_params, aux_params=aux_params,
                          allow_missing=True, force_init=True, allow_extra=False)
 
