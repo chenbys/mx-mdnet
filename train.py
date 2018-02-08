@@ -173,4 +173,4 @@ def parse_args():
 
 
 if __name__ == '__main__':
-    train_SD_on_VOT()
+    train_MD_on_VOT()
