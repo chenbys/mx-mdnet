@@ -14,6 +14,7 @@ import copy
 
 
 def train_MD_on_VOT():
+    t = time.time()
     args = parse_args()
     config.p_level = args.p_level
     if args.gpu == -1:
@@ -31,9 +32,8 @@ def train_MD_on_VOT():
 
     # seq num
     N = 60
-    # training step num for each seq , one step for one frame
+    # training step num for each seq , one step for one frame, one of K cost 20s for 5 epoch.
     K = N * args.K
-
     for k in range(K):
         seq_idx = k % 60
         seq_name = vot.seq_names[seq_idx]
@@ -63,6 +63,8 @@ def train_MD_on_VOT():
 
         if (k % (60 * 3) == 0) & (k != 0):
             extend.save_all_params(all_params, 'params/iter_%d' % (k))
+            print 'time cost for 60*3 iter: %f' % time.time() - t
+            t = time.time()
 
 
 def train_SD_on_VOT():
