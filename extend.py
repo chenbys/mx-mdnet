@@ -154,7 +154,7 @@ def get_MD_params(seq_name, arg_params, all_params):
 
 def save_all_params(all_params, k):
     import os
-    os.system('mdkir params/' + str(k))
+    os.system('mkdir params/' + str(k))
     for key, value in all_params.items():
         mx.ndarray.save(os.path.join('params', str(k), key), value)
 
