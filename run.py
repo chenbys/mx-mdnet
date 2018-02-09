@@ -16,6 +16,8 @@ def debug_track_seq(args, model, img_paths, gts):
     first_gt = gts[0]
     model = train_on_first(args, model, img_paths[0], first_gt,
                            num_epoch=args.num_epoch_for_offline)
+    a, b = model.get_params()
+    mx.ndarray.save('params/offline_for_surfer', a)
 
     res = [first_gt]
     scores = [0]
@@ -29,19 +31,20 @@ def debug_track_seq(args, model, img_paths, gts):
         res.append(region)
 
         # report
-        print '@CHEN_>iou : %.2f, score: %.2f for tracking on frame %d' \
-              % (util.overlap_ratio(gts[cur], region), score, cur)
+        logging.getLogger().info(
+            '@CHEN->iou : %.2f, score: %.2f for tracking on frame %d' \
+            % (util.overlap_ratio(gts[cur], region), score, cur))
 
         # online update
         scores.append(score)
         if score < 0.5:
             # short term update
-            print '@CHEN->short term update'
+            logging.getLogger().info('@CHEN->short term update')
             model = online_update(args, model, img_paths, res, cur,
                                   num_epoch=args.num_epoch_for_online)
         elif cur % 10 == 0:
             # long term update
-            print '@CHEN->long term update'
+            logging.getLogger().info('@CHEN->long term update')
             model = online_update(args, model, img_paths, res, cur,
                                   num_epoch=args.num_epoch_for_online)
 
@@ -81,6 +84,7 @@ def track_seq(args, model, img_paths, first_gt):
 
 
 def online_update(args, model, img_paths, res, cur, history_len=10, num_epoch=10):
+    return
     for i in range(max(0, cur - history_len), cur + 1):
         metric = mx.metric.CompositeEvalMetric()
         metric.add(extend.MDNetIOUACC())
@@ -146,6 +150,7 @@ def track(model, img_path, pre_region, topk=5):
     opt_idx = mx.ndarray.topk(res, k=topk).asnumpy().astype('int32')
     res = res.asnumpy()
     opt_scores = res[opt_idx]
+    logging.getLogger().error(opt_scores.__str__())
     opt_score = opt_scores.mean()
     opt_feat_bboxes = feat_bboxes[opt_idx, 1:]
     opt_patch_bboxes = util.feat2img(opt_feat_bboxes)
