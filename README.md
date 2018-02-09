@@ -16,3 +16,4 @@ smooth_l1_0还有负数。不知道是什么情况！
 隐患：
 1.image reshape HWC to CHW
 2.mdnet_vot-otb.mat载入，conv1输出一致，lrn2输出小数点后三位有小误差。怀疑是精度误差，但误差应该可以无视。
+# TypeError: save only accept dict str->NDArray or list of NDArray

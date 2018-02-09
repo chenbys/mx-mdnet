@@ -152,10 +152,14 @@ def get_MD_params(seq_name, arg_params, all_params):
     return branch_params
 
 
-def save_all_params(all_params, fname):
-    mx.ndarray.save(fname, all_params)
+def save_all_params(all_params, k):
+    import os
+    os.system('mdkir params/' + str(k))
+    for key, value in all_params.items():
+        mx.ndarray.save(os.path.join('params', str(k), key), value)
 
 
 def load_all_params(fname):
+    k = int(fname)
     all_params = mx.ndarray.load(fname)
     return all_params, all_params.get(all_params.keys()[-1])

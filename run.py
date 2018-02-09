@@ -8,13 +8,17 @@ import extend
 from setting import config
 import matplotlib.pyplot as plt
 from matplotlib import patches
+import logging
 
 
 def track_seq(model, img_paths, first_gt):
     # train on first frame
+    logging.getLogger().setLevel(logging.DEBUG)
+
     model = train_on_first(model, img_paths[0], first_gt)
 
     res = [first_gt]
+    scores = [0]
     length = len(img_paths)
     region = first_gt
     for cur in range(length):
@@ -25,6 +29,8 @@ def track_seq(model, img_paths, first_gt):
         res.append(region)
 
         # online update
+        print score
+        scores.append(score)
         if score < 0:
             # short term update
             model = online_update(model, img_paths, res, cur)
@@ -32,11 +38,23 @@ def track_seq(model, img_paths, first_gt):
             # long term update
             model = online_update(model, img_paths, res, cur)
 
-    return res
+    return res, scores
 
 
-def online_update(model, img_paths, res, cur):
-    train_iter=datahelper.get_train_iter(datahelper.get_train_data())
+def online_update(args, model, img_paths, res, cur, history_len=10, num_epoch=10):
+    for i in range(max(0, cur - history_len), cur + 1):
+        metric = mx.metric.CompositeEvalMetric()
+        metric.add(extend.MDNetIOUACC())
+        metric.add(extend.MDNetIOULoss())
+        train_iter = datahelper.get_train_iter(datahelper.get_train_data(img_paths[i], res[i]))
+        model.fit(train_data=train_iter, optimizer='sgd',
+                  optimizer_params={'learning_rate': args.lr_online,
+                                    'wd'           : args.wd,
+                                    'momentum'     : args.momentum,
+                                    'clip_gradient': 5,
+                                    'lr_scheduler' : mx.lr_scheduler.FactorScheduler(
+                                        args.lr_step, args.lr_factor, args.lr_stop)},
+                  eval_metric=metric, begin_epoch=0, num_epoch=num_epoch)
     return model
 
 
@@ -101,6 +119,7 @@ def parse_args():
     parser.add_argument('--num_epoch', help='epoch of training for every frame', default=0, type=int)
     parser.add_argument('--batch_callback_freq', default=50, type=int)
     parser.add_argument('--lr', help='base learning rate', default=1e-5, type=float)
+    parser.add_argument('--lr_online', help='base learning rate', default=1e-5, type=float)
     parser.add_argument('--wd', help='base learning rate', default=1e-1, type=float)
     parser.add_argument('--OTB_path', help='OTB folder', default='/home/chenjunjie/dataset/OTB', type=str)
     parser.add_argument('--VOT_path', help='VOT folder', default='/home/chenjunjie/dataset/VOT2015', type=str)
@@ -118,6 +137,11 @@ def parse_args():
 
     args = parser.parse_args()
     return args
+
+
+def track_on_OTB():
+    args = parse_args()
+    otb = datahelper.OTBHelper(args.OTB_path)
 
 
 if __name__ == '__main__':
