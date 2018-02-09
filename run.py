@@ -11,11 +11,9 @@ from matplotlib import patches
 import logging
 
 
-def track_seq(model, img_paths, first_gt):
+def track_seq(args, model, img_paths, first_gt):
     # train on first frame
-    logging.getLogger().setLevel(logging.DEBUG)
-
-    model = train_on_first(model, img_paths[0], first_gt)
+    model = train_on_first(args, model, img_paths[0], first_gt)
 
     res = [first_gt]
     scores = [0]
@@ -33,10 +31,10 @@ def track_seq(model, img_paths, first_gt):
         scores.append(score)
         if score < 0:
             # short term update
-            model = online_update(model, img_paths, res, cur)
+            model = online_update(args, model, img_paths, res, cur)
         elif cur % 10 == 0:
             # long term update
-            model = online_update(model, img_paths, res, cur)
+            model = online_update(args, model, img_paths, res, cur)
 
     return res, scores
 
@@ -141,41 +139,17 @@ def parse_args():
 
 def track_on_OTB():
     args = parse_args()
+    if args.gpu == -1:
+        config.ctx = mx.cpu(0)
+    else:
+        config.ctx = mx.gpu(args.gpu)
+
     otb = datahelper.OTBHelper(args.OTB_path)
+    img_paths, gts = otb.get_seq('Surfer')
+    model, all_params = extend.init_model(loss_type=1, fixed_conv=2, saved_fname='conv123')
+    logging.getLogger().setLevel(logging.DEBUG)
+    res, scores = track_seq(args, model, img_paths, gts[0])
 
 
 if __name__ == '__main__':
-    config.ctx = mx.cpu(0)
-    # config.ctx = mx.gpu(2)
-    # vot = datahelper.VOTHelper('/home/chenjunjie/dataset/VOT2015')
-    vot = datahelper.VOTHelper()
-    img_list, gts = vot.get_seq('bag')
-    # v0 = datahelper.get_train_iter(datahelper.get_train_data(img_list[0], gts[0]))
-    # v1 = datahelper.get_train_iter(datahelper.get_train_data(img_list[1], gts[1]))
-    # v2 = datahelper.get_train_iter(datahelper.get_train_data(img_list[2], gts[2]))
-    model = extend.init_model(loss_type=1, fixed_conv=0, load_conv123=True, saved_fname='saved/finished_3frame')
-    # r0 = model.score(v0, extend.MDNetIOUACC())
-    # r1 = model.score(v1, extend.MDNetIOUACC())
-    # r2 = model.score(v2, extend.MDNetIOUACC())
-    res = track_seq(model, img_list[:10], gts[:10])
-
-    T = 3
-    img_path = img_list[T - 1]
-    pre_region = gts[T - 2]
-
-
-    def check_pred_res(res, gt):
-        img = plt.imread(img_path)
-        fig = plt.figure()
-        ax = fig.add_subplot(111)
-        ax.imshow(img)
-        ax.add_patch(patches.Rectangle((gt[0], gt[1]), gt[2], gt[3],
-                                       linewidth=2, edgecolor='blue', facecolor='none'))
-        ax.add_patch(patches.Rectangle((res[0], res[1]), res[2], res[3],
-                                       linewidth=2, edgecolor='y', facecolor='none'))
-        fig.show()
-
-
-    res = track(model, img_path, pre_region)
-    check_pred_res(res, gts[T - 1])
-    a = 1
+    track_on_OTB()
