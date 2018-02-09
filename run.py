@@ -13,7 +13,8 @@ import logging
 
 def track_seq(args, model, img_paths, first_gt):
     # train on first frame
-    model = train_on_first(args, model, img_paths[0], first_gt)
+    model = train_on_first(args, model, img_paths[0], first_gt,
+                           num_epoch=args.num_epoch_for_offline)
 
     res = [first_gt]
     scores = [0]
@@ -31,10 +32,12 @@ def track_seq(args, model, img_paths, first_gt):
         scores.append(score)
         if score < 0:
             # short term update
-            model = online_update(args, model, img_paths, res, cur)
+            model = online_update(args, model, img_paths, res, cur,
+                                  num_epoch=args.num_epoch_for_online)
         elif cur % 10 == 0:
             # long term update
-            model = online_update(args, model, img_paths, res, cur)
+            model = online_update(args, model, img_paths, res, cur,
+                                  num_epoch=args.num_epoch_for_online)
 
     return res, scores
 
@@ -111,10 +114,26 @@ def track(model, img_path, pre_region, topk=5):
     return opt_img_bbox, opt_score
 
 
+def track_on_OTB():
+    args = parse_args()
+    if args.gpu == -1:
+        config.ctx = mx.cpu(0)
+    else:
+        config.ctx = mx.gpu(args.gpu)
+
+    otb = datahelper.OTBHelper(args.OTB_path)
+    img_paths, gts = otb.get_seq('Surfer')
+    model, all_params = extend.init_model(loss_type=1, fixed_conv=2, saved_fname='conv123')
+    logging.getLogger().setLevel(logging.DEBUG)
+    res, scores = track_seq(args, model, img_paths, gts[0])
+
+
 def parse_args():
     parser = argparse.ArgumentParser(description='Train MDNet network')
     parser.add_argument('--gpu', help='GPU device to train with', default=2, type=int)
-    parser.add_argument('--num_epoch', help='epoch of training for every frame', default=0, type=int)
+    parser.add_argument('--num_epoch_for_offline', help='epoch of training for every frame', default=100, type=int)
+    parser.add_argument('--num_epoch_for_online', help='epoch of training for every frame', default=10, type=int)
+
     parser.add_argument('--batch_callback_freq', default=50, type=int)
     parser.add_argument('--lr', help='base learning rate', default=1e-5, type=float)
     parser.add_argument('--lr_online', help='base learning rate', default=1e-5, type=float)
@@ -135,20 +154,6 @@ def parse_args():
 
     args = parser.parse_args()
     return args
-
-
-def track_on_OTB():
-    args = parse_args()
-    if args.gpu == -1:
-        config.ctx = mx.cpu(0)
-    else:
-        config.ctx = mx.gpu(args.gpu)
-
-    otb = datahelper.OTBHelper(args.OTB_path)
-    img_paths, gts = otb.get_seq('Surfer')
-    model, all_params = extend.init_model(loss_type=1, fixed_conv=2, saved_fname='conv123')
-    logging.getLogger().setLevel(logging.DEBUG)
-    res, scores = track_seq(args, model, img_paths, gts[0])
 
 
 if __name__ == '__main__':

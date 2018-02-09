@@ -61,7 +61,7 @@ def train_MD_on_VOT():
         arg_params, aux_params = model.get_params()
         all_params[seq_name] = copy.deepcopy(arg_params)
 
-        if (k % (60 * 3) == 0) & (k != 0):
+        if (k % (60 * 1) == 0) & (k != 0):
             extend.save_all_params(all_params, k)
             print 'time cost for 60*3 iter: %f' % (time.time() - t)
             t = time.time()
