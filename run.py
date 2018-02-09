@@ -104,13 +104,14 @@ def track(model, img_path, pre_region, topk=5):
     # check_pred(0)
     res = model.predict(pred_iter)
     opt_idx = mx.ndarray.topk(res, k=topk).asnumpy().astype('int32')
+    res = res.asnumpy()
     opt_scores = res[opt_idx]
     opt_score = opt_scores.mean()
     opt_feat_bboxes = feat_bboxes[opt_idx, 1:]
     opt_patch_bboxes = util.feat2img(opt_feat_bboxes)
     opt_patch_bbox = opt_patch_bboxes.mean(0)
     opt_img_bbox = restore_img_bbox(opt_patch_bbox, restore_info)
-
+    print opt_score
     return opt_img_bbox, opt_score
 
 
@@ -130,9 +131,9 @@ def track_on_OTB():
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Train MDNet network')
-    parser.add_argument('--gpu', help='GPU device to train with', default=2, type=int)
-    parser.add_argument('--num_epoch_for_offline', help='epoch of training for every frame', default=100, type=int)
-    parser.add_argument('--num_epoch_for_online', help='epoch of training for every frame', default=10, type=int)
+    parser.add_argument('--gpu', help='GPU device to train with', default=-1, type=int)
+    parser.add_argument('--num_epoch_for_offline', help='epoch of training for every frame', default=0, type=int)
+    parser.add_argument('--num_epoch_for_online', help='epoch of training for every frame', default=0, type=int)
 
     parser.add_argument('--batch_callback_freq', default=50, type=int)
     parser.add_argument('--lr', help='base learning rate', default=1e-5, type=float)
