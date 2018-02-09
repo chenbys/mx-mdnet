@@ -11,6 +11,43 @@ from matplotlib import patches
 import logging
 
 
+def debug_track_seq(args, model, img_paths, gts):
+    # train on first frame
+    first_gt = gts[0]
+    model = train_on_first(args, model, img_paths[0], first_gt,
+                           num_epoch=args.num_epoch_for_offline)
+
+    res = [first_gt]
+    scores = [0]
+    length = len(img_paths)
+    region = first_gt
+    for cur in range(1, length):
+        img_path = img_paths[cur]
+
+        # track
+        region, score = track(model, img_path, region, topk=5)
+        res.append(region)
+
+        # report
+        print '@CHEN_>iou : %.2f, score: %.2f for tracking on frame %d' \
+              % (util.overlap_ratio(gts[cur], region), score, cur)
+
+        # online update
+        scores.append(score)
+        if score < 0.5:
+            # short term update
+            print '@CHEN->short term update'
+            model = online_update(args, model, img_paths, res, cur,
+                                  num_epoch=args.num_epoch_for_online)
+        elif cur % 10 == 0:
+            # long term update
+            print '@CHEN->long term update'
+            model = online_update(args, model, img_paths, res, cur,
+                                  num_epoch=args.num_epoch_for_online)
+
+    return res, scores
+
+
 def track_seq(args, model, img_paths, first_gt):
     # train on first frame
     model = train_on_first(args, model, img_paths[0], first_gt,
@@ -28,14 +65,15 @@ def track_seq(args, model, img_paths, first_gt):
         res.append(region)
 
         # online update
-        print score
         scores.append(score)
-        if score < 0:
+        if score < 0.5:
             # short term update
+            print '@CHEN->short term update'
             model = online_update(args, model, img_paths, res, cur,
                                   num_epoch=args.num_epoch_for_online)
         elif cur % 10 == 0:
             # long term update
+            print '@CHEN->long term update'
             model = online_update(args, model, img_paths, res, cur,
                                   num_epoch=args.num_epoch_for_online)
 
@@ -61,7 +99,9 @@ def online_update(args, model, img_paths, res, cur, history_len=10, num_epoch=10
 
 def train_on_first(args, model, first_path, gt, num_epoch=100):
     metric = mx.metric.CompositeEvalMetric()
-    metric.add(extend.MDNetIOUACC())
+    metric.add(extend.MDNetIOUACC(0.1))
+    metric.add(extend.MDNetIOUACC(0.2))
+    metric.add(extend.MDNetIOUACC(0.3))
     metric.add(extend.MDNetIOULoss())
     train_iter = datahelper.get_train_iter(datahelper.get_train_data(first_path, gt))
     model.fit(train_data=train_iter, optimizer='sgd',
@@ -111,11 +151,10 @@ def track(model, img_path, pre_region, topk=5):
     opt_patch_bboxes = util.feat2img(opt_feat_bboxes)
     opt_patch_bbox = opt_patch_bboxes.mean(0)
     opt_img_bbox = restore_img_bbox(opt_patch_bbox, restore_info)
-    print opt_score
     return opt_img_bbox, opt_score
 
 
-def track_on_OTB():
+def debug_track_on_OTB():
     args = parse_args()
     if args.gpu == -1:
         config.ctx = mx.cpu(0)
@@ -126,7 +165,7 @@ def track_on_OTB():
     img_paths, gts = otb.get_seq('Surfer')
     model, all_params = extend.init_model(loss_type=1, fixed_conv=2, saved_fname='conv123')
     logging.getLogger().setLevel(logging.DEBUG)
-    res, scores = track_seq(args, model, img_paths, gts[0])
+    res, scores = debug_track_seq(args, model, img_paths, gts)
 
 
 def parse_args():
@@ -142,7 +181,8 @@ def parse_args():
     parser.add_argument('--OTB_path', help='OTB folder', default='/home/chenjunjie/dataset/OTB', type=str)
     parser.add_argument('--VOT_path', help='VOT folder', default='/home/chenjunjie/dataset/VOT2015', type=str)
     parser.add_argument('--p_level', help='print level, default is 0 for debug mode', default=0, type=int)
-    parser.add_argument('--fixed_conv', help='the params before(include) which conv are all fixed', default=2, type=int)
+    parser.add_argument('--fixed_conv', help='the params before(include) which conv are all fixed',
+                        default=2, type=int)
     parser.add_argument('--loss_type', type=int, default=1,
                         help='0 for {0,1} corss-entropy, 1 for smooth_l1, 2 for {pos_pred} corss-entropy')
     parser.add_argument('--lr_step', default=36 * 1, type=int)
@@ -158,4 +198,4 @@ def parse_args():
 
 
 if __name__ == '__main__':
-    track_on_OTB()
+    debug_track_on_OTB()
