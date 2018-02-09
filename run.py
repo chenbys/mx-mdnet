@@ -13,21 +13,23 @@ import logging
 
 def debug_track_seq(args, model, img_paths, gts):
     # train on first frame
-    first_gt = gts[0]
-    model = train_on_first(args, model, img_paths[0], first_gt,
-                           num_epoch=args.num_epoch_for_offline)
-    a, b = model.get_params()
-    mx.ndarray.save('params/offline_for_surfer', a)
+    for j in range(3):
+        for i in range(args.num_frame_for_offline):
+            model = train_on_first(args, model, img_paths[i], gts[i],
+                                   num_epoch=args.num_epoch_for_offline)
 
-    res = [first_gt]
-    scores = [0]
+    a, b = model.get_params()
+    mx.ndarray.save('params/5offline_for_surfer', a)
+
+    res = []
+    scores = []
     length = len(img_paths)
-    region = first_gt
-    for cur in range(1, length):
+    region = gts[args.num_frame_for_offline - 1]
+    for cur in range(0, length):
         img_path = img_paths[cur]
 
         # track
-        region, score = track(model, img_path, region, topk=5)
+        region, score = track(model, img_path, pre_region=region, topk=5)
         res.append(region)
 
         # report
@@ -37,7 +39,7 @@ def debug_track_seq(args, model, img_paths, gts):
 
         # online update
         scores.append(score)
-        if score < 0.5:
+        if score < 0.125:
             # short term update
             logging.getLogger().info('@CHEN->short term update')
             model = online_update(args, model, img_paths, res, cur,
@@ -84,7 +86,7 @@ def track_seq(args, model, img_paths, first_gt):
 
 
 def online_update(args, model, img_paths, res, cur, history_len=10, num_epoch=10):
-    return
+    return model
     for i in range(max(0, cur - history_len), cur + 1):
         metric = mx.metric.CompositeEvalMetric()
         metric.add(extend.MDNetIOUACC())
@@ -132,6 +134,18 @@ def track(model, img_path, pre_region, topk=5):
         w, h = W / 227. * wo, H / 227. * ho
         return x, y, w, h
 
+    res = model.predict(pred_iter)
+    opt_idx = mx.ndarray.topk(res, k=1).asnumpy().astype('int32')
+    res = res.asnumpy()
+    opt_scores = res[opt_idx]
+    logging.getLogger().error(opt_scores.__str__())
+    opt_score = opt_scores.mean()
+    opt_feat_bboxes = feat_bboxes[opt_idx, 1:]
+    opt_patch_bboxes = util.feat2img(opt_feat_bboxes)
+    opt_patch_bbox = opt_patch_bboxes.mean(0)
+    opt_img_bbox = restore_img_bbox(opt_patch_bbox, restore_info)
+    opt_score = (opt_score * 2) ** 0.5
+
     def check_pred_data(i):
         feat_bbox = feat_bboxes[i, 1:].reshape(1, 4)
         img_bbox = util.feat2img(feat_bbox).reshape(4, )
@@ -143,19 +157,8 @@ def track(model, img_path, pre_region, topk=5):
         ax.add_patch(patches.Rectangle((img_bbox[0], img_bbox[1]), img_bbox[2], img_bbox[3],
                                        linewidth=2, edgecolor='y', facecolor='none'))
         fig.show()
-        return fig
+        return (res[i] * 2) ** 0.5
 
-    # check_pred(0)
-    res = model.predict(pred_iter)
-    opt_idx = mx.ndarray.topk(res, k=topk).asnumpy().astype('int32')
-    res = res.asnumpy()
-    opt_scores = res[opt_idx]
-    logging.getLogger().error(opt_scores.__str__())
-    opt_score = opt_scores.mean()
-    opt_feat_bboxes = feat_bboxes[opt_idx, 1:]
-    opt_patch_bboxes = util.feat2img(opt_feat_bboxes)
-    opt_patch_bbox = opt_patch_bboxes.mean(0)
-    opt_img_bbox = restore_img_bbox(opt_patch_bbox, restore_info)
     return opt_img_bbox, opt_score
 
 
@@ -169,6 +172,11 @@ def debug_track_on_OTB():
     otb = datahelper.OTBHelper(args.OTB_path)
     img_paths, gts = otb.get_seq('Surfer')
     model, all_params = extend.init_model(loss_type=1, fixed_conv=2, saved_fname='conv123')
+
+    # load
+    a = mx.ndarray.load('params/offline_for_surfer')
+    model.set_params(a, None)
+
     logging.getLogger().setLevel(logging.DEBUG)
     res, scores = debug_track_seq(args, model, img_paths, gts)
 
@@ -178,6 +186,7 @@ def parse_args():
     parser.add_argument('--gpu', help='GPU device to train with', default=-1, type=int)
     parser.add_argument('--num_epoch_for_offline', help='epoch of training for every frame', default=0, type=int)
     parser.add_argument('--num_epoch_for_online', help='epoch of training for every frame', default=0, type=int)
+    parser.add_argument('--num_frame_for_offline', help='epoch of training for every frame', default=1, type=int)
 
     parser.add_argument('--batch_callback_freq', default=50, type=int)
     parser.add_argument('--lr', help='base learning rate', default=1e-5, type=float)
