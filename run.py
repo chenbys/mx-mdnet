@@ -27,9 +27,12 @@ def debug_track_seq(args, model, img_paths, gts):
     res1 = model.predict(train_iter).asnumpy()
     res2 = model.predict(train_iter2).asnumpy()
     r2 = (res2 * 2) ** 0.5
-    # a, b = model.get_params()
-    # mx.ndarray.save('params/5offline_for_surfer_withCEloss2', a)
-    # exit()
+
+    #
+    a, b = model.get_params()
+    mx.ndarray.save('params/5offline_for_surfer_withCEloss2', a)
+    exit()
+
     res = []
     scores = []
     length = len(img_paths)
@@ -183,8 +186,8 @@ def debug_track_on_OTB():
     model, all_params = extend.init_model(loss_type=args.loss_type, fixed_conv=args.fixed_conv, saved_fname='conv123')
 
     # load
-    a = mx.ndarray.load('params/5offline_for_surfer_withCEloss2')
-    model.set_params(a, None, allow_extra=True)
+    # a = mx.ndarray.load('params/5offline_for_surfer_withCEloss2')
+    # model.set_params(a, None, allow_extra=True)
 
     logging.getLogger().setLevel(logging.DEBUG)
     res, scores = debug_track_seq(args, model, img_paths, gts)
