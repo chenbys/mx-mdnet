@@ -27,8 +27,8 @@ def debug_track_seq(args, model, img_paths, gts):
     # res2 = model.predict(train_iter2).asnumpy()
 
     a, b = model.get_params()
-    mx.ndarray.save('params/5offline_for_surfer_withCEloss_s', a)
-    exit()
+    mx.ndarray.save('params/5offline_for_surfer_withCEloss_s2', a)
+    # exit()
     res = []
     scores = []
     length = len(img_paths)
