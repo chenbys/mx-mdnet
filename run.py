@@ -183,7 +183,7 @@ def debug_track_on_OTB():
 
     otb = datahelper.OTBHelper(args.OTB_path)
     img_paths, gts = otb.get_seq('Surfer')
-    model, all_params = extend.init_model(loss_type=args.loss_type, fixed_conv=args.fixed_conv, saved_fname='conv123')
+    model, all_params = extend.init_model(args)
 
     # load
     # a = mx.ndarray.load('params/5offline_for_surfer_withCEloss2')
@@ -213,6 +213,7 @@ def parse_args():
     parser.add_argument('--momentum', default=0, type=float)
     parser.add_argument('--saved_fname', default=None, type=str)
     parser.add_argument('--log', default=1, type=int)
+    parser.add_argument('--weight_factor', default=30, type=float)
     parser.add_argument('--fixed_conv', help='the params before(include) which conv are all fixed',
                         default=2, type=int)
     parser.add_argument('--loss_type', type=int, default=3,

@@ -33,6 +33,37 @@ class MDNetLoss(mx.metric.EvalMetric):
         self.num_inst += label.shape[0]
 
 
+class WeightedIOUACC(mx.metric.EvalMetric):
+    def __init__(self, weigth_factor=30, iou_th=0.1):
+        super(WeightedIOUACC, self).__init__('weighted iou acc_' + str(iou_th))
+        self.weigth_factor = weigth_factor
+        self.iou_th = iou_th
+
+    def update(self, labels, preds):
+        label = labels[0].asnumpy().reshape((-1,))
+        weight = label * label * self.weigth_factor + 1.
+        pred = preds[0].asnumpy()
+        smooth_l1 = pred / weight
+        abs_subs = (smooth_l1 * 2) ** 0.5
+
+        acc = np.sum(abs_subs < self.acc_th)
+        self.sum_metric += acc * 100
+        self.num_inst += len(label)
+
+
+class SACC(mx.metric.EvalMetric):
+    def __init__(self, acc_th=0.1):
+        super(SACC, self).__init__('iou<0.3 acc')
+        self.acc_th = acc_th * acc_th / 2.
+
+    def update(self, labels, preds):
+        label = labels[0].asnumpy().reshape((-1,))
+        pred = preds[0].asnumpy()
+        acc = np.sum(pred < self.acc_th)
+        self.sum_metric += acc * 100
+        self.num_inst += len(label)
+
+
 class MDNetIOUACC(mx.metric.EvalMetric):
     def __init__(self, acc_th=0.1):
         super(MDNetIOUACC, self).__init__('MDNetIOUACC_' + str(acc_th))
@@ -44,19 +75,6 @@ class MDNetIOUACC(mx.metric.EvalMetric):
         acc = np.sum(pred < self.acc_th)
         self.sum_metric += acc * 100
         self.num_inst += len(label)
-
-
-# class MDNetIOUACC_(mx.metric.EvalMetric):
-#     def __init__(self, acc_th=0.1):
-#         super(MDNetIOUACC_, self).__init__('MDNetIOUACC__' + str(acc_th))
-#         self.acc_th = acc_th
-#
-#     def update(self, labels, preds):
-#         label = labels[0].asnumpy().reshape((-1,))
-#         pred = preds[0].asnumpy()
-#         acc = np.sum(abs(label - pred) < self.acc_th)
-#         self.sum_metric += acc * 100
-#         self.num_inst += len(label)
 
 
 class MDNetIOULoss(mx.metric.EvalMetric):
@@ -101,39 +119,39 @@ def get_mdnet_conv123_params(prefix='', mat_path='saved/conv123.mat'):
     return arg_params
 
 
-def init_model(loss_type=0, fixed_conv=0, saved_fname='conv123'):
+def init_model(args):
     import datahelper
 
-    if loss_type == 0:
+    if args.loss_type == 0:
         sym = csym.get_mdnet()
-    elif loss_type == 1:
+    elif args.loss_type == 1:
         sym = csym.get_mdnet_with_smooth_l1_loss()
-    elif loss_type == 2:
+    elif args.loss_type == 2:
         sym = csym.get_mdnet_with_CE_loss()
-    elif loss_type == 3:
-        sym = csym.get_mdnet_with_CE_loss_s()
+    elif args.loss_type == 3:
+        sym = csym.get_mdnet_with_weighted_CE_loss(args.weight_factor)
 
     fixed_param_names = []
-    for i in range(1, fixed_conv + 1):
+    for i in range(1, args.fixed_conv + 1):
         fixed_param_names.append('conv' + str(i) + '_weight')
         fixed_param_names.append('conv' + str(i) + '_bias')
     model = mx.mod.Module(symbol=sym, context=config.ctx, data_names=('image_patch', 'feat_bbox',),
                           label_names=('label',),
                           fixed_param_names=fixed_param_names)
     sample_iter = datahelper.get_train_iter(
-        datahelper.get_train_data('saved/mx-mdnet_01CE.jpg', [24, 24, 24, 24], iou_label=bool(loss_type)))
+        datahelper.get_train_data('saved/mx-mdnet_01CE.jpg', [24, 24, 24, 24], iou_label=bool(args.loss_type)))
     model.bind(sample_iter.provide_data, sample_iter.provide_label)
 
     all_params = {}
-    if saved_fname == 'conv123':
+    if args.saved_fname == 'conv123':
         print '@CHEN->load params from conv123'
         conv123 = get_mdnet_conv123_params()
         for k in conv123.keys():
             conv123[k] = mx.ndarray.array(conv123.get(k))
         model.init_params(arg_params=conv123, allow_missing=True, force_init=False, allow_extra=True)
-    elif saved_fname is not None:
-        print '@CHEN->load all params from:' + saved_fname
-        all_params, arg_params = load_all_params(saved_fname)
+    elif args.saved_fname is not None:
+        print '@CHEN->load all params from:' + args.saved_fname
+        all_params, arg_params = load_all_params(args.saved_fname)
         model.set_params(arg_params, None)
     else:
         print '@CHEN->init params.'

@@ -146,7 +146,7 @@ def get_mdnet_with_CE_loss(prefix=''):
     return loss
 
 
-def get_mdnet_with_CE_loss_s(prefix=''):
+def get_mdnet_with_weighted_CE_loss(weight_factor, prefix=''):
     '''
         fake CE loss, but the gradient of pos_score is (pos_score - label)
     shape of image_patch: (3,227,227), rm some weight for just one score output
@@ -187,8 +187,8 @@ def get_mdnet_with_CE_loss_s(prefix=''):
     score_ = mx.symbol.Reshape(data=score, shape=(-1), name=prefix + 'score_re')
     # pos_pred: (K,)
     smooth_l1 = mx.symbol.smooth_l1(data=score_ - label_, scalar=1, name=prefix + 'smooth_l1')
-    loss = mx.symbol.MakeLoss(data=smooth_l1 * (label_ * label_ * 30 + 1.), normalization='null', grad_scale=1,
-                              name='loss')
+    loss = mx.symbol.MakeLoss(data=smooth_l1 * (label_ * label_ * weight_factor + 1.), normalization='null',
+                              grad_scale=1, name='loss')
 
     # return loss, conv1, lrn2
     return loss
