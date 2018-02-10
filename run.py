@@ -18,9 +18,17 @@ def debug_track_seq(args, model, img_paths, gts):
             model = train_on_first(args, model, img_paths[i], gts[i],
                                    num_epoch=args.num_epoch_for_offline)
 
-    a, b = model.get_params()
-    mx.ndarray.save('params/5offline_for_surfer', a)
+    #
+    # train_data = datahelper.get_train_data(img_paths[0], gts[0])
+    # train_data2 = train_data[0], train_data[1], np.zeros(np.shape(train_data[2]))
+    # train_iter = datahelper.get_train_iter(train_data)
+    # train_iter2 = datahelper.get_train_iter(train_data2)
+    # res1 = model.predict(train_iter).asnumpy()
+    # res2 = model.predict(train_iter2).asnumpy()
 
+    a, b = model.get_params()
+    mx.ndarray.save('params/5offline_for_surfer_withCEloss', a)
+    exit()
     res = []
     scores = []
     length = len(img_paths)
@@ -171,11 +179,11 @@ def debug_track_on_OTB():
 
     otb = datahelper.OTBHelper(args.OTB_path)
     img_paths, gts = otb.get_seq('Surfer')
-    model, all_params = extend.init_model(loss_type=1, fixed_conv=2, saved_fname='conv123')
+    model, all_params = extend.init_model(loss_type=args.loss_type, fixed_conv=args.fixed_conv, saved_fname='conv123')
 
     # load
-    a = mx.ndarray.load('params/offline_for_surfer')
-    model.set_params(a, None)
+    # a = mx.ndarray.load('params/5offline_for_surfer')
+    # model.set_params(a, None)
 
     logging.getLogger().setLevel(logging.DEBUG)
     res, scores = debug_track_seq(args, model, img_paths, gts)
@@ -197,7 +205,7 @@ def parse_args():
     parser.add_argument('--p_level', help='print level, default is 0 for debug mode', default=0, type=int)
     parser.add_argument('--fixed_conv', help='the params before(include) which conv are all fixed',
                         default=2, type=int)
-    parser.add_argument('--loss_type', type=int, default=1,
+    parser.add_argument('--loss_type', type=int, default=2,
                         help='0 for {0,1} corss-entropy, 1 for smooth_l1, 2 for {pos_pred} corss-entropy')
     parser.add_argument('--lr_step', default=36 * 1, type=int)
     parser.add_argument('--lr_factor', default=0.9, type=float)

@@ -108,6 +108,9 @@ def init_model(loss_type=0, fixed_conv=0, saved_fname='conv123'):
         sym = csym.get_mdnet()
     elif loss_type == 1:
         sym = csym.get_mdnet_with_smooth_l1_loss()
+    elif loss_type == 2:
+        sym = csym.get_mdnet_with_CE_loss()
+
     fixed_param_names = []
     for i in range(1, fixed_conv + 1):
         fixed_param_names.append('conv' + str(i) + '_weight')
