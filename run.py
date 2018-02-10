@@ -27,7 +27,7 @@ def debug_track_seq(args, model, img_paths, gts):
     # res2 = model.predict(train_iter2).asnumpy()
 
     a, b = model.get_params()
-    mx.ndarray.save('params/5offline_for_surfer_withCEloss', a)
+    mx.ndarray.save('params/5offline_for_surfer_withCEloss_s', a)
     exit()
     res = []
     scores = []
@@ -119,7 +119,7 @@ def train_on_first(args, model, first_path, gt, num_epoch=100):
     metric.add(extend.MDNetIOULoss())
     train_iter = datahelper.get_train_iter(datahelper.get_train_data(first_path, gt))
     model.fit(train_data=train_iter, optimizer='sgd',
-              optimizer_params={'learning_rate': args.lr,
+              optimizer_params={'learning_rate': args.lr_offline,
                                 'wd'           : args.wd,
                                 'momentum'     : args.momentum,
                                 'clip_gradient': 5,
@@ -197,7 +197,7 @@ def parse_args():
     parser.add_argument('--num_frame_for_offline', help='epoch of training for every frame', default=1, type=int)
 
     parser.add_argument('--batch_callback_freq', default=50, type=int)
-    parser.add_argument('--lr', help='base learning rate', default=1e-5, type=float)
+    parser.add_argument('--lr_offline', help='base learning rate', default=1e-5, type=float)
     parser.add_argument('--lr_online', help='base learning rate', default=1e-5, type=float)
     parser.add_argument('--wd', help='base learning rate', default=1e-1, type=float)
     parser.add_argument('--OTB_path', help='OTB folder', default='/home/chenjunjie/dataset/OTB', type=str)
@@ -209,7 +209,7 @@ def parse_args():
                         help='0 for {0,1} corss-entropy, 1 for smooth_l1, 2 for {pos_pred} corss-entropy')
     parser.add_argument('--lr_step', default=36 * 1, type=int)
     parser.add_argument('--lr_factor', default=0.9, type=float)
-    parser.add_argument('--lr_stop', default=5e-7, type=float)
+    parser.add_argument('--lr_stop', default=1e-8, type=float)
     parser.add_argument('--iou_acc_th', default=0.1, type=float)
     parser.add_argument('--momentum', default=0, type=float)
     parser.add_argument('--saved_fname', default=None, type=str)
