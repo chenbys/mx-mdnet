@@ -117,9 +117,9 @@ def online_update(args, model, img_paths, res, cur, history_len=10, num_epoch=10
 
 def train_on_first(args, model, first_path, gt, num_epoch=100):
     metric = mx.metric.CompositeEvalMetric()
-    metric.add(extend.MDNetIOUACC(0.1))
-    metric.add(extend.MDNetIOUACC(0.2))
-    metric.add(extend.MDNetIOUACC(0.3))
+    metric.add(extend.WeightedIOUACC(args.weight_factor, 0.1))
+    metric.add(extend.WeightedIOUACC(args.weight_factor, 0.2))
+    metric.add(extend.WeightedIOUACC(args.weight_factor, 0.3))
     metric.add(extend.MDNetIOULoss())
     train_iter = datahelper.get_train_iter(datahelper.get_train_data(first_path, gt))
     model.fit(train_data=train_iter, optimizer='sgd',
