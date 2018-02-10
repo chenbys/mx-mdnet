@@ -46,7 +46,7 @@ class WeightedIOUACC(mx.metric.EvalMetric):
         smooth_l1 = pred / weight
         abs_subs = (smooth_l1 * 2) ** 0.5
 
-        acc = np.sum(abs_subs < self.acc_th)
+        acc = np.sum(abs_subs < self.iou_th)
         self.sum_metric += acc * 100
         self.num_inst += len(label)
 
