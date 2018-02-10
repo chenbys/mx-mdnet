@@ -108,7 +108,7 @@ def online_update(args, model, img_paths, res, cur, history_len=10, num_epoch=10
                   optimizer_params={'learning_rate': args.lr_online,
                                     'wd'           : args.wd,
                                     'momentum'     : args.momentum,
-                                    'clip_gradient': 5,
+                                    # 'clip_gradient': 5,
                                     'lr_scheduler' : mx.lr_scheduler.FactorScheduler(
                                         args.lr_step, args.lr_factor, args.lr_stop)},
                   eval_metric=metric, begin_epoch=0, num_epoch=num_epoch)
@@ -126,7 +126,7 @@ def train_on_first(args, model, first_path, gt, num_epoch=100):
               optimizer_params={'learning_rate': args.lr_offline,
                                 'wd'           : args.wd,
                                 'momentum'     : args.momentum,
-                                'clip_gradient': 5,
+                                # 'clip_gradient': 5,
                                 'lr_scheduler' : mx.lr_scheduler.FactorScheduler(
                                     args.lr_step, args.lr_factor, args.lr_stop)},
               eval_metric=metric, begin_epoch=0, num_epoch=num_epoch)
