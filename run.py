@@ -13,23 +13,23 @@ import logging
 
 def debug_track_seq(args, model, img_paths, gts):
     # train on first frame
-    for j in range(3):
+    for j in range(1):
         for i in range(args.num_frame_for_offline):
             model = train_on_first(args, model, img_paths[i], gts[i],
                                    num_epoch=args.num_epoch_for_offline)
 
     #
-    # train_data = datahelper.get_train_data(img_paths[0], gts[0])
-    # train_data2 = train_data[0], train_data[1], np.zeros(np.shape(train_data[2]))
-    # train_iter = datahelper.get_train_iter(train_data)
-    # train_iter2 = datahelper.get_train_iter(train_data2)
-    # label = train_data[2]
-    # res1 = model.predict(train_iter).asnumpy()
-    # res2 = model.predict(train_iter2).asnumpy()
-
-    a, b = model.get_params()
-    mx.ndarray.save('params/5offline_for_surfer_withCEloss2', a)
-    exit()
+    train_data = datahelper.get_train_data(img_paths[2], gts[2])
+    train_data2 = train_data[0], train_data[1], np.zeros(np.shape(train_data[2]))
+    train_iter = datahelper.get_train_iter(train_data)
+    train_iter2 = datahelper.get_train_iter(train_data2)
+    label = train_data[2]
+    res1 = model.predict(train_iter).asnumpy()
+    res2 = model.predict(train_iter2).asnumpy()
+    r2 = (res2 * 2) ** 0.5
+    # a, b = model.get_params()
+    # mx.ndarray.save('params/5offline_for_surfer_withCEloss2', a)
+    # exit()
     res = []
     scores = []
     length = len(img_paths)
@@ -183,8 +183,8 @@ def debug_track_on_OTB():
     model, all_params = extend.init_model(loss_type=args.loss_type, fixed_conv=args.fixed_conv, saved_fname='conv123')
 
     # load
-    # a = mx.ndarray.load('params/5offline_for_surfer_withCEloss')
-    # model.set_params(a, None, allow_extra=True)
+    a = mx.ndarray.load('params/5offline_for_surfer_withCEloss2')
+    model.set_params(a, None, allow_extra=True)
 
     logging.getLogger().setLevel(logging.DEBUG)
     res, scores = debug_track_seq(args, model, img_paths, gts)
@@ -196,7 +196,6 @@ def parse_args():
     parser.add_argument('--num_epoch_for_offline', help='epoch of training for every frame', default=0, type=int)
     parser.add_argument('--num_epoch_for_online', help='epoch of training for every frame', default=0, type=int)
     parser.add_argument('--num_frame_for_offline', help='epoch of training for every frame', default=1, type=int)
-
     parser.add_argument('--batch_callback_freq', default=50, type=int)
     parser.add_argument('--lr_offline', help='base learning rate', default=1e-5, type=float)
     parser.add_argument('--lr_online', help='base learning rate', default=1e-5, type=float)
@@ -204,10 +203,6 @@ def parse_args():
     parser.add_argument('--OTB_path', help='OTB folder', default='/home/chenjunjie/dataset/OTB', type=str)
     parser.add_argument('--VOT_path', help='VOT folder', default='/home/chenjunjie/dataset/VOT2015', type=str)
     parser.add_argument('--p_level', help='print level, default is 0 for debug mode', default=0, type=int)
-    parser.add_argument('--fixed_conv', help='the params before(include) which conv are all fixed',
-                        default=2, type=int)
-    parser.add_argument('--loss_type', type=int, default=2,
-                        help='0 for {0,1} corss-entropy, 1 for smooth_l1, 2 for {pos_pred} corss-entropy')
     parser.add_argument('--lr_step', default=36 * 1, type=int)
     parser.add_argument('--lr_factor', default=0.9, type=float)
     parser.add_argument('--lr_stop', default=1e-8, type=float)
@@ -215,6 +210,11 @@ def parse_args():
     parser.add_argument('--momentum', default=0, type=float)
     parser.add_argument('--saved_fname', default=None, type=str)
     parser.add_argument('--log', default=1, type=int)
+    parser.add_argument('--fixed_conv', help='the params before(include) which conv are all fixed',
+                        default=2, type=int)
+    parser.add_argument('--loss_type', type=int, default=3,
+                        help='0 for {0,1} corss-entropy, 1 for smooth_l1, 2 for {pos_pred} corss-entropy,'
+                             '3 for CE loss and weighted for high iou label')
 
     args = parser.parse_args()
     return args
