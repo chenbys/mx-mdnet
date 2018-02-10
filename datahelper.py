@@ -54,6 +54,14 @@ def get_train_iter(train_data):
 
 
 def get_predict_data(img_path, pre_region, feat_bbox):
+    '''
+
+    :param img_path:
+    :param pre_region:
+    :param feat_bbox:
+    :return: pred_data and restore_info,
+    restore_info include the XYWH of img_patch respect to
+    '''
     img = cv2.imread(img_path)
     x, y, w, h = pre_region
     img_H, img_W, c = np.shape(img)

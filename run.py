@@ -30,7 +30,7 @@ def debug_track_seq(args, model, img_paths, gts):
 
     #
     a, b = model.get_params()
-    mx.ndarray.save('params/5offline_for_surfer_withCEloss2', a)
+    mx.ndarray.save('params/weighted_by_' + str(args.weight_factor), a)
     exit()
 
     res = []
@@ -139,8 +139,8 @@ def track(model, img_path, pre_region):
     pred_data, restore_info = datahelper.get_predict_data(img_path, pre_region, feat_bboxes)
     pred_iter = datahelper.get_predict_iter(pred_data)
 
-    def restore_img_bbox(opt_img_bbox, restore_info):
-        xo, yo, wo, ho = opt_img_bbox
+    def restore_img_bbox(opt_patch_bbox, restore_info):
+        xo, yo, wo, ho = opt_patch_bbox
         img_W, img_H, X, Y, W, H = restore_info
         x, y = W / 227. * xo + X - img_W, H / 227. * yo + Y - img_H
         w, h = W / 227. * wo, H / 227. * ho
@@ -158,16 +158,21 @@ def track(model, img_path, pre_region):
     opt_img_bbox = restore_img_bbox(opt_patch_bbox, restore_info)
     opt_score = (opt_score * 2) ** 0.5
 
-    def check_pred_data(i):
+    def check_pred_data(i, cur=0):
+        img_W, img_H, X, Y, W, H = restore_info
+        x, y, w, h = config.gts[cur]
+        # x, y = x + img_W - X, y + img_H - Y
         feat_bbox = feat_bboxes[i, 1:].reshape(1, 4)
-        img_bbox = util.feat2img(feat_bbox).reshape(4, )
-        img_patch_ = np.reshape(pred_data[0], (227, 227, 3))
+        patch_bbox = util.feat2img(feat_bbox).reshape(4, )
+        img_bbox = restore_img_bbox(patch_bbox, restore_info)
 
         fig = plt.figure()
         ax = fig.add_subplot(111)
-        ax.imshow(img_patch_)
+        ax.imshow(plt.imread(config.img_paths[cur]))
         ax.add_patch(patches.Rectangle((img_bbox[0], img_bbox[1]), img_bbox[2], img_bbox[3],
-                                       linewidth=2, edgecolor='y', facecolor='none'))
+                                       linewidth=2, edgecolor='red', facecolor='none'))
+        ax.add_patch(patches.Rectangle((x, y), w, h,
+                                       linewidth=2, edgecolor='blue', facecolor='none'))
         fig.show()
         return (res[i] * 2) ** 0.5
 
@@ -183,6 +188,10 @@ def debug_track_on_OTB():
 
     otb = datahelper.OTBHelper(args.OTB_path)
     img_paths, gts = otb.get_seq('Surfer')
+
+    config.gts = gts
+    config.img_paths = img_paths
+
     model, all_params = extend.init_model(args)
 
     # load

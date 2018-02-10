@@ -1,5 +1,8 @@
 计划：
-0. smooth_l1输出的到底是什么东西，真的是smooth_l1(pred-0.)吗？
+0. 为什么，输出的loss对高iou label的样本更难拟合，结果是高iou label差异0.2,低差异0.1。
+    方法：在loss函数上对高iou label的样本进行加权。例如，loss=|pred-label|*label. 这样行不行？
+    这样只需要考虑梯度？更新label=0.5的样本比label=1的样本，可以看作学习率为只有一般，更不在意低iou label样本的死活？
+    
 0。多GPU有什么操作吗？
 1. 代价函数该用CE(pred,overlap)
 2. debug IOU_loss, 核对梯度和更新值等.可以用Monito，不过很奇异，label_re_0应该是label符号reshape出来的，名字上多了个_0，值还面目全非，
