@@ -23,12 +23,13 @@ def debug_track_seq(args, model, img_paths, gts):
     # train_data2 = train_data[0], train_data[1], np.zeros(np.shape(train_data[2]))
     # train_iter = datahelper.get_train_iter(train_data)
     # train_iter2 = datahelper.get_train_iter(train_data2)
+    # label = train_data[2]
     # res1 = model.predict(train_iter).asnumpy()
     # res2 = model.predict(train_iter2).asnumpy()
 
     a, b = model.get_params()
-    mx.ndarray.save('params/5offline_for_surfer_withCEloss_s2', a)
-    # exit()
+    mx.ndarray.save('params/5offline_for_surfer_withCEloss2', a)
+    exit()
     res = []
     scores = []
     length = len(img_paths)
@@ -37,7 +38,7 @@ def debug_track_seq(args, model, img_paths, gts):
         img_path = img_paths[cur]
 
         # track
-        region, score = track(model, img_path, pre_region=region, topk=5)
+        region, score = track(model, img_path, pre_region=region)
         res.append(region)
 
         # report
@@ -129,7 +130,7 @@ def train_on_first(args, model, first_path, gt, num_epoch=100):
     return model
 
 
-def track(model, img_path, pre_region, topk=5):
+def track(model, img_path, pre_region):
     # only for iou loss
     feat_bboxes = sample.sample_on_feat()
     pred_data, restore_info = datahelper.get_predict_data(img_path, pre_region, feat_bboxes)
@@ -182,8 +183,8 @@ def debug_track_on_OTB():
     model, all_params = extend.init_model(loss_type=args.loss_type, fixed_conv=args.fixed_conv, saved_fname='conv123')
 
     # load
-    # a = mx.ndarray.load('params/5offline_for_surfer')
-    # model.set_params(a, None)
+    # a = mx.ndarray.load('params/5offline_for_surfer_withCEloss')
+    # model.set_params(a, None, allow_extra=True)
 
     logging.getLogger().setLevel(logging.DEBUG)
     res, scores = debug_track_seq(args, model, img_paths, gts)
