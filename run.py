@@ -29,8 +29,8 @@ def debug_track_seq(args, model, img_paths, gts):
     r2 = (res2 * 2) ** 0.5
 
     #
-    # a, b = model.get_params()
-    # mx.ndarray.save('params/weighted_by_' + str(args.weight_factor), a)
+    a, b = model.get_params()
+    mx.ndarray.save('params/weighted_by_' + str(args.weight_factor), a)
     # exit()
 
     res = []
@@ -194,8 +194,8 @@ def debug_track_on_OTB():
     model, all_params = extend.init_model(args)
 
     # load
-    a = mx.ndarray.load('params/weighted_by_20.0')
-    model.set_params(a, None, allow_extra=True)
+    # a = mx.ndarray.load('params/weighted_by_20.0')
+    # model.set_params(a, None, allow_extra=True)
 
     logging.getLogger().setLevel(logging.DEBUG)
     res, scores = debug_track_seq(args, model, img_paths, gts)
