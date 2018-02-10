@@ -29,9 +29,9 @@ def debug_track_seq(args, model, img_paths, gts):
     r2 = (res2 * 2) ** 0.5
 
     #
-    a, b = model.get_params()
-    mx.ndarray.save('params/weighted_by_' + str(args.weight_factor), a)
-    exit()
+    # a, b = model.get_params()
+    # mx.ndarray.save('params/weighted_by_' + str(args.weight_factor), a)
+    # exit()
 
     res = []
     scores = []
@@ -126,7 +126,7 @@ def train_on_first(args, model, first_path, gt, num_epoch=100):
               optimizer_params={'learning_rate': args.lr_offline,
                                 'wd'           : args.wd,
                                 'momentum'     : args.momentum,
-                                # 'clip_gradient': 5,
+                                'clip_gradient': 5,
                                 'lr_scheduler' : mx.lr_scheduler.FactorScheduler(
                                     args.lr_step, args.lr_factor, args.lr_stop)},
               eval_metric=metric, begin_epoch=0, num_epoch=num_epoch)
@@ -147,10 +147,9 @@ def track(model, img_path, pre_region):
         return x, y, w, h
 
     res = model.predict(pred_iter)
-    opt_idx = mx.ndarray.topk(res, k=1).asnumpy().astype('int32')
+    opt_idx = mx.ndarray.topk(res, k=10).asnumpy().astype('int32')
     res = res.asnumpy()
     opt_scores = res[opt_idx]
-    logging.getLogger().error(opt_scores.__str__())
     opt_score = opt_scores.mean()
     opt_feat_bboxes = feat_bboxes[opt_idx, 1:]
     opt_patch_bboxes = util.feat2img(opt_feat_bboxes)
@@ -195,8 +194,8 @@ def debug_track_on_OTB():
     model, all_params = extend.init_model(args)
 
     # load
-    # a = mx.ndarray.load('params/5offline_for_surfer_withCEloss2')
-    # model.set_params(a, None, allow_extra=True)
+    a = mx.ndarray.load('params/weighted_by_20.0')
+    model.set_params(a, None, allow_extra=True)
 
     logging.getLogger().setLevel(logging.DEBUG)
     res, scores = debug_track_seq(args, model, img_paths, gts)
