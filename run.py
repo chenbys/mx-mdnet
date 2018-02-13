@@ -194,7 +194,7 @@ def debug_track_on_OTB():
     model, all_params = extend.init_model(args)
 
     # load
-    # a = mx.ndarray.load('params/weighted_by_20.0')
+    # a = mx.ndarray.load('params/weighted_by_10.0')
     # model.set_params(a, None, allow_extra=True)
 
     logging.getLogger().setLevel(logging.DEBUG)

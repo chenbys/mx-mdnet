@@ -45,7 +45,7 @@ def get_samples(label_feat, pos_number=200, neg_number=200):
            np.hstack((np.ones((pos_number,)), np.zeros((neg_number,))))
 
 
-def get_samples_with_iou_label(label_feat, p_number=200, h_number=300, m_number=400, s_number=100):
+def get_samples_with_iou_label(label_feat, p_number=500, h_number=300, m_number=200, s_number=200):
     '''
     :param label_feat:
     :param pos_number:
