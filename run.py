@@ -30,7 +30,7 @@ def debug_track_seq(args, model, img_paths, gts):
 
     #
     a, b = model.get_params()
-    mx.ndarray.save('params/weighted_by_' + str(args.weight_factor), a)
+    mx.ndarray.save('params/weighted_by_' + str(args.weight_factor) + '_fixed' + str(args.fixed_conv), a)
     # exit()
 
     res = []
@@ -126,7 +126,7 @@ def train_on_first(args, model, first_path, gt, num_epoch=100):
               optimizer_params={'learning_rate': args.lr_offline,
                                 'wd'           : args.wd,
                                 'momentum'     : args.momentum,
-                                'clip_gradient': 5,
+                                # 'clip_gradient': 5,
                                 'lr_scheduler' : mx.lr_scheduler.FactorScheduler(
                                     args.lr_step, args.lr_factor, args.lr_stop)},
               eval_metric=metric, begin_epoch=0, num_epoch=num_epoch)
