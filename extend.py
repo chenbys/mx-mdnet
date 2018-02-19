@@ -51,19 +51,6 @@ class WeightedIOUACC(mx.metric.EvalMetric):
         self.num_inst += len(label)
 
 
-class SACC(mx.metric.EvalMetric):
-    def __init__(self, acc_th=0.1):
-        super(SACC, self).__init__('iou<0.3 acc')
-        self.acc_th = acc_th * acc_th / 2.
-
-    def update(self, labels, preds):
-        label = labels[0].asnumpy().reshape((-1,))
-        pred = preds[0].asnumpy()
-        acc = np.sum(pred < self.acc_th)
-        self.sum_metric += acc * 100
-        self.num_inst += len(label)
-
-
 class MDNetIOUACC(mx.metric.EvalMetric):
     def __init__(self, acc_th=0.1):
         super(MDNetIOUACC, self).__init__('MDNetIOUACC_' + str(acc_th))
@@ -122,14 +109,16 @@ def get_mdnet_conv123_params(prefix='', mat_path='saved/conv123.mat'):
 def init_model(args):
     import datahelper
 
-    if args.loss_type == 0:
-        sym = csym.get_mdnet()
-    elif args.loss_type == 1:
-        sym = csym.get_mdnet_with_smooth_l1_loss()
-    elif args.loss_type == 2:
-        sym = csym.get_mdnet_with_CE_loss()
-    elif args.loss_type == 3:
-        sym = csym.get_mdnet_with_weighted_CE_loss(args.weight_factor)
+    # if args.loss_type == 0:
+    #     sym = csym.get_mdnet()
+    # elif args.loss_type == 1:
+    #     sym = csym.get_mdnet_with_smooth_l1_loss()
+    # elif args.loss_type == 2:
+    #     sym = csym.get_mdnet_with_CE_loss()
+    # elif args.loss_type == 3:
+    #     sym = csym.get_mdnet_with_weighted_CE_loss(args.weight_factor)
+
+    sym = csym.get_mdnet_with_weighted_CE_loss(args.weight_factor)
 
     fixed_param_names = []
     for i in range(1, args.fixed_conv + 1):

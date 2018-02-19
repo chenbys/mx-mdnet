@@ -1,6 +1,8 @@
 import mxnet as mx
 import argparse
 import numpy as np
+
+import eva
 import sample
 import datahelper
 import util
@@ -19,18 +21,21 @@ def debug_track_seq(args, model, img_paths, gts):
                                    num_epoch=args.num_epoch_for_offline)
 
     #
-    train_data = datahelper.get_train_data(img_paths[2], gts[2])
-    train_data2 = train_data[0], train_data[1], np.zeros(np.shape(train_data[2]))
-    train_iter = datahelper.get_train_iter(train_data)
-    train_iter2 = datahelper.get_train_iter(train_data2)
-    label = train_data[2]
-    res1 = model.predict(train_iter).asnumpy()
-    res2 = model.predict(train_iter2).asnumpy()
-    r2 = (res2 * 2) ** 0.5
+    # train_data = datahelper.get_train_data(img_paths[0], gts[0])
+    # train_data2 = train_data[0], train_data[1], np.zeros(np.shape(train_data[2]))
+    # train_iter = datahelper.get_train_iter(train_data)
+    # train_iter2 = datahelper.get_train_iter(train_data2)
+    # label = np.reshape(train_data[2], -1)
+
+    # import eva
+    # res = eva.predict(model.symbol, model.get_params()[0], train_data)
+    # res1 = model.predict(train_iter).asnumpy()
+    # res2 = model.predict(train_iter2).asnumpy()
+    # r2 = (res2 * 2) ** 0.5
 
     #
-    a, b = model.get_params()
-    mx.ndarray.save('params/weighted_by_' + str(args.weight_factor) + '_fixed' + str(args.fixed_conv), a)
+    # a, b = model.get_params()
+    # mx.ndarray.save('params/weighted_by_' + str(args.weight_factor) + '_fixed' + str(args.fixed_conv), a)
     # exit()
 
     res = []
@@ -116,20 +121,15 @@ def online_update(args, model, img_paths, res, cur, history_len=10, num_epoch=10
 
 
 def train_on_first(args, model, first_path, gt, num_epoch=100):
-    metric = mx.metric.CompositeEvalMetric()
-    metric.add(extend.WeightedIOUACC(args.weight_factor, 0.1))
-    metric.add(extend.WeightedIOUACC(args.weight_factor, 0.2))
-    metric.add(extend.WeightedIOUACC(args.weight_factor, 0.3))
-    metric.add(extend.MDNetIOULoss())
     train_iter = datahelper.get_train_iter(datahelper.get_train_data(first_path, gt))
-    model.fit(train_data=train_iter, optimizer='sgd',
-              optimizer_params={'learning_rate': args.lr_offline,
-                                'wd'           : args.wd,
-                                'momentum'     : args.momentum,
-                                # 'clip_gradient': 5,
-                                'lr_scheduler' : mx.lr_scheduler.FactorScheduler(
-                                    args.lr_step, args.lr_factor, args.lr_stop)},
-              eval_metric=metric, begin_epoch=0, num_epoch=num_epoch)
+    eva.fit(model, train_data=train_iter, optimizer='sgd',
+            optimizer_params={'learning_rate': args.lr_offline,
+                              'wd'           : args.wd,
+                              'momentum'     : args.momentum,
+                              # 'clip_gradient': 5,
+                              'lr_scheduler' : mx.lr_scheduler.FactorScheduler(
+                                  args.lr_step, args.lr_factor, args.lr_stop)},
+            begin_epoch=0, num_epoch=num_epoch)
     return model
 
 
@@ -137,7 +137,9 @@ def track(model, img_path, pre_region):
     # only for iou loss
     feat_bboxes = sample.sample_on_feat()
     pred_data, restore_info = datahelper.get_predict_data(img_path, pre_region, feat_bboxes)
-    pred_iter = datahelper.get_predict_iter(pred_data)
+
+    import eva
+    res = eva.predict(model.get_params()[0], pred_data[0], pred_data[1])
 
     def restore_img_bbox(opt_patch_bbox, restore_info):
         xo, yo, wo, ho = opt_patch_bbox
@@ -146,7 +148,6 @@ def track(model, img_path, pre_region):
         w, h = W / 227. * wo, H / 227. * ho
         return x, y, w, h
 
-    res = model.predict(pred_iter)
     opt_idx = mx.ndarray.topk(res, k=10).asnumpy().astype('int32')
     res = res.asnumpy()
     opt_scores = res[opt_idx]
@@ -155,7 +156,6 @@ def track(model, img_path, pre_region):
     opt_patch_bboxes = util.feat2img(opt_feat_bboxes)
     opt_patch_bbox = opt_patch_bboxes.mean(0)
     opt_img_bbox = restore_img_bbox(opt_patch_bbox, restore_info)
-    opt_score = (opt_score * 2) ** 0.5
 
     def check_pred_data(i, cur=0):
         img_W, img_H, X, Y, W, H = restore_info
@@ -173,7 +173,7 @@ def track(model, img_path, pre_region):
         ax.add_patch(patches.Rectangle((x, y), w, h,
                                        linewidth=2, edgecolor='blue', facecolor='none'))
         fig.show()
-        return (res[i] * 2) ** 0.5
+        return (res[i])
 
     return opt_img_bbox, opt_score
 
@@ -191,6 +191,9 @@ def debug_track_on_OTB():
     config.gts = gts
     config.img_paths = img_paths
 
+    # load
+    # args.weight_factor = 10
+
     model, all_params = extend.init_model(args)
 
     # load
@@ -204,7 +207,7 @@ def debug_track_on_OTB():
 def parse_args():
     parser = argparse.ArgumentParser(description='Train MDNet network')
     parser.add_argument('--gpu', help='GPU device to train with', default=-1, type=int)
-    parser.add_argument('--num_epoch_for_offline', help='epoch of training for every frame', default=0, type=int)
+    parser.add_argument('--num_epoch_for_offline', help='epoch of training for every frame', default=1, type=int)
     parser.add_argument('--num_epoch_for_online', help='epoch of training for every frame', default=0, type=int)
     parser.add_argument('--num_frame_for_offline', help='epoch of training for every frame', default=1, type=int)
     parser.add_argument('--batch_callback_freq', default=50, type=int)
@@ -221,7 +224,7 @@ def parse_args():
     parser.add_argument('--momentum', default=0, type=float)
     parser.add_argument('--saved_fname', default=None, type=str)
     parser.add_argument('--log', default=1, type=int)
-    parser.add_argument('--weight_factor', default=30, type=float)
+    parser.add_argument('--weight_factor', default=10, type=float)
     parser.add_argument('--fixed_conv', help='the params before(include) which conv are all fixed',
                         default=2, type=int)
     parser.add_argument('--loss_type', type=int, default=3,
