@@ -21,7 +21,7 @@ def predict(arg_params, image_patch, feat_bbox):
                 'feat_bbox'  : feat_bbox}
     arg_params.update(data_dic)
     for key, item in arg_params.items():
-        arg_params[key] = mx.ndarray.array(item)
+        arg_params[key] = mx.ndarray.array(item, config.ctx)
 
     e = sym.bind(config.ctx, arg_params)
     res = e.forward()
