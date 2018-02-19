@@ -34,9 +34,9 @@ def debug_track_seq(args, model, img_paths, gts):
     # r2 = (res2 * 2) ** 0.5
 
     #
-    # a, b = model.get_params()
-    # mx.ndarray.save('params/weighted_by_' + str(args.weight_factor) + '_fixed' + str(args.fixed_conv), a)
-    # exit()
+    a, b = model.get_params()
+    mx.ndarray.save('params/weighted_by_' + str(args.weight_factor) + '_fixed' + str(args.fixed_conv), a)
+    exit()
 
     res = []
     scores = []
