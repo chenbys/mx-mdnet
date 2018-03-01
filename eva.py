@@ -1,9 +1,10 @@
+import logging
 import mxnet as mx
 import numpy as np
 import time
 from mxnet.base import _as_list
 from mxnet.initializer import Uniform
-
+import copy
 import csym
 from setting import config
 
@@ -18,7 +19,7 @@ def predict(arg_params, image_patch, feat_bbox):
 
     sym = csym.get_pred_sym()
     data_dic = {'image_patch': image_patch,
-                'feat_bbox'  : feat_bbox}
+                'feat_bbox': feat_bbox}
     arg_params.update(data_dic)
     for key, item in arg_params.items():
         arg_params[key] = mx.ndarray.array(item, config.ctx)
@@ -29,7 +30,7 @@ def predict(arg_params, image_patch, feat_bbox):
     return res[0]
 
 
-def validate(arg_params, image_patch, feat_bbox, labels):
+def validate(arg_params, image_patch, feat_bbox, labels, epoch_info):
     '''
 
     :param arg_params:
@@ -38,6 +39,7 @@ def validate(arg_params, image_patch, feat_bbox, labels):
     :param labels:
     :return: r0,r1,r2 for 0.1acc, 0.2acc, max50 > 0.6, max50 > 0.8
     '''
+    arg_params = copy.deepcopy(arg_params)
     scores = predict(arg_params, image_patch, feat_bbox)
     labels_ = labels.reshape((-1,))
     length = scores.shape[0]
@@ -59,9 +61,11 @@ def validate(arg_params, image_patch, feat_bbox, labels):
 
     r2 = 1. * max_acc0 / K
     r3 = 1. * max_acc1 / K
-
-    print 'subs < 0.1 : %.2f%% , subs < 0.2 : %.2f%%, max of %d in pred > 0.6 : %.2f%% and > 0.8 : %.2f%%' % (
-        r0 * 100, r1 * 100, K, r2 * 100, r3 * 100)
+    logging.getLogger().info(
+        'E:%4d| subs<0.1: %.2f%%|subs<0.2: %.2f%%|top %d>0.6: %6.2f%%|top > 0.8: %6.2f%%' % (
+            epoch_info, r0 * 100, r1 * 100, K, r2 * 100, r3 * 100))
+    if (epoch_info+1) % 40 == 0:
+        a = 'debug point'
     return r0, r1, r2
 
 
@@ -109,12 +113,12 @@ def fit(model, train_data, eval_data=None,
             nbatch += 1
 
         # sync aux params across devices
-        arg_params, aux_params = model.get_params()
-        model.set_params(arg_params, aux_params)
+        # arg_params, aux_params = model.get_params()
+        # model.set_params(arg_params, aux_params)
 
-        if epoch_end_callback is not None:
-            for callback in _as_list(epoch_end_callback):
-                callback(epoch, model.symbol, arg_params, aux_params)
+        # if epoch_end_callback is not None:
+        #     for callback in _as_list(epoch_end_callback):
+        #         callback(epoch, model.symbol, arg_params, aux_params)
 
         # ----------------------------------------
         # evaluation on validation set
@@ -123,9 +127,10 @@ def fit(model, train_data, eval_data=None,
         train_data.reset()
 
         # eval on eval_data
-        feat_bbox, image_patch, labels = eval_data.data_list
-        validate(model.get_params()[0], image_patch, feat_bbox, labels)
+        if (epoch+1) % 20 == 0:
+            feat_bbox, image_patch, labels = eval_data.data_list
+            validate(model.get_params()[0], image_patch, feat_bbox, labels, epoch)
 
         # one epoch of training is finished
         toc = time.time()
-        model.logger.info('Epoch[%d] Time cost=%.3f', epoch, (toc - tic))
+        # model.logger.info('Epoch[%d] Time cost=%.3f', epoch, (toc - tic))

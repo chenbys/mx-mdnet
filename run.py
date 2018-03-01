@@ -18,6 +18,7 @@ def debug_track_seq(args, model, img_paths, gts):
     for j in range(1):
         for i in range(args.num_frame_for_offline):
             model = train_on_first(args, model, img_paths[i], gts[i],
+                                   begin_epoch=i * 30,
                                    num_epoch=args.num_epoch_for_offline)
 
     #
@@ -34,9 +35,9 @@ def debug_track_seq(args, model, img_paths, gts):
     # r2 = (res2 * 2) ** 0.5
 
     #
-    a, b = model.get_params()
-    mx.ndarray.save('params/weighted_by_' + str(args.weight_factor) + '_fixed' + str(args.fixed_conv), a)
-    exit()
+    # a, b = model.get_params()
+    # mx.ndarray.save('params/weighted_by_' + str(args.weight_factor) + '_fixed' + str(args.fixed_conv), a)
+    # exit()
 
     res = []
     scores = []
@@ -111,25 +112,25 @@ def online_update(args, model, img_paths, res, cur, history_len=10, num_epoch=10
         train_iter = datahelper.get_train_iter(datahelper.get_train_data(img_paths[i], res[i]))
         model.fit(train_data=train_iter, optimizer='sgd',
                   optimizer_params={'learning_rate': args.lr_online,
-                                    'wd'           : args.wd,
-                                    'momentum'     : args.momentum,
+                                    'wd': args.wd,
+                                    'momentum': args.momentum,
                                     # 'clip_gradient': 5,
-                                    'lr_scheduler' : mx.lr_scheduler.FactorScheduler(
+                                    'lr_scheduler': extend.MDScheduler(
                                         args.lr_step, args.lr_factor, args.lr_stop)},
                   eval_metric=metric, begin_epoch=0, num_epoch=num_epoch)
     return model
 
 
-def train_on_first(args, model, first_path, gt, num_epoch=100):
+def train_on_first(args, model, first_path, gt, begin_epoch=0, num_epoch=100):
     train_iter = datahelper.get_train_iter(datahelper.get_train_data(first_path, gt))
     eva.fit(model, train_data=train_iter, optimizer='sgd',
             optimizer_params={'learning_rate': args.lr_offline,
-                              'wd'           : args.wd,
-                              'momentum'     : args.momentum,
-                              # 'clip_gradient': 5,
-                              'lr_scheduler' : mx.lr_scheduler.FactorScheduler(
+                              'wd': args.wd,
+                              'momentum': args.momentum,
+                              'clip_gradient': 5,
+                              'lr_scheduler': extend.MDScheduler(
                                   args.lr_step, args.lr_factor, args.lr_stop)},
-            begin_epoch=0, num_epoch=num_epoch)
+            begin_epoch=0, num_epoch=begin_epoch + num_epoch)
     return model
 
 
@@ -180,10 +181,7 @@ def track(model, img_path, pre_region):
 
 def debug_track_on_OTB():
     args = parse_args()
-    if args.gpu == -1:
-        config.ctx = mx.cpu(0)
-    else:
-        config.ctx = mx.gpu(args.gpu)
+    config.ctx = mx.gpu(args.gpu)
 
     otb = datahelper.OTBHelper(args.OTB_path)
     img_paths, gts = otb.get_seq('Surfer')
@@ -191,14 +189,7 @@ def debug_track_on_OTB():
     config.gts = gts
     config.img_paths = img_paths
 
-    # load
-    # args.weight_factor = 10
-
     model, all_params = extend.init_model(args)
-
-    # load
-    # a = mx.ndarray.load('params/weighted_by_10.0')
-    # model.set_params(a, None, allow_extra=True)
 
     logging.getLogger().setLevel(logging.DEBUG)
     res, scores = debug_track_seq(args, model, img_paths, gts)
@@ -206,30 +197,31 @@ def debug_track_on_OTB():
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Train MDNet network')
-    parser.add_argument('--gpu', help='GPU device to train with', default=-1, type=int)
-    parser.add_argument('--num_epoch_for_offline', help='epoch of training for every frame', default=1, type=int)
-    parser.add_argument('--num_epoch_for_online', help='epoch of training for every frame', default=0, type=int)
-    parser.add_argument('--num_frame_for_offline', help='epoch of training for every frame', default=1, type=int)
-    parser.add_argument('--batch_callback_freq', default=50, type=int)
-    parser.add_argument('--lr_offline', help='base learning rate', default=1e-5, type=float)
-    parser.add_argument('--lr_online', help='base learning rate', default=1e-5, type=float)
-    parser.add_argument('--wd', help='base learning rate', default=1e-1, type=float)
-    parser.add_argument('--OTB_path', help='OTB folder', default='/home/chenjunjie/dataset/OTB', type=str)
-    parser.add_argument('--VOT_path', help='VOT folder', default='/home/chenjunjie/dataset/VOT2015', type=str)
-    parser.add_argument('--p_level', help='print level, default is 0 for debug mode', default=0, type=int)
-    parser.add_argument('--lr_step', default=36 * 1, type=int)
-    parser.add_argument('--lr_factor', default=0.9, type=float)
-    parser.add_argument('--lr_stop', default=1e-8, type=float)
-    parser.add_argument('--iou_acc_th', default=0.1, type=float)
-    parser.add_argument('--momentum', default=0, type=float)
-    parser.add_argument('--saved_fname', default=None, type=str)
-    parser.add_argument('--log', default=1, type=int)
-    parser.add_argument('--weight_factor', default=10, type=float)
-    parser.add_argument('--fixed_conv', help='the params before(include) which conv are all fixed',
-                        default=2, type=int)
     parser.add_argument('--loss_type', type=int, default=3,
                         help='0 for {0,1} corss-entropy, 1 for smooth_l1, 2 for {pos_pred} corss-entropy,'
                              '3 for CE loss and weighted for high iou label')
+    parser.add_argument('--gpu', help='GPU device to train with', default=0, type=int)
+    parser.add_argument('--num_epoch_for_offline', default=100, type=int)
+    parser.add_argument('--num_epoch_for_online', default=0, help='epoch of training for every frame', type=int)
+    parser.add_argument('--num_frame_for_offline', default=3, help='epoch of training for every frame', type=int)
+    parser.add_argument('--batch_callback_freq', default=50, type=int)
+    parser.add_argument('--lr_online', help='base learning rate', default=1e-5, type=float)
+    parser.add_argument('--wd', help='base learning rate', default=1e-1, type=float)
+    parser.add_argument('--OTB_path', help='OTB folder', default='/media/chen/datasets/OTB', type=str)
+    parser.add_argument('--VOT_path', help='VOT folder', default='/media/chen/datasets/VOT2015', type=str)
+    parser.add_argument('--p_level', help='print level, default is 0 for debug mode', default=0, type=int)
+    parser.add_argument('--lr_step', default=36 * 50, help='every 36 num for one epoch', type=int)
+    parser.add_argument('--lr_factor', default=0.5, help='20 times will be around 0.1', type=float)
+    parser.add_argument('--lr_stop', default=1e-8, type=float)
+    parser.add_argument('--iou_acc_th', default=0.1, type=float)
+    parser.add_argument('--momentum', default=0, type=float)
+    parser.add_argument('--log', default=1, type=int)
+
+    parser.add_argument('--lr_offline', default=1e-7, help='base learning rate', type=float)
+    parser.add_argument('--weight_factor', default=10, type=float)
+    parser.add_argument('--fixed_conv', help='the params before(include) which conv are all fixed',
+                        default=1, type=int)
+    parser.add_argument('--saved_fname', default='conv123', type=str)
 
     args = parser.parse_args()
     return args

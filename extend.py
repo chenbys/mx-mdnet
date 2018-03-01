@@ -1,7 +1,51 @@
+import logging
 import mxnet as mx
 import numpy as np
+from mxnet.lr_scheduler import LRScheduler
+
 from setting import config
 import csym
+
+
+class MDScheduler(LRScheduler):
+    """Reduce the learning rate by a factor for every *n* steps.
+
+    It returns a new learning rate by::
+
+        base_lr * pow(factor, floor(num_update/step))
+
+    Parameters
+    ----------
+    step : int
+        Changes the learning rate for every n updates.
+    factor : float, optional
+        The factor to change the learning rate.
+    stop_factor_lr : float, optional
+        Stop updating the learning rate if it is less than this value.
+    """
+
+    def __init__(self, step, factor=1, stop_factor_lr=1e-8):
+        super(MDScheduler, self).__init__()
+        if step < 1:
+            raise ValueError("Schedule step must be greater or equal than 1 round")
+        if factor > 1.0:
+            raise ValueError("Factor must be no more than 1 to make lr reduce")
+        self.step = step
+        self.factor = factor
+        self.stop_factor_lr = stop_factor_lr
+        self.count = 0
+
+    def __call__(self, num_update):
+        # NOTE: use while rather than if  (for continuing training via load_epoch)
+        while num_update > self.count + self.step:
+            self.count += self.step
+            self.base_lr *= self.factor
+            if self.base_lr < self.stop_factor_lr:
+                self.base_lr = self.stop_factor_lr
+            else:
+                logging.info("Update[%d]: lr: %0.2e",
+                             num_update/36, self.base_lr)
+        return self.base_lr
 
 
 class MDNetACC(mx.metric.EvalMetric):
