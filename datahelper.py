@@ -72,7 +72,7 @@ def get_predict_data(img_path, pre_region, feat_bbox):
 
     img_patch = img_pad[int(Y):int(Y + H), int(X):int(X + W), :]
     img_patch = imresize(img_patch, [227, 227])
-    img_patch = img_patch.reshape((3, 227, 227))
+    img_patch = img_patch.reshape((1, 3, 227, 227))
     label = np.zeros((feat_bbox.shape[0],))
     return (img_patch, feat_bbox, label), (img_W, img_H, X, Y, W, H)
 

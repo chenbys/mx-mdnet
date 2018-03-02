@@ -58,7 +58,7 @@ def get_samples_with_iou_label(label_feat, p_number=100, h_number=100, m_number=
 
     x, y, w, h = label_feat[0, :]
     # generate pos samples
-    feat_bboxes = sample_on_feat(1, 1, 1, 1, w, h)
+    feat_bboxes = sample_on_feat(2, 2, 2, 2, w, h)
     feat_bboxes_ = util.x1y2x2y22xywh(feat_bboxes[:, 1:5])
     rat = util.overlap_ratio(label_feat, feat_bboxes_)
     # for p

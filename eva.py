@@ -2,21 +2,23 @@ import logging
 import mxnet as mx
 import numpy as np
 import time
-from mxnet.base import _as_list
 from mxnet.initializer import Uniform
 import copy
 import csym
+import datahelper
+import sample
+import util
 from setting import config
 
 
 def predict(arg_params, image_patch, feat_bbox):
     '''
+        This func will modify arg_params, so pass one copy
     :param arg_params:
     :param image_patch:
     :param feat_bbox:
     :return: the predict IOU scores for all feat_bbox
     '''
-
     sym = csym.get_pred_sym()
     data_dic = {'image_patch': image_patch,
                 'feat_bbox': feat_bbox}
@@ -30,8 +32,32 @@ def predict(arg_params, image_patch, feat_bbox):
     return res[0]
 
 
-def validate(arg_params, image_patch, feat_bbox, labels, epoch_info):
+def val_for_tracking(arg_params, img_path, pre_region, gt):
     '''
+        This func will modify arg_params, so pass one copy
+
+    :param arg_params:
+    :param img_path:
+    :param pre_region:
+    :param gt:
+    :return:
+    '''
+
+    import run
+    region, score = run.track(arg_params, img_path, pre_region)
+    iou = util.overlap_ratio(region, gt)
+    logging.getLogger().info('track on %s, res iou is %5.2f' % (img_path, iou))
+    return iou
+
+
+def val_for_overfitting(arg_params, train_img_path, train_gt, epoch_info):
+    train_iter = datahelper.get_train_iter(datahelper.get_train_data(train_img_path, train_gt))
+    val_for_fitting(arg_params, train_iter, epoch_info)
+
+
+def val_for_fitting(arg_params, train_iter, epoch_info):
+    '''
+        This func will modify arg_params, so pass one copy
 
     :param arg_params:
     :param image_patch:
@@ -39,7 +65,7 @@ def validate(arg_params, image_patch, feat_bbox, labels, epoch_info):
     :param labels:
     :return: r0,r1,r2 for 0.1acc, 0.2acc, max50 > 0.6, max50 > 0.8
     '''
-    arg_params = copy.deepcopy(arg_params)
+    feat_bbox, image_patch, labels = train_iter.data_list
     scores = predict(arg_params, image_patch, feat_bbox)
     labels_ = labels.reshape((-1,))
     length = scores.shape[0]
@@ -54,7 +80,7 @@ def validate(arg_params, image_patch, feat_bbox, labels, epoch_info):
     r1 = 1. * acc1 / length
     # max acc
     # how many pred bbox that top of K will greater than 0.8
-    K = 50
+    K = 10
     s_idx = mx.ndarray.topk(scores, k=K).asnumpy().astype('int32')
     max_acc0 = np.sum(nl[s_idx] > 0.6)
     max_acc1 = np.sum(nl[s_idx] > 0.8)
@@ -62,14 +88,14 @@ def validate(arg_params, image_patch, feat_bbox, labels, epoch_info):
     r2 = 1. * max_acc0 / K
     r3 = 1. * max_acc1 / K
     logging.getLogger().info(
-        'E:%4d| subs<0.1: %.2f%%|subs<0.2: %.2f%%|top %d>0.6: %6.2f%%|top > 0.8: %6.2f%%' % (
-            epoch_info, r0 * 100, r1 * 100, K, r2 * 100, r3 * 100))
-    if (epoch_info+1) % 40 == 0:
+        'E:%4d| subs<0.1: %.2f%%|subs<0.2: %.2f%%|top %d>0.6: %6.2f%%|top>0.8: %6.2f%%' % (
+            epoch_info + 1, r0 * 100, r1 * 100, K, r2 * 100, r3 * 100))
+    if (epoch_info + 1) % 40 == 0:
         a = 'debug point'
     return r0, r1, r2
 
 
-def fit(model, train_data, eval_data=None,
+def fit(model, train_img_path, train_gt, val_img_path, val_pre_region, val_gt,
         epoch_end_callback=None, kvstore='local',
         optimizer='sgd', optimizer_params=(('learning_rate', 0.01),),
         eval_end_callback=None,
@@ -81,9 +107,9 @@ def fit(model, train_data, eval_data=None,
     :return:
     '''
     assert num_epoch is not None, 'please specify number of epochs'
-    if eval_data is None:
-        eval_data = train_data
-    model.bind(data_shapes=train_data.provide_data, label_shapes=train_data.provide_label,
+    train_iter = datahelper.get_train_iter(datahelper.get_train_data(train_img_path, train_gt))
+
+    model.bind(data_shapes=train_iter.provide_data, label_shapes=train_iter.provide_label,
                for_training=True, force_rebind=force_rebind)
     model.init_params(initializer=initializer, arg_params=arg_params, aux_params=aux_params,
                       allow_missing=allow_missing, force_init=force_init)
@@ -96,7 +122,7 @@ def fit(model, train_data, eval_data=None,
     for epoch in range(begin_epoch, num_epoch):
         tic = time.time()
         nbatch = 0
-        data_iter = iter(train_data)
+        data_iter = iter(train_iter)
         end_of_batch = False
         next_data_batch = next(data_iter)
         while not end_of_batch:
@@ -124,12 +150,13 @@ def fit(model, train_data, eval_data=None,
         # evaluation on validation set
 
         # end of 1 epoch, reset the data-iter for another epoch
-        train_data.reset()
+        train_iter.reset()
 
         # eval on eval_data
-        if (epoch+1) % 20 == 0:
-            feat_bbox, image_patch, labels = eval_data.data_list
-            validate(model.get_params()[0], image_patch, feat_bbox, labels, epoch)
+        if (epoch + 1) % 25 == 0:
+            val_for_fitting(copy.deepcopy(model.get_params()[0]), train_iter, epoch)
+            val_for_overfitting(copy.deepcopy(model.get_params()[0]), train_img_path, train_gt, epoch)
+            val_for_tracking(copy.deepcopy(model.get_params()[0]), val_img_path, val_pre_region, val_gt)
 
         # one epoch of training is finished
         toc = time.time()
