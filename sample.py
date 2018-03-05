@@ -26,26 +26,26 @@ def sample_on_feat(stride_x=2, stride_y=2, stride_w=2, stride_h=2,
     return np.array(feat_boxes)
 
 
-def get_samples(label_feat, pos_number=200, neg_number=200):
-    import random
+# def get_samples(label_feat, pos_number=200, neg_number=200):
+#     import random
+#
+#     x, y, w, h = label_feat[0, :]
+#     feat_bboxes = sample_on_feat(1, 1, 1, 1, w, h)
+#     feat_bboxes_ = util.x1y2x2y22xywh(feat_bboxes[:, 1:5])
+#     rat = util.overlap_ratio(label_feat, feat_bboxes_)
+#     pos_samples = feat_bboxes[rat > 0.7, :]
+#     neg_samples = feat_bboxes[rat < 0.3, :]
+#     # print 'pos:%d ,neg:%d, all:%d;' % (pos_samples.shape[0], neg_samples.shape[0], feat_bboxes.shape[0])
+#     # select samples
+#     # ISSUE: what if pos_samples.shape[0] < pos_number?
+#     pos_select_index = random.sample(range(0, pos_samples.shape[0]), pos_number)
+#     neg_select_index = random.sample(range(0, neg_samples.shape[0]), pos_number)
+#
+#     return np.vstack((pos_samples[pos_select_index], neg_samples[neg_select_index])), \
+#            np.hstack((np.ones((pos_number,)), np.zeros((neg_number,))))
 
-    x, y, w, h = label_feat[0, :]
-    feat_bboxes = sample_on_feat(1, 1, 1, 1, w, h)
-    feat_bboxes_ = util.x1y2x2y22xywh(feat_bboxes[:, 1:5])
-    rat = util.overlap_ratio(label_feat, feat_bboxes_)
-    pos_samples = feat_bboxes[rat > 0.7, :]
-    neg_samples = feat_bboxes[rat < 0.3, :]
-    # print 'pos:%d ,neg:%d, all:%d;' % (pos_samples.shape[0], neg_samples.shape[0], feat_bboxes.shape[0])
-    # select samples
-    # ISSUE: what if pos_samples.shape[0] < pos_number?
-    pos_select_index = random.sample(range(0, pos_samples.shape[0]), pos_number)
-    neg_select_index = random.sample(range(0, neg_samples.shape[0]), pos_number)
 
-    return np.vstack((pos_samples[pos_select_index], neg_samples[neg_select_index])), \
-           np.hstack((np.ones((pos_number,)), np.zeros((neg_number,))))
-
-
-def get_samples_with_iou_label(label_feat, p_number=100, h_number=100, m_number=100, s_number=100):
+def get_samples(label_feat, p_number=50, h_number=50, m_number=50, s_number=50):
     '''
     :param label_feat:
     :param pos_number:
@@ -58,8 +58,9 @@ def get_samples_with_iou_label(label_feat, p_number=100, h_number=100, m_number=
 
     x, y, w, h = label_feat[0, :]
     # generate pos samples
-    feat_bboxes = sample_on_feat(2, 2, 2, 2, w, h)
+    feat_bboxes = sample_on_feat(1, 1, 1, 1, w, h)
     feat_bboxes_ = util.x1y2x2y22xywh(feat_bboxes[:, 1:5])
+    error
     rat = util.overlap_ratio(label_feat, feat_bboxes_)
     # for p
     p_samples, p_labels = feat_bboxes[rat > 0.8, :], rat[rat > 0.8]
@@ -68,6 +69,7 @@ def get_samples_with_iou_label(label_feat, p_number=100, h_number=100, m_number=
     p_idx = random.sample(range(0, num), B)
     p_samples = np.vstack((np.repeat(p_samples, A, axis=0), p_samples[p_idx, :]))
     p_labels = np.hstack((np.repeat(p_labels, A, axis=0), p_labels[p_idx]))
+
     # for h
     h_samples, h_labels = feat_bboxes[rat > 0.7, :], rat[rat > 0.7]
     num = h_samples.shape[0]
@@ -90,5 +92,10 @@ def get_samples_with_iou_label(label_feat, p_number=100, h_number=100, m_number=
     s_samples = np.vstack((np.repeat(s_samples, A, axis=0), s_samples[s_idx, :]))
     s_labels = np.hstack((np.repeat(s_labels, A, axis=0), s_labels[s_idx]))
 
-    return np.vstack((p_samples, h_samples, m_samples, s_samples)), \
-           np.hstack((p_labels, h_labels, m_labels, s_labels))
+    samples = np.vstack((p_samples, h_samples, m_samples, s_samples))
+    labels = np.hstack((p_labels, h_labels, m_labels, s_labels))
+
+    sort_id = np.argsort(labels)
+    labels = labels[sort_id]
+    samples = samples[sort_id, :]
+    return samples, labels

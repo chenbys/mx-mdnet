@@ -187,7 +187,7 @@ def get_mdnet_with_weighted_CE_loss(weight_factor, prefix=''):
     score_ = mx.symbol.Reshape(data=score, shape=(-1), name=prefix + 'score_re')
     # pos_pred: (K,)
     smooth_l1 = mx.symbol.smooth_l1(data=score_ - label_, scalar=1, name=prefix + 'smooth_l1')
-    loss = mx.symbol.MakeLoss(data=smooth_l1 * (label_ * label_ * weight_factor + 1.), normalization='null',
+    loss = mx.symbol.MakeLoss(data=smooth_l1 * (label_ * weight_factor + 1.), normalization='null',
                               grad_scale=1, name='loss')
 
     # return loss, conv1, lrn2

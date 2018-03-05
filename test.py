@@ -1,4 +1,31 @@
 import numpy as np
+from matplotlib import patches
+
+import util
+import matplotlib.pyplot as plt
+
+
+def check_fit(patch_idx, sample_idx, img_patches, feat_bboxes, labels, scores):
+    img_patches, feat_bboxes, labels, scores = img_patches.asnumpy(), feat_bboxes.asnumpy(), labels.asnumpy(), scores.asnumpy()
+    feat_bbox = feat_bboxes[patch_idx, sample_idx, :]
+    label = labels[patch_idx, sample_idx]
+    score = scores[patch_idx, sample_idx]
+    img_patch = img_patches[patch_idx, :, :, :]
+
+    patch_bbox = util.feat2img(feat_bbox[1:].reshape((1, 4))).reshape(4, )
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    ax.imshow(img_patch.reshape((227, 227, 3)))
+    ax.add_patch(patches.Rectangle((patch_bbox[0], patch_bbox[1]), patch_bbox[2], patch_bbox[3],
+                                   linewidth=2, edgecolor='red', facecolor='none'))
+    fig.show()
+
+    return label, score
+
+
+def check_fit_plot(labels, scores, patch_idx):
+    plt.plot(labels[patch_idx, :])
+    plt.plot(scores[patch_idx, :])
 
 
 def test_sample():

@@ -2,6 +2,8 @@ import logging
 import mxnet as mx
 import numpy as np
 import time
+
+from matplotlib import patches
 from mxnet.initializer import Uniform
 import copy
 import csym
@@ -9,6 +11,7 @@ import datahelper
 import sample
 import util
 from setting import config
+import matplotlib.pyplot as plt
 
 
 def predict(arg_params, image_patch, feat_bbox):
@@ -46,16 +49,17 @@ def val_for_tracking(arg_params, img_path, pre_region, gt):
     import run
     region, score = run.track(arg_params, img_path, pre_region)
     iou = util.overlap_ratio(region, gt)
-    logging.getLogger().info('track on %s, res iou is %5.2f' % (img_path, iou))
+    d = util.overlap_ratio(pre_region, gt)
+    logging.getLogger().info('track on %s, res iou is %5.2f, base iou  is %5.2f' % (img_path, iou, d))
     return iou
 
 
-def val_for_overfitting(arg_params, train_img_path, train_gt, epoch_info):
+def val_for_overfitting(arg_params, train_img_path, train_gt):
     train_iter = datahelper.get_train_iter(datahelper.get_train_data(train_img_path, train_gt))
-    val_for_fitting(arg_params, train_iter, epoch_info)
+    val_for_fitting(arg_params, train_iter)
 
 
-def val_for_fitting(arg_params, train_iter, epoch_info):
+def val_for_fitting(arg_params, train_iter):
     '''
         This func will modify arg_params, so pass one copy
 
@@ -66,33 +70,70 @@ def val_for_fitting(arg_params, train_iter, epoch_info):
     :return: r0,r1,r2 for 0.1acc, 0.2acc, max50 > 0.6, max50 > 0.8
     '''
     feat_bbox, image_patch, labels = train_iter.data_list
-    scores = predict(arg_params, image_patch, feat_bbox)
-    labels_ = labels.reshape((-1,))
-    length = scores.shape[0]
-    ns = scores.asnumpy()
-    nl = labels_.asnumpy()
+    scores_ = predict(arg_params, image_patch, feat_bbox)
 
-    # th acc
-    subs = ns - nl
-    acc0 = np.sum(abs(subs) < 0.1)
-    acc1 = np.sum(abs(subs) < 0.2)
-    r0 = 1. * acc0 / length
-    r1 = 1. * acc1 / length
-    # max acc
-    # how many pred bbox that top of K will greater than 0.8
-    K = 10
-    s_idx = mx.ndarray.topk(scores, k=K).asnumpy().astype('int32')
-    max_acc0 = np.sum(nl[s_idx] > 0.6)
-    max_acc1 = np.sum(nl[s_idx] > 0.8)
+    # reshape scores like as labels
+    patch_num, label_num = labels.shape
+    scores = scores_.reshape((patch_num, label_num))
 
-    r2 = 1. * max_acc0 / K
-    r3 = 1. * max_acc1 / K
-    logging.getLogger().info(
-        'E:%4d| subs<0.1: %.2f%%|subs<0.2: %.2f%%|top %d>0.6: %6.2f%%|top>0.8: %6.2f%%' % (
-            epoch_info + 1, r0 * 100, r1 * 100, K, r2 * 100, r3 * 100))
-    if (epoch_info + 1) % 40 == 0:
-        a = 'debug point'
-    return r0, r1, r2
+    nscores = scores.asnumpy()
+    nlabels = labels.asnumpy()
+
+    def check_fit_plot(patch_idx):
+        plt.plot(nlabels[patch_idx, :])
+        plt.plot(nscores[patch_idx, :])
+
+    def check_fit(patch_idx, sample_idx):
+        img_patches, feat_bboxes = image_patch.asnumpy(), feat_bbox.asnumpy()
+        f_bbox = feat_bboxes[patch_idx, sample_idx, :]
+        label = nlabels[patch_idx, sample_idx]
+        score = nscores[patch_idx, sample_idx]
+        img_patch = img_patches[patch_idx, :, :, :]
+
+        patch_bbox = util.feat2img(f_bbox[1:].reshape((1, 4))).reshape(4, )
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+        ax.imshow(img_patch.reshape((227, 227, 3)))
+        ax.add_patch(patches.Rectangle((patch_bbox[0], patch_bbox[1]), patch_bbox[2], patch_bbox[3],
+                                       linewidth=2, edgecolor='red', facecolor='none'))
+        fig.show()
+        return label, score
+
+    # val_for_tracking(arg_params, config.img_paths[31], config.gts[30], config.gts[31])
+    topK = 10
+    r0s, r1s, r2s, r3s = [], [], [], []
+    for patch_idx in range(0, patch_num, 1):
+        score = nscores[patch_idx, :]
+        label = nlabels[patch_idx, :]
+        r0 = get_subs_acc(score, label, 0.1)
+        r1 = get_subs_acc(score, label, 0.2)
+        r2 = get_topK_acc(score, label, topK, 0.6)
+        r3 = get_topK_acc(score, label, topK, 0.8)
+        r0s.append(r0)
+        r1s.append(r1)
+        r2s.append(r2)
+        r3s.append(r3)
+
+        logging.getLogger().info('pid:%3d|%6.0f%%|%6.0f%%|%6.0f%%|%6.0f%%' % (
+            patch_idx, r0 * 100, r1 * 100, r2 * 100, r3 * 100))
+
+    logging.getLogger().info('mean of above: %6.2f|%6.2f|%6.2f|%6.2f|' % (
+        np.mean(r0s), np.mean(r1s), np.mean(r2s), np.mean(r3s)))
+    return
+
+
+def get_subs_acc(score, label, subs_th):
+    subs = score - label
+    acc = np.sum(abs(subs) < subs_th)
+    r = 1. * acc / len(score)
+    return r
+
+
+def get_topK_acc(score, label, topK, th):
+    topK_idx = mx.ndarray.topk(mx.ndarray.array(score), k=topK).asnumpy().astype('int32')
+    topK_acc = np.sum(label[topK_idx] > th)
+    r = 1. * topK_acc / topK
+    return r
 
 
 def fit(model, train_img_path, train_gt, val_img_path, val_pre_region, val_gt,
@@ -119,6 +160,10 @@ def fit(model, train_img_path, train_gt, val_img_path, val_pre_region, val_gt,
     ################################################################################
     # training loop
     ################################################################################
+    logging.getLogger().info('=================== INIT ====================')
+    val_for_fitting(copy.deepcopy(model.get_params()[0]), train_iter)
+    val_for_tracking(copy.deepcopy(model.get_params()[0]), val_img_path, val_pre_region, val_gt)
+
     for epoch in range(begin_epoch, num_epoch):
         tic = time.time()
         nbatch = 0
@@ -153,11 +198,13 @@ def fit(model, train_img_path, train_gt, val_img_path, val_pre_region, val_gt,
         train_iter.reset()
 
         # eval on eval_data
-        if (epoch + 1) % 25 == 0:
-            val_for_fitting(copy.deepcopy(model.get_params()[0]), train_iter, epoch)
-            val_for_overfitting(copy.deepcopy(model.get_params()[0]), train_img_path, train_gt, epoch)
+        if (epoch + 1) % 50 == 0:
+            logging.getLogger().info('\n============= Epoch:%4d .====================' % (epoch + 1))
+            val_for_fitting(copy.deepcopy(model.get_params()[0]), train_iter)
+            # val_for_overfitting(copy.deepcopy(model.get_params()[0]), train_img_path, train_gt)
             val_for_tracking(copy.deepcopy(model.get_params()[0]), val_img_path, val_pre_region, val_gt)
 
         # one epoch of training is finished
         toc = time.time()
         # model.logger.info('Epoch[%d] Time cost=%.3f', epoch, (toc - tic))
+    return

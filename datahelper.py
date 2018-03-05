@@ -7,7 +7,7 @@ from scipy.misc import imresize
 import util
 
 
-def get_train_data(img_path, region, stride_w=0.2, stride_h=0.2, iou_label=True):
+def get_train_data(img_path, region, stride_w=0.1, stride_h=0.1):
     img = cv2.imread(img_path)
     img_H, img_W, c = np.shape(img)
     img_pad = np.concatenate((img, img, img), 0)
@@ -36,10 +36,7 @@ def get_train_data(img_path, region, stride_w=0.2, stride_h=0.2, iou_label=True)
         # get region
         label_region = np.array([[227. * (x - X) / W, 227. * (y - Y) / H, 227. * w / W, 227. * h / H]])
         label_feat = util.x1y2x2y22xywh(util.img2feat(util.xywh2x1y1x2y2(label_region)))
-        if iou_label:
-            feat_bbox, label = sample.get_samples_with_iou_label(label_feat)
-        else:
-            feat_bbox, label = sample.get_samples(label_feat)
+        feat_bbox, label = sample.get_samples(label_feat)
         image_patches.append(img_patch)
         feat_bboxes.append(feat_bbox)
         labels.append(label)
