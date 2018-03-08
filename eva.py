@@ -161,8 +161,8 @@ def fit(model, train_img_path, train_gt, val_img_path, val_pre_region, val_gt,
     # training loop
     ################################################################################
     logging.getLogger().info('=================== INIT ====================')
-    val_for_fitting(copy.deepcopy(model.get_params()[0]), train_iter)
-    val_for_tracking(copy.deepcopy(model.get_params()[0]), val_img_path, val_pre_region, val_gt)
+    # val_for_fitting(copy.deepcopy(model.get_params()[0]), train_iter)
+    # val_for_tracking(copy.deepcopy(model.get_params()[0]), val_img_path, val_pre_region, val_gt)
 
     for epoch in range(begin_epoch, num_epoch):
         tic = time.time()

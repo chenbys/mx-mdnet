@@ -27,26 +27,29 @@ def sample_on_feat(stride_x=2, stride_y=2, stride_w=2, stride_h=2,
     return np.array(feat_boxes)
 
 
-def get_01samples(label_feat, pos_number=200, neg_number=200):
+def get_01samples(patch_gt, pos_number=50, neg_number=50):
     import random
-
+    label_feat = util.x1y2x2y22xywh(util.img2feat(util.xywh2x1y1x2y2(patch_gt)))
     x, y, w, h = label_feat[0, :]
+    # generate pos samples
     feat_bboxes = sample_on_feat(1, 1, 1, 1, w, h)
-    feat_bboxes_ = util.x1y2x2y22xywh(feat_bboxes[:, 1:5])
-    rat = util.overlap_ratio(label_feat, feat_bboxes_)
-    pos_samples = feat_bboxes[rat > 0.7, :]
-    neg_samples = feat_bboxes[rat < 0.3, :]
+    patch_bboxes = util.feat2img(feat_bboxes[:, 1:])
+    rat = util.overlap_ratio(patch_gt, patch_bboxes)
+
+    pos_samples = feat_bboxes[rat > 0.6, :]
+    neg_samples = feat_bboxes[rat < 0.4, :]
     # print 'pos:%d ,neg:%d, all:%d;' % (pos_samples.shape[0], neg_samples.shape[0], feat_bboxes.shape[0])
     # select samples
     # ISSUE: what if pos_samples.shape[0] < pos_number?
     pos_select_index = random.sample(range(0, pos_samples.shape[0]), pos_number)
-    neg_select_index = random.sample(range(0, neg_samples.shape[0]), pos_number)
+    neg_select_index = random.sample(range(0, neg_samples.shape[0]), neg_number)
 
-    return np.vstack((pos_samples[pos_select_index], neg_samples[neg_select_index])), \
+    a, b = np.vstack((pos_samples[pos_select_index], neg_samples[neg_select_index])), \
            np.hstack((np.ones((pos_number,)), np.zeros((neg_number,))))
+    return a, b
 
 
-def get_samples(patch_gt, p_number=50, h_number=40, m_number=40, s_number=50):
+def get_samples(patch_gt, p_number=40, h_number=0, m_number=0, s_number=40):
     '''
     :param label_feat:
     :param pos_number:
@@ -98,4 +101,8 @@ def get_samples(patch_gt, p_number=50, h_number=40, m_number=40, s_number=50):
     sort_id = np.argsort(labels)
     labels = labels[sort_id]
     samples = samples[sort_id, :]
+
+    # labels[labels>0.5]=0.9
+    # labels[labels<0.5]=0
+
     return samples, labels

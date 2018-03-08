@@ -214,8 +214,8 @@ def parse_args():
     parser.add_argument('--lr_factor', default=0.5, help='20 times will be around 0.1', type=float)
     parser.add_argument('--momentum', default=0.5, type=float)
     parser.add_argument('--log', default=1, type=int)
-    parser.add_argument('--lr_stop', default=1e-7, type=float)
-    parser.add_argument('--lr_offline', default=1e-7, help='base learning rate', type=float)
+    parser.add_argument('--lr_stop', default=5e-7, type=float)
+    parser.add_argument('--lr_offline', default=5e-7, help='base learning rate', type=float)
     parser.add_argument('--weight_factor', default=0, type=float)
     parser.add_argument('--fixed_conv', help='the params before(include) which conv are all fixed',
                         default=1, type=int)

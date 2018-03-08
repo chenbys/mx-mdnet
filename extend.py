@@ -44,7 +44,7 @@ class MDScheduler(LRScheduler):
                 self.base_lr = self.stop_factor_lr
             else:
                 logging.info("Update[%d]: lr: %0.2e",
-                             num_update/36, self.base_lr)
+                             num_update / 36, self.base_lr)
         return self.base_lr
 
 
@@ -172,9 +172,8 @@ def init_model(args):
                           label_names=('label',),
                           fixed_param_names=fixed_param_names)
     sample_iter = datahelper.get_train_iter(
-        datahelper.get_train_data('saved/mx-mdnet_01CE.jpg', [24, 24, 24, 24]))
+        datahelper.get_train_data('saved/mx-mdnet_01CE.jpg', [112, 112, 111, 111]))
     model.bind(sample_iter.provide_data, sample_iter.provide_label)
-
     all_params = {}
     if args.saved_fname == 'conv123':
         print '@CHEN->load params from conv123'
