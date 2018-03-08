@@ -35,7 +35,7 @@ def get_train_data(img_path, region, stride_w=0.1, stride_h=0.1):
 
         # get region
         patch_gt = np.array([[227. * (x - X) / W, 227. * (y - Y) / H, 227. * w / W, 227. * h / H]])
-        feat_bbox, label = sample.get_samples(patch_gt)
+        feat_bbox, label = sample.get_01samples(patch_gt)
         image_patches.append(img_patch)
         feat_bboxes.append(feat_bbox)
         labels.append(label)

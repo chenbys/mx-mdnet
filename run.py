@@ -21,16 +21,25 @@ def debug_track_seq(args, model, img_paths, gts):
     for j in range(1):
         for i in range(args.num_frame_for_offline):
             print 'train offine on frame %d' % i
-            eva.fit(model, train_img_path=img_paths[i], train_gt=gts[i],
-                    val_img_path=img_paths[i], val_pre_region=gts[i], val_gt=gts[i],
-                    optimizer='sgd',
-                    optimizer_params={'learning_rate': args.lr_offline,
-                                      'wd': args.wd,
-                                      'momentum': args.momentum,
-                                      # 'clip_gradient': 5,
-                                      'lr_scheduler': extend.MDScheduler(
-                                          args.lr_step, args.lr_factor, args.lr_stop)},
-                    begin_epoch=i * 25, num_epoch=i * 25 + args.num_epoch_for_offline)
+            train_img_path, train_gt = img_paths[i], gts[i]
+            eval_img_path, eval_gt = img_paths[i + 1], gts[i + 1]
+
+            train_iter = datahelper.get_train_iter(datahelper.get_train_data(train_img_path, train_gt))
+            eval_iter = datahelper.get_train_iter(datahelper.get_train_data(eval_img_path, eval_gt))
+
+            mdmetric = extend.MDNetACC()
+            model.fit(train_data=train_iter, eval_data=eval_iter,
+                      optimizer='sgd', eval_metric=mdmetric,
+                      optimizer_params={'learning_rate': args.lr_offline,
+                                        'wd': args.wd,
+                                        'momentum': args.momentum,
+                                        # 'clip_gradient': 5,
+                                        'lr_scheduler': extend.MDScheduler(
+                                            args.lr_step, args.lr_factor, args.lr_stop)},
+                      begin_epoch=0, num_epoch=args.num_epoch_for_offline)
+            model.score(eval_iter)
+            model.predict()
+
     #
     # train_data = datahelper.get_train_data(img_paths[0], gts[0])
     # train_data2 = train_data[0], train_data[1], np.zeros(np.shape(train_data[2]))
@@ -131,6 +140,7 @@ def online_update(args, model, img_paths, res, cur, history_len=10, num_epoch=10
                   eval_metric=metric, begin_epoch=0, num_epoch=num_epoch)
     return model
 
+
 def track(arg_params, img_path, pre_region):
     # only for iou loss
     feat_bboxes = sample.sample_on_feat()
@@ -201,7 +211,7 @@ def debug_track_on_OTB():
 def parse_args():
     parser = argparse.ArgumentParser(description='Train MDNet network')
     parser.add_argument('--gpu', help='GPU device to train with', default=0, type=int)
-    parser.add_argument('--num_epoch_for_offline', default=500, type=int)
+    parser.add_argument('--num_epoch_for_offline', default=100, type=int)
     parser.add_argument('--num_epoch_for_online', default=0, help='epoch of training for every frame', type=int)
     parser.add_argument('--num_frame_for_offline', default=1, help='epoch of training for every frame', type=int)
     parser.add_argument('--batch_callback_freq', default=50, type=int)

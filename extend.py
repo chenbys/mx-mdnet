@@ -162,8 +162,7 @@ def init_model(args):
     # elif args.loss_type == 3:
     #     sym = csym.get_mdnet_with_weighted_CE_loss(args.weight_factor)
 
-    sym = csym.get_mdnet_with_weighted_CE_loss(args.weight_factor)
-
+    sym = csym.get_mdnet()
     fixed_param_names = []
     for i in range(1, args.fixed_conv + 1):
         fixed_param_names.append('conv' + str(i) + '_weight')
