@@ -1,0 +1,7 @@
+改loss，高iou比低iou将近2倍
+剔除离群bbox
+多GPU有什么操作吗？
+hard minibatch mining
+不同层用不同学习率
+
+学习率太高，输出怎么就一样了？无法区分

@@ -1,0 +1,1 @@
+self._exec_group.execs[0].grad_dict['score_weight'].asnumpy()[:,:,0,0]

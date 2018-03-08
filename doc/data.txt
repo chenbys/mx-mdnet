@@ -1,0 +1,12 @@
+模型目标：输入image_path,feat_bbox,输出 feat_bbox对应方框和跟踪目标的iou！
+
+train_data用于训练。train_data基于 train_img, train_gt生成。
+train_data有N个batch构成，每个batch有M个sample.
+N个batch对应于目标的N种形变，包括位移和缩放. M个sample，对应与该种形变下的M个bbox，即M个候选区域。
+
+predict_data用于运行。基于 track_img, pre_region生成。
+predict_data只有一个batch，有M'个sample，即M'个候选区域。
+
+注意：
+train_data的N种形变，应包括 track_img: pre_region到track_gt的形变。
+train_data的一个batch中的M个sample应该包含predict_data中M'个sample.

@@ -7,7 +7,7 @@ from scipy.misc import imresize
 import util
 
 
-def get_train_data(img_path, region, stride_w=0.2, stride_h=0.2):
+def get_train_data(img_path, region, stride_w=0.1, stride_h=0.1):
     img = cv2.imread(img_path)
     img_H, img_W, c = np.shape(img)
     img_pad = np.concatenate((img, img, img), 0)
@@ -34,9 +34,8 @@ def get_train_data(img_path, region, stride_w=0.2, stride_h=0.2):
         img_patch = img_patch.reshape((3, 227, 227))
 
         # get region
-        label_region = np.array([[227. * (x - X) / W, 227. * (y - Y) / H, 227. * w / W, 227. * h / H]])
-        label_feat = util.x1y2x2y22xywh(util.img2feat(util.xywh2x1y1x2y2(label_region)))
-        feat_bbox, label = sample.get_samples(label_feat)
+        patch_gt = np.array([[227. * (x - X) / W, 227. * (y - Y) / H, 227. * w / W, 227. * h / H]])
+        feat_bbox, label = sample.get_samples(patch_gt)
         image_patches.append(img_patch)
         feat_bboxes.append(feat_bbox)
         labels.append(label)
@@ -50,7 +49,15 @@ def get_train_iter(train_data):
                              batch_size=1, data_name=('image_patch', 'feat_bbox',), label_name=('label',))
 
 
-def get_predict_iter(img_path, pre_region, feat_bbox):
+def get_predict_data(img_path, pre_region, feat_bbox):
+    '''
+
+    :param img_path:
+    :param pre_region:
+    :param feat_bbox:
+    :return: pred_data and restore_info,
+    restore_info include the XYWH of img_patch respect to
+    '''
     img = cv2.imread(img_path)
     x, y, w, h = pre_region
     img_H, img_W, c = np.shape(img)
@@ -58,120 +65,138 @@ def get_predict_iter(img_path, pre_region, feat_bbox):
     img_pad = np.concatenate((img_pad, img_pad, img_pad), 1)
     W, H = 227 / 131. * w, 227 / 131. * h
     X, Y = img_W + x + w / 2. - W / 2., img_H + y + h / 2. - H / 2.
+
     img_patch = img_pad[int(Y):int(Y + H), int(X):int(X + W), :]
     img_patch = imresize(img_patch, [227, 227])
-    img_patch = img_patch.reshape((3, 227, 227))
+    img_patch = img_patch.reshape((1, 3, 227, 227))
     label = np.zeros((feat_bbox.shape[0],))
+    return (img_patch, feat_bbox, label), (img_W, img_H, X, Y, W, H)
+
+
+def get_predict_iter(predict_data):
+    img_patch, feat_bbox, label = predict_data
     return mx.io.NDArrayIter({'image_patch': [img_patch], 'feat_bbox': [feat_bbox]}, {'label': [label]},
                              batch_size=1, data_name=('image_patch', 'feat_bbox'), label_name=('label',))
 
 
 class OTBHelper(object):
     def __init__(self, path='/Users/chenjunjie/workspace/OTB/'):
-        self.path = path
-        self.double_names = ['Jogging', 'Skating2']
-        seq_names = ['Basketball',
-                     'Biker',
-                     'Bird1',
-                     'Bird2',
-                     'BlurBody',
-                     'BlurCar1',
-                     'BlurCar2',
-                     'BlurCar3',
-                     'BlurCar4',
-                     'BlurFace',
-                     'BlurOwl',
-                     'Board',
-                     'Bolt',
-                     'Bolt2',
-                     'Box',
-                     'Boy',
-                     'Car1',
-                     'Car2',
-                     'Car24',
-                     'Car4',
-                     'CarDark',
-                     'CarScale',
-                     'ClifBar',
-                     'Coke',
-                     'Couple',
-                     'Coupon',
-                     'Crossing',
-                     'Crowds',
-                     'Dancer',
-                     'Dancer2',
-                     'David',
-                     'David2',
-                     'David3',
-                     'Deer',
-                     'Diving',
-                     'Dog',
-                     'Dog1',
-                     'Doll',
-                     'DragonBaby',
-                     'Dudek',
-                     'FaceOcc1',
-                     'FaceOcc2',
-                     'Fish',
-                     'FleetFace',
-                     'Football',
-                     'Football1',
-                     'Freeman1',
-                     'Freeman3',
-                     'Freeman4',
-                     'Girl',
-                     'Girl2',
-                     'Gym',
-                     'Human2',
-                     'Human3',
-                     'Human4',
-                     'Human5',
-                     'Human6',
-                     'Human7',
-                     'Human8',
-                     'Human9',
-                     'Ironman',
-                     'Jogging',
-                     'Jump',
-                     'Jumping',
-                     'KiteSurf',
-                     'Lemming',
-                     'Liquor',
-                     'Man',
-                     'Matrix',
-                     'Mhyang',
-                     'MotorRolling',
-                     'MountainBike',
-                     'Panda',
-                     'RedTeam',
-                     'Rubik',
-                     'Shaking',
-                     'Singer1',
-                     'Singer2',
-                     'Skater',
-                     'Skater2',
-                     'Skating1',
-                     'Skating2',
-                     'Skiing',
-                     'Soccer',
-                     'Subway',
-                     'Surfer',
-                     'Suv',
-                     'Sylvester',
-                     'Tiger1',
-                     'Tiger2',
-                     'Toy',
-                     'Trans',
-                     'Trellis',
-                     'Twinnings',
-                     'Vase',
-                     'Walking',
-                     'Walking2',
-                     'Woman']
+        self.home_path = path
+        self.seq_names = ['Basketball',
+                          'Biker',
+                          'Bird1',
+                          'Bird2',
+                          'BlurBody',
+                          'BlurCar1',
+                          'BlurCar2',
+                          'BlurCar3',
+                          'BlurCar4',
+                          'BlurFace',
+                          'BlurOwl',
+                          'Board',
+                          'Bolt',
+                          'Bolt2',
+                          'Box',
+                          'Boy',
+                          'Car1',
+                          'Car2',
+                          'Car24',
+                          'Car4',
+                          'CarDark',
+                          'CarScale',
+                          'ClifBar',
+                          'Coke',
+                          'Couple',
+                          'Coupon',
+                          'Crossing',
+                          'Crowds',
+                          'Dancer',
+                          'Dancer2',
+                          'David2',
+                          'David3',
+                          'Deer',
+                          'Diving',
+                          'Dog',
+                          'Dog1',
+                          'Doll',
+                          'DragonBaby',
+                          'Dudek',
+                          'FaceOcc1',
+                          'FaceOcc2',
+                          'Fish',
+                          'FleetFace',
+                          'Football',
+                          'Freeman1',
+                          'Girl',
+                          'Girl2',
+                          'Gym',
+                          'Human2',
+                          'Human3',
+                          'Human4',
+                          'Human5',
+                          'Human6',
+                          'Human7',
+                          'Human8',
+                          'Human9',
+                          'Ironman',
+                          'Jump',
+                          'Jumping',
+                          'KiteSurf',
+                          'Lemming',
+                          'Liquor',
+                          'Man',
+                          'Matrix',
+                          'Mhyang',
+                          'MotorRolling',
+                          'MountainBike',
+                          'Panda',
+                          'RedTeam',
+                          'Rubik',
+                          'Shaking',
+                          'Singer1',
+                          'Singer2',
+                          'Skater',
+                          'Skater2',
+                          'Skating1',
+                          'Skiing',
+                          'Soccer',
+                          'Subway',
+                          'Surfer',
+                          'Suv',
+                          'Sylvester',
+                          'Tiger1',
+                          'Tiger2',
+                          'Toy',
+                          'Trans',
+                          'Trellis',
+                          'Twinnings',
+                          'Vase',
+                          'Walking',
+                          'Walking2',
+                          'Woman']
+        # rm those seq
+        # 'David',
+        # 'Football1',
+        # 'Freeman3',
+        # 'Freeman4',
+        # 'Jogging.1', 'Skating2.1',
+        # 'Jogging.2', 'Skating2.2']
 
-        for do_name in self.double_names:
-            seq_names.remove(do_name)
-        self.seq_names = seq_names
+    def get_seq(self, seq_name):
+        gt_path = os.path.join(self.home_path, seq_name, 'groundtruth_rect.txt')
+        gts = list()
+        for line in open(gt_path):
+            line = line.replace('\t', ',')
+            line = line.replace('\n', '')
+            line = line.replace('\r', '')
+            line = line.replace(' ', ',')
+            x, y, w, h = line.split(',')
+            gts.append([float(x), float(y), float(w), float(h)])
+        length = len(gts)
+
+        img_paths = [os.path.join(self.home_path, seq_name, 'img', '%0*d.jpg' % (4, idx))
+                     for idx in range(1, length + 1)]
+        return img_paths, gts
 
     def get_img(self, seq_name):
         img_root = os.path.join(self.path, seq_name, 'img')
@@ -211,3 +236,59 @@ class OTBHelper(object):
             size = np.shape(cv2.imread(self.path + seq_name + '/img/' + img_paths[0]))
             info[seq_name] = list([length, size])
         return info
+
+
+class VOTHelper(object):
+    def __init__(self, vot_path='/Users/chenjunjie/workspace/VOT2015'):
+        self.home_path = vot_path
+        self.seq_names = []
+        list_path = os.path.join(self.home_path, 'list.txt')
+        for line in open(list_path):
+            self.seq_names.append(line.replace('\n', ''))
+
+        self.__load_seq__()
+
+    def __load_seq__(self):
+        self.seq_dict = {}
+        self.gt_dict = {}
+        self.length_dict = {}
+        for seq_name in self.seq_names:
+            seq, gt = self.get_seq(seq_name)
+            self.seq_dict[seq_name] = seq
+            self.gt_dict[seq_name] = gt
+            self.length_dict[seq_name] = len(gt)
+
+    def get_seq(self, seq_name):
+        gt_path = os.path.join(self.home_path, seq_name, 'groundtruth.txt')
+        gts = []
+        img_paths = []
+        frame_idx = 1
+        for line in open(gt_path):
+            r = line.replace('\n', '').split(',')
+            r = [float(x) for x in r]
+            x = r[::2]
+            y = r[1::2]
+            x1, y1, x2, y2 = min(x), min(y), max(x), max(y)
+            gts.append([x1, y1, x2 - x1 + 1, y2 - y1 + 1])
+
+            img_name = '%0*d.jpg' % (8, frame_idx)
+            img_paths.append(os.path.join(self.home_path, seq_name, img_name))
+            frame_idx += 1
+        return img_paths, gts
+
+    def get_data(self, k):
+        '''
+            call before load_seq
+        :param k:  in the k-th iter
+        :return:    rep_times,train_iter,val_iter
+        '''
+        seq_idx = k % 60
+        seq_name = self.seq_names[seq_idx]
+        img_paths, gts, length = self.seq_dict[seq_name], self.gt_dict[seq_name], self.length_dict[seq_name]
+
+        frame_num = k / 60
+        rep_times, frame_idx = frame_num / 60, frame_num % length
+
+        img_path, gt = img_paths[frame_idx], gts[frame_idx]
+        val_path, val_gt = img_paths[(frame_idx + 1) % length], gts[(frame_idx + 1) % length]
+        return rep_times, get_train_iter(get_train_data(img_path, gt)), get_train_iter(get_train_data(val_path, val_gt))
