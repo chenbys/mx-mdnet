@@ -27,23 +27,23 @@ def sample_on_feat(stride_x=2, stride_y=2, stride_w=2, stride_h=2,
     return np.array(feat_boxes)
 
 
-def get_01samples(label_feat, pos_number=200, neg_number=200):
-    import random
-
-    x, y, w, h = label_feat[0, :]
-    feat_bboxes = sample_on_feat(1, 1, 1, 1, w, h)
-    feat_bboxes_ = util.x1y2x2y22xywh(feat_bboxes[:, 1:5])
-    rat = util.overlap_ratio(label_feat, feat_bboxes_)
-    pos_samples = feat_bboxes[rat > 0.7, :]
-    neg_samples = feat_bboxes[rat < 0.3, :]
-    # print 'pos:%d ,neg:%d, all:%d;' % (pos_samples.shape[0], neg_samples.shape[0], feat_bboxes.shape[0])
-    # select samples
-    # ISSUE: what if pos_samples.shape[0] < pos_number?
-    pos_select_index = random.sample(range(0, pos_samples.shape[0]), pos_number)
-    neg_select_index = random.sample(range(0, neg_samples.shape[0]), pos_number)
-
-    return np.vstack((pos_samples[pos_select_index], neg_samples[neg_select_index])), \
-           np.hstack((np.ones((pos_number,)), np.zeros((neg_number,))))
+# def get_01samples(label_feat, pos_number=200, neg_number=200):
+#     import random
+#
+#     x, y, w, h = label_feat[0, :]
+#     feat_bboxes = sample_on_feat(1, 1, 1, 1, w, h)
+#     feat_bboxes_ = util.x1y2x2y22xywh(feat_bboxes[:, 1:5])
+#     rat = util.overlap_ratio(label_feat, feat_bboxes_)
+#     pos_samples = feat_bboxes[rat > 0.7, :]
+#     neg_samples = feat_bboxes[rat < 0.3, :]
+#     # print 'pos:%d ,neg:%d, all:%d;' % (pos_samples.shape[0], neg_samples.shape[0], feat_bboxes.shape[0])
+#     # select samples
+#     # ISSUE: what if pos_samples.shape[0] < pos_number?
+#     pos_select_index = random.sample(range(0, pos_samples.shape[0]), pos_number)
+#     neg_select_index = random.sample(range(0, neg_samples.shape[0]), pos_number)
+#
+#     return np.vstack((pos_samples[pos_select_index], neg_samples[neg_select_index])), \
+#            np.hstack((np.ones((pos_number,)), np.zeros((neg_number,))))
 
 
 def get_samples(patch_gt, p_number=50, h_number=40, m_number=40, s_number=50):
