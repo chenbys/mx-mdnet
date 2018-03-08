@@ -172,7 +172,7 @@ def init_model(args):
                           label_names=('label',),
                           fixed_param_names=fixed_param_names)
     sample_iter = datahelper.get_train_iter(
-        datahelper.get_train_data('saved/mx-mdnet_01CE.jpg', [24, 24, 24, 24], iou_label=bool(args.loss_type)))
+        datahelper.get_train_data('saved/mx-mdnet_01CE.jpg', [24, 24, 24, 24]))
     model.bind(sample_iter.provide_data, sample_iter.provide_label)
 
     all_params = {}

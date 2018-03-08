@@ -198,7 +198,7 @@ def fit(model, train_img_path, train_gt, val_img_path, val_pre_region, val_gt,
         train_iter.reset()
 
         # eval on eval_data
-        if (epoch + 1) % 50 == 0:
+        if (epoch + 1) % 100 == 0:
             logging.getLogger().info('\n============= Epoch:%4d .====================' % (epoch + 1))
             val_for_fitting(copy.deepcopy(model.get_params()[0]), train_iter)
             # val_for_overfitting(copy.deepcopy(model.get_params()[0]), train_img_path, train_gt)

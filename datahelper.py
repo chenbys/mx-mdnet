@@ -34,9 +34,8 @@ def get_train_data(img_path, region, stride_w=0.1, stride_h=0.1):
         img_patch = img_patch.reshape((3, 227, 227))
 
         # get region
-        label_region = np.array([[227. * (x - X) / W, 227. * (y - Y) / H, 227. * w / W, 227. * h / H]])
-        label_feat = util.x1y2x2y22xywh(util.img2feat(util.xywh2x1y1x2y2(label_region)))
-        feat_bbox, label = sample.get_samples(label_feat)
+        patch_gt = np.array([[227. * (x - X) / W, 227. * (y - Y) / H, 227. * w / W, 227. * h / H]])
+        feat_bbox, label = sample.get_samples(patch_gt)
         image_patches.append(img_patch)
         feat_bboxes.append(feat_bbox)
         labels.append(label)

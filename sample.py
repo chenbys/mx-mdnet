@@ -1,5 +1,6 @@
 import numpy as np
 import util
+import matplotlib.pyplot as plt
 
 
 def sample_on_feat(stride_x=2, stride_y=2, stride_w=2, stride_h=2,
@@ -26,26 +27,26 @@ def sample_on_feat(stride_x=2, stride_y=2, stride_w=2, stride_h=2,
     return np.array(feat_boxes)
 
 
-# def get_samples(label_feat, pos_number=200, neg_number=200):
-#     import random
-#
-#     x, y, w, h = label_feat[0, :]
-#     feat_bboxes = sample_on_feat(1, 1, 1, 1, w, h)
-#     feat_bboxes_ = util.x1y2x2y22xywh(feat_bboxes[:, 1:5])
-#     rat = util.overlap_ratio(label_feat, feat_bboxes_)
-#     pos_samples = feat_bboxes[rat > 0.7, :]
-#     neg_samples = feat_bboxes[rat < 0.3, :]
-#     # print 'pos:%d ,neg:%d, all:%d;' % (pos_samples.shape[0], neg_samples.shape[0], feat_bboxes.shape[0])
-#     # select samples
-#     # ISSUE: what if pos_samples.shape[0] < pos_number?
-#     pos_select_index = random.sample(range(0, pos_samples.shape[0]), pos_number)
-#     neg_select_index = random.sample(range(0, neg_samples.shape[0]), pos_number)
-#
-#     return np.vstack((pos_samples[pos_select_index], neg_samples[neg_select_index])), \
-#            np.hstack((np.ones((pos_number,)), np.zeros((neg_number,))))
+def get_01samples(label_feat, pos_number=200, neg_number=200):
+    import random
+
+    x, y, w, h = label_feat[0, :]
+    feat_bboxes = sample_on_feat(1, 1, 1, 1, w, h)
+    feat_bboxes_ = util.x1y2x2y22xywh(feat_bboxes[:, 1:5])
+    rat = util.overlap_ratio(label_feat, feat_bboxes_)
+    pos_samples = feat_bboxes[rat > 0.7, :]
+    neg_samples = feat_bboxes[rat < 0.3, :]
+    # print 'pos:%d ,neg:%d, all:%d;' % (pos_samples.shape[0], neg_samples.shape[0], feat_bboxes.shape[0])
+    # select samples
+    # ISSUE: what if pos_samples.shape[0] < pos_number?
+    pos_select_index = random.sample(range(0, pos_samples.shape[0]), pos_number)
+    neg_select_index = random.sample(range(0, neg_samples.shape[0]), pos_number)
+
+    return np.vstack((pos_samples[pos_select_index], neg_samples[neg_select_index])), \
+           np.hstack((np.ones((pos_number,)), np.zeros((neg_number,))))
 
 
-def get_samples(label_feat, p_number=50, h_number=50, m_number=50, s_number=50):
+def get_samples(patch_gt, p_number=50, h_number=40, m_number=40, s_number=50):
     '''
     :param label_feat:
     :param pos_number:
@@ -55,13 +56,12 @@ def get_samples(label_feat, p_number=50, h_number=50, m_number=50, s_number=50):
     '''
     import mxnet as mx
     import random
-
+    label_feat = util.x1y2x2y22xywh(util.img2feat(util.xywh2x1y1x2y2(patch_gt)))
     x, y, w, h = label_feat[0, :]
     # generate pos samples
-    feat_bboxes = sample_on_feat(1, 1, 1, 1, w, h)
-    feat_bboxes_ = util.x1y2x2y22xywh(feat_bboxes[:, 1:5])
-    error
-    rat = util.overlap_ratio(label_feat, feat_bboxes_)
+    feat_bboxes = sample_on_feat(1, 1, 2, 2, w, h)
+    patch_bboxes = util.feat2img(feat_bboxes[:, 1:])
+    rat = util.overlap_ratio(patch_gt, patch_bboxes)
     # for p
     p_samples, p_labels = feat_bboxes[rat > 0.8, :], rat[rat > 0.8]
     num = p_samples.shape[0]
@@ -85,7 +85,7 @@ def get_samples(label_feat, p_number=50, h_number=50, m_number=50, s_number=50):
     m_samples = np.vstack((np.repeat(m_samples, A, axis=0), m_samples[m_idx, :]))
     m_labels = np.hstack((np.repeat(m_labels, A, axis=0), m_labels[m_idx]))
     # for s
-    s_samples, s_labels = feat_bboxes[0.3 > rat, :], rat[0.3 > rat]
+    s_samples, s_labels = feat_bboxes[0.4 > rat, :], rat[0.4 > rat]
     num = s_samples.shape[0]
     A, B = s_number / num, s_number % num
     s_idx = random.sample(range(0, num), B)

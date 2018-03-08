@@ -27,7 +27,7 @@ def debug_track_seq(args, model, img_paths, gts):
                     optimizer_params={'learning_rate': args.lr_offline,
                                       'wd': args.wd,
                                       'momentum': args.momentum,
-                                      'clip_gradient': 5,
+                                      # 'clip_gradient': 5,
                                       'lr_scheduler': extend.MDScheduler(
                                           args.lr_step, args.lr_factor, args.lr_stop)},
                     begin_epoch=i * 25, num_epoch=i * 25 + args.num_epoch_for_offline)
@@ -131,11 +131,6 @@ def online_update(args, model, img_paths, res, cur, history_len=10, num_epoch=10
                   eval_metric=metric, begin_epoch=0, num_epoch=num_epoch)
     return model
 
-
-def train_on_first(args, model, first_path, gt, begin_epoch=0, num_epoch=100):
-    return model
-
-
 def track(arg_params, img_path, pre_region):
     # only for iou loss
     feat_bboxes = sample.sample_on_feat()
@@ -191,7 +186,7 @@ def debug_track_on_OTB():
     config.ctx = mx.gpu(args.gpu)
 
     otb = datahelper.OTBHelper(args.OTB_path)
-    img_paths, gts = otb.get_seq('Liquor')
+    img_paths, gts = otb.get_seq('Girl')
 
     # for debug and check
     config.gts = gts
@@ -205,11 +200,8 @@ def debug_track_on_OTB():
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Train MDNet network')
-    parser.add_argument('--loss_type', type=int, default=3,
-                        help='0 for {0,1} corss-entropy, 1 for smooth_l1, 2 for {pos_pred} corss-entropy,'
-                             '3 for CE loss and weighted for high iou label')
     parser.add_argument('--gpu', help='GPU device to train with', default=0, type=int)
-    parser.add_argument('--num_epoch_for_offline', default=200, type=int)
+    parser.add_argument('--num_epoch_for_offline', default=500, type=int)
     parser.add_argument('--num_epoch_for_online', default=0, help='epoch of training for every frame', type=int)
     parser.add_argument('--num_frame_for_offline', default=1, help='epoch of training for every frame', type=int)
     parser.add_argument('--batch_callback_freq', default=50, type=int)
@@ -220,13 +212,11 @@ def parse_args():
     parser.add_argument('--p_level', help='print level, default is 0 for debug mode', default=0, type=int)
     parser.add_argument('--lr_step', default=36 * 50, help='every 36 num for one epoch', type=int)
     parser.add_argument('--lr_factor', default=0.5, help='20 times will be around 0.1', type=float)
-    parser.add_argument('--lr_stop', default=5e-8, type=float)
-    parser.add_argument('--iou_acc_th', default=0.1, type=float)
-    parser.add_argument('--momentum', default=0, type=float)
+    parser.add_argument('--momentum', default=0.5, type=float)
     parser.add_argument('--log', default=1, type=int)
-
-    parser.add_argument('--lr_offline', default=5e-8, help='base learning rate', type=float)
-    parser.add_argument('--weight_factor', default=10, type=float)
+    parser.add_argument('--lr_stop', default=1e-7, type=float)
+    parser.add_argument('--lr_offline', default=1e-7, help='base learning rate', type=float)
+    parser.add_argument('--weight_factor', default=0, type=float)
     parser.add_argument('--fixed_conv', help='the params before(include) which conv are all fixed',
                         default=1, type=int)
     parser.add_argument('--saved_fname', default='conv123', type=str)
