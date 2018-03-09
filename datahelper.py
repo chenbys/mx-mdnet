@@ -75,7 +75,7 @@ def get_predict_data(img_path, pre_region, feat_bbox):
 
 def get_predict_iter(predict_data):
     img_patch, feat_bbox, label = predict_data
-    return mx.io.NDArrayIter({'image_patch': [img_patch], 'feat_bbox': [feat_bbox]}, {'label': [label]},
+    return mx.io.NDArrayIter({'image_patch': img_patch, 'feat_bbox': [feat_bbox]}, {'label': [label]},
                              batch_size=1, data_name=('image_patch', 'feat_bbox'), label_name=('label',))
 
 

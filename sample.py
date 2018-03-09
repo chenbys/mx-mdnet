@@ -1,3 +1,5 @@
+import random
+
 import numpy as np
 import util
 import matplotlib.pyplot as plt
@@ -27,7 +29,7 @@ def sample_on_feat(stride_x=2, stride_y=2, stride_w=2, stride_h=2,
     return np.array(feat_boxes)
 
 
-def get_01samples(patch_gt, pos_number=50, neg_number=50):
+def get_01samples(patch_gt, pos_number=30, neg_number=50):
     import random
     label_feat = util.x1y2x2y22xywh(util.img2feat(util.xywh2x1y1x2y2(patch_gt)))
     x, y, w, h = label_feat[0, :]
@@ -36,18 +38,36 @@ def get_01samples(patch_gt, pos_number=50, neg_number=50):
     patch_bboxes = util.feat2img(feat_bboxes[:, 1:])
     rat = util.overlap_ratio(patch_gt, patch_bboxes)
 
-    pos_samples = feat_bboxes[rat > 0.6, :]
-    neg_samples = feat_bboxes[rat < 0.4, :]
+    pos_samples = feat_bboxes[rat > 0.7, :]
+    neg_samples = feat_bboxes[rat < 0.35, :]
     # print 'pos:%d ,neg:%d, all:%d;' % (pos_samples.shape[0], neg_samples.shape[0], feat_bboxes.shape[0])
     # select samples
     # ISSUE: what if pos_samples.shape[0] < pos_number?
-    pos_select_index = random.sample(range(0, pos_samples.shape[0]), pos_number)
-    neg_select_index = random.sample(range(0, neg_samples.shape[0]), neg_number)
-
+    pos_select_index = rand_sample(np.arange(0, pos_samples.shape[0]), pos_number)
+    neg_select_index = rand_sample(np.arange(0, neg_samples.shape[0]), neg_number)
     a, b = np.vstack((pos_samples[pos_select_index], neg_samples[neg_select_index])), \
            np.hstack((np.ones((pos_number,)), np.zeros((neg_number,))))
     return a, b
 
+
+def rand_sample(pop, num):
+    '''
+        still work when sample num > pop
+
+    :param pop:
+    :param num:
+    :return:
+    '''
+    pop_size = pop.shape[0]
+    A, B = num / pop_size, num % pop_size
+
+    sample_idx = random.sample(pop, B)
+
+    if A == 0:
+        return pop[sample_idx]
+    else:
+        print 'not enough: %d, acquire: %d' % (pop_size, num)
+        return np.hstack((np.repeat(pop, A, axis=0), pop[sample_idx]))
 
 # def get_samples(patch_gt, p_number=40, h_number=0, m_number=0, s_number=40):
 #     '''
