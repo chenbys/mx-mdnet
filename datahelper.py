@@ -1,9 +1,13 @@
+# -*-coding:utf- 8-*-
+
 import numpy as np
 import mxnet as mx
 import sample
 import os
 import cv2
 from scipy.misc import imresize
+import matplotlib.pyplot as plt
+
 import util
 
 
@@ -27,6 +31,7 @@ def get_train_data(img_path, region, stride_w=0.1, stride_h=0.1):
     labels = list()
     for patch in patches:
         # crop image as train_data
+        # 我的
         X, Y, W, H = patch
         img_patch = imresize(img_pad[int(Y + img_H):int(Y + img_H + H), int(X + img_W):int(X + img_W + W), :],
                              [227, 227])
@@ -49,15 +54,15 @@ def get_train_iter(train_data):
                              batch_size=1, data_name=('image_patch', 'feat_bbox',), label_name=('label',))
 
 
-def get_predict_data(img_path, pre_region, feat_bbox):
+def get_predict_data(img_path, pre_region):
     '''
 
     :param img_path:
     :param pre_region:
-    :param feat_bbox:
     :return: pred_data and restore_info,
     restore_info include the XYWH of img_patch respect to
     '''
+    feat_bbox = sample.sample_on_feat(1, 1, 2, 2)
     img = cv2.imread(img_path)
     x, y, w, h = pre_region
     img_H, img_W, c = np.shape(img)
@@ -68,14 +73,29 @@ def get_predict_data(img_path, pre_region, feat_bbox):
 
     img_patch = img_pad[int(Y):int(Y + H), int(X):int(X + W), :]
     img_patch = imresize(img_patch, [227, 227])
-    img_patch = img_patch.reshape((1, 3, 227, 227))
+    img_patch = img_patch.reshape((3, 227, 227))
     label = np.zeros((feat_bbox.shape[0],))
     return (img_patch, feat_bbox, label), (img_W, img_H, X, Y, W, H)
 
 
 def get_predict_iter(predict_data):
     img_patch, feat_bbox, label = predict_data
-    return mx.io.NDArrayIter({'image_patch': img_patch, 'feat_bbox': [feat_bbox]}, {'label': [label]},
+    return mx.io.NDArrayIter({'image_patch': [img_patch], 'feat_bbox': [feat_bbox]}, {'label': [label]},
+                             batch_size=1, data_name=('image_patch', 'feat_bbox'), label_name=('label',))
+
+
+def get_val_data(img_path, pre_region, gt):
+    pred_data, restore_info = get_predict_data(img_path, pre_region)
+    img_patch, feat_bboxes, label = pred_data
+    patch_bboxes = util.feat2img(feat_bboxes[:, 1:])
+    img_bboxes = util.restore_img_bbox(patch_bboxes, restore_info)
+    rat = util.overlap_ratio(gt, img_bboxes)
+    return img_patch, feat_bboxes, rat
+
+
+def get_val_iter(val_data):
+    img_patch, feat_bbox, label = val_data
+    return mx.io.NDArrayIter({'image_patch': [img_patch], 'feat_bbox': [feat_bbox]}, {'label': [label]},
                              batch_size=1, data_name=('image_patch', 'feat_bbox'), label_name=('label',))
 
 

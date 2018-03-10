@@ -1,3 +1,5 @@
+# -*-coding:utf- 8-*-
+
 import logging
 import mxnet as mx
 import numpy as np
@@ -59,6 +61,35 @@ class MDNetACC(mx.metric.EvalMetric):
         true_num = np.sum(pred.argmax(1) == label)
         self.sum_metric += true_num
         self.num_inst += label.shape[0]
+
+
+class ValACC(mx.metric.EvalMetric):
+    def __init__(self):
+        super(ValACC, self).__init__('ValAcc')
+
+    def update(self, labels, preds):
+        labels = labels[0].asnumpy()[0, :]
+        scores = preds[0].asnumpy()
+        res = scores.argmax(1)
+        # iou > 0.5 is 1, iou < 0.5 is 0
+        all_acc = np.sum(res == labels.round())
+        self.sum_metric += all_acc
+        self.num_inst += labels.shape[0]
+
+
+class TrackACC(mx.metric.EvalMetric):
+    def __init__(self):
+        super(TrackACC, self).__init__('TrackAcc')
+
+    def update(self, labels, preds):
+        labels = labels[0].asnumpy()[0, :]
+        scores = preds[0].asnumpy()
+        pos_scores = scores[:, 1]
+        topK = 5
+        topK_idx = pos_scores.argsort()[-topK::]
+        topK_acc = np.sum(labels[topK_idx] > 0.7)
+        self.sum_metric += topK_acc
+        self.num_inst += topK
 
 
 class MDNetLoss(mx.metric.EvalMetric):

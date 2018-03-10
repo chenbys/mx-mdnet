@@ -1,7 +1,12 @@
-改loss，高iou比低iou将近2倍
 剔除离群bbox
 多GPU有什么操作吗？
 hard minibatch mining
-不同层用不同学习率
 
-学习率太高，输出怎么就一样了？无法区分
+
+当前问题是：
+当非理想情况时，最高iou的sample的score不是最高的。
+
+实验例子：
+改变pre_region后，ValACC仍保持很高90
+但改变pre_region后, TrackACC会变低，也就是预测结果score top5对应的gt label 大多 < 0.7
+

@@ -1,7 +1,40 @@
+# -*-coding:utf- 8-*-
+
 from scipy.misc import imresize
 import numpy as np
 import copy
 from setting import constant
+
+
+def restore_img_bbox(patch_bboxes, restore_info):
+    '''
+        将patch上的bbox，恢复到原图上的bbox
+    :param opt_patch_bbox: x,y,w,h
+    :param restore_info: (img_W, img_H, X, Y, W, H)，其中img_WH是原图的size，XYWH是原图上的patch_bbox
+    :return: (x,y,w,h) 原图上的bbox
+    '''
+
+    px = patch_bboxes[:, 0]
+    py = patch_bboxes[:, 1]
+    pw = patch_bboxes[:, 2]
+    ph = patch_bboxes[:, 3]
+
+    img_W, img_H, X, Y, W, H = restore_info
+    px, py = W / 227. * px + X - img_W, H / 227. * py + Y - img_H
+    pw, ph = W / 227. * pw, H / 227. * ph
+    px = np.max((np.zeros_like(px), px), axis=0)
+    py = np.max((np.zeros_like(py), py), axis=0)
+    pw = np.min((img_W - px, pw), axis=0)
+    ph = np.min((img_H - py, ph), axis=0)
+
+    # x, y = W / 227. * xo + X - img_W, H / 227. * yo + Y - img_H
+    # w, h = W / 227. * wo, H / 227. * ho
+
+    # CUT in case out of range
+    # x, y = max(0, x), max(0, y)
+    # w, h = min(w, img_W - x), min(h, img_H - y)
+    img_bboxes = np.vstack((px, py, pw, ph)).transpose()
+    return img_bboxes
 
 
 def crop_img(img, bbox):

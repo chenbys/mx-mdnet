@@ -3,6 +3,13 @@ from matplotlib import patches
 
 import util
 import matplotlib.pyplot as plt
+import datahelper
+
+
+def check_val_data():
+    path = '/media/chen/datasets/OTB/Liquor/img/0001.jpg'
+    region = [256, 152, 73, 210]
+    datahelper.get_val_data(path, region, region)
 
 
 def check_fit(patch_idx, sample_idx, img_patches, feat_bboxes, labels, scores):
@@ -128,4 +135,4 @@ def test_train_iter():
 
 
 if __name__ == '__main__':
-    test_train_iter()
+    check_val_data()
