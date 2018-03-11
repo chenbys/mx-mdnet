@@ -30,9 +30,9 @@ def debug_track_seq(args, model, img_paths, gts):
             logging.getLogger().info('time cost for getting one train iter :%f' % (time.time() - t))
             eval_iter = datahelper.get_train_iter(datahelper.get_train_data(eval_img_path, eval_gt))
 
-            mdmetric = extend.MDNetACC()
             model.fit(train_data=train_iter, eval_data=eval_iter,
-                      optimizer='sgd', eval_metric=mdmetric,
+                      optimizer='sgd',
+                      eval_metric=mx.metric.CompositeEvalMetric([extend.PosACC(0.6), extend.NegACC(0.3)]),
                       optimizer_params={'learning_rate': args.lr_offline,
                                         'wd': args.wd,
                                         'momentum': args.momentum,
@@ -41,11 +41,16 @@ def debug_track_seq(args, model, img_paths, gts):
                                             args.lr_step, args.lr_factor, args.lr_stop)},
                       begin_epoch=i * 30, num_epoch=i * 30 + args.num_epoch_for_offline)
 
-            eval_iter = datahelper.get_val_iter(
-                datahelper.get_val_data(img_paths[3], [256.0, 152.0, 73.0, 210.0], gts[3]))
-            model.score(eval_iter, extend.ValACC())
-            model.score(eval_iter, extend.TrackACC())
-
+            # model.score(datahelper.get_val_iter(
+            #     datahelper.get_val_data(img_paths[3], [256.0, 152.0, 73.0, 210.0], gts[3])),
+            #     mx.metric.CompositeEvalMetric([extend.PosACC(0.6), extend.NegACC(0.3)]))
+            # model.score(datahelper.get_val_iter(
+            #     datahelper.get_val_data(img_paths[3], [256.0, 152.0, 73.0, 210.0], gts[3])), extend.TrackACC(10, 0.6))
+            # model.score(datahelper.get_val_iter(
+            #     datahelper.get_val_data(img_paths[3], [256.0, 152.0, 100.0, 210.0], gts[3])),
+            #     mx.metric.CompositeEvalMetric([extend.PosACC(0.6), extend.NegACC(0.3)]))
+            # model.score(datahelper.get_val_iter(
+            #     datahelper.get_val_data(img_paths[3], [256.0, 152.0, 100.0, 210.0], gts[3])), extend.TrackACC(10, 0.6))
     res = []
     scores = []
     length = len(img_paths)
@@ -148,8 +153,13 @@ def track(model, img_path, pre_region):
     img_patch, feat_bboxes, labels = pred_data
     res = model.predict(pred_iter).asnumpy()
     pos_score = res[:, 1]
-    topK = 5
-    top_idx = pos_score.argsort()[-topK::]
+    if 0:
+        # 按照输出概率的最大topK个的bbox来平均出结果
+        topK = 50
+        top_idx = pos_score.argsort()[-topK::]
+    else:
+        # 按照输出概率大于0.9的所有bbox来平均出结果
+        top_idx = pos_score > 0.9
 
     top_scores = pos_score[top_idx]
     top_feat_bboxes = feat_bboxes[top_idx, 1:]

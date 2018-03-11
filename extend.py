@@ -4,7 +4,7 @@ import logging
 import mxnet as mx
 import numpy as np
 from mxnet.lr_scheduler import LRScheduler
-
+import matplotlib.pyplot as plt
 from setting import config
 import csym
 
@@ -63,33 +63,77 @@ class MDNetACC(mx.metric.EvalMetric):
         self.num_inst += label.shape[0]
 
 
-class ValACC(mx.metric.EvalMetric):
-    def __init__(self):
-        super(ValACC, self).__init__('ValAcc')
+class PosACC(mx.metric.EvalMetric):
+    def __init__(self, pos_th):
+        '''
+            评价模型在正样本和负样本上正确率
+        :param pos_th: iou >= pos_th 认为是正样本
+        '''
+        super(PosACC, self).__init__('PosAcc')
+        self.pos_th = pos_th
 
     def update(self, labels, preds):
+        '''
+        :param labels:
+        :param preds:
+        :return:
+        '''
         labels = labels[0].asnumpy()[0, :]
         scores = preds[0].asnumpy()
         res = scores.argmax(1)
-        # iou > 0.5 is 1, iou < 0.5 is 0
-        all_acc = np.sum(res == labels.round())
-        self.sum_metric += all_acc
-        self.num_inst += labels.shape[0]
+
+        pos_idx = labels >= self.pos_th
+        pos_acc = res[pos_idx].sum()
+        pos_len = labels[pos_idx].shape[0]
+
+        self.sum_metric += pos_acc
+        self.num_inst += pos_len
+
+
+class NegACC(mx.metric.EvalMetric):
+    def __init__(self, neg_th):
+        '''
+            评价模型在正样本和负样本上正确率
+        :param pos_th: iou >= pos_th 认为是正样本
+        '''
+        super(NegACC, self).__init__('NegAcc')
+        self.neg_th = neg_th
+
+    def update(self, labels, preds):
+        '''
+        :param labels:
+        :param preds:
+        :return:
+        '''
+        labels = labels[0].asnumpy()[0, :]
+        scores = preds[0].asnumpy()
+        res = scores.argmax(1)
+
+        neg_idx = labels < self.neg_th
+        neg_err_acc = res[neg_idx].sum()
+        neg_len = labels[neg_idx].shape[0]
+        self.sum_metric += neg_len - neg_err_acc
+        self.num_inst += neg_len
 
 
 class TrackACC(mx.metric.EvalMetric):
-    def __init__(self):
+    def __init__(self, topK=5, th=0.6):
+        '''
+            评价模型输出概率的最大K个样本对应label大于th的比率
+        :param topK:
+        '''
         super(TrackACC, self).__init__('TrackAcc')
+        self.topK = topK
+        self.th = th
 
     def update(self, labels, preds):
         labels = labels[0].asnumpy()[0, :]
         scores = preds[0].asnumpy()
         pos_scores = scores[:, 1]
-        topK = 5
-        topK_idx = pos_scores.argsort()[-topK::]
-        topK_acc = np.sum(labels[topK_idx] > 0.7)
+        topK_idx = pos_scores.argsort()[-self.topK::]
+        topK_acc = np.sum(labels[topK_idx] > self.th)
         self.sum_metric += topK_acc
-        self.num_inst += topK
+        self.num_inst += self.topK
 
 
 class MDNetLoss(mx.metric.EvalMetric):
