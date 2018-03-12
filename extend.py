@@ -81,7 +81,7 @@ class PosACC(mx.metric.EvalMetric):
         labels = labels[0].asnumpy()[0, :]
         scores = preds[0].asnumpy()
         res = scores.argmax(1)
-
+        pos_scores = scores[:, 1]
         pos_idx = labels >= self.pos_th
         pos_acc = res[pos_idx].sum()
         pos_len = labels[pos_idx].shape[0]
@@ -108,7 +108,7 @@ class NegACC(mx.metric.EvalMetric):
         labels = labels[0].asnumpy()[0, :]
         scores = preds[0].asnumpy()
         res = scores.argmax(1)
-
+        pos_scores = scores[:, 1]
         neg_idx = labels < self.neg_th
         neg_err_acc = res[neg_idx].sum()
         neg_len = labels[neg_idx].shape[0]
@@ -116,13 +116,13 @@ class NegACC(mx.metric.EvalMetric):
         self.num_inst += neg_len
 
 
-class TrackACC(mx.metric.EvalMetric):
+class TrackTopKACC(mx.metric.EvalMetric):
     def __init__(self, topK=5, th=0.6):
         '''
             评价模型输出概率的最大K个样本对应label大于th的比率
         :param topK:
         '''
-        super(TrackACC, self).__init__('TrackAcc')
+        super(TrackTopKACC, self).__init__('TrackTopKAcc')
         self.topK = topK
         self.th = th
 
@@ -130,10 +130,31 @@ class TrackACC(mx.metric.EvalMetric):
         labels = labels[0].asnumpy()[0, :]
         scores = preds[0].asnumpy()
         pos_scores = scores[:, 1]
+        self.topK = min(self.topK, pos_scores.shape[0])
         topK_idx = pos_scores.argsort()[-self.topK::]
         topK_acc = np.sum(labels[topK_idx] > self.th)
         self.sum_metric += topK_acc
         self.num_inst += self.topK
+
+
+class TrackScoreACC(mx.metric.EvalMetric):
+    def __init__(self, score=0.9, th=0.6):
+        '''
+            评价模型输出概率的大于score的样本对应label大于th的比率
+        :param topK:
+        '''
+        super(TrackScoreACC, self).__init__('TrackScoreAcc')
+        self.score = score
+        self.th = th
+
+    def update(self, labels, preds):
+        labels = labels[0].asnumpy()[0, :]
+        scores = preds[0].asnumpy()
+        pos_scores = scores[:, 1]
+        idx = pos_scores > self.score
+        acc = np.sum(labels[idx] > self.th)
+        self.sum_metric += acc
+        self.num_inst += labels[idx].shape[0]
 
 
 class MDNetLoss(mx.metric.EvalMetric):

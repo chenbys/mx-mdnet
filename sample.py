@@ -20,18 +20,18 @@ def sample_on_feat(stride_x=2, stride_y=2, stride_w=2, stride_h=2,
     :return: bbox on feature map, in format of (0,x1,y1,x2,y2)
     '''
     feat_boxes = list()
-    for x in np.arange(0, feat_w - ideal_w / 4., stride_x):
-        for y in np.arange(0, feat_h - ideal_h / 4., stride_y):
-            max_w = min(ideal_w * 1.8, feat_w - x)
-            max_h = min(ideal_h * 1.8, feat_h - y)
-            for w in np.arange(ideal_w * 0.2, max_w + 0.1, stride_w):
-                for h in np.arange(ideal_h * 0.2, max_h + 0.1, stride_h):
+    for x in np.arange(0, feat_w - ideal_w / 3., stride_x):
+        for y in np.arange(0, feat_h - ideal_h / 3., stride_y):
+            max_w = min(ideal_w * 1.6, feat_w - x)
+            max_h = min(ideal_h * 1.6, feat_h - y)
+            for w in np.arange(ideal_w * 0.4, max_w + 0.1, stride_w):
+                for h in np.arange(ideal_h * 0.4, max_h + 0.1, stride_h):
                     feat_boxes.append([0, x, y, x + w - 1, y + h - 1])
 
     return np.array(feat_boxes)
 
 
-def get_01samples(patch_gt, pos_number=50, neg_number=200):
+def get_01samples(patch_gt, pos_number=50, neg_number=500):
     '''
         Q: patch上的重叠率作为label，和还原到原图上的重叠率做label一样吗
     :param patch_gt:
@@ -39,15 +39,15 @@ def get_01samples(patch_gt, pos_number=50, neg_number=200):
     :param neg_number:
     :return:
     '''
-    label_feat = util.x1y2x2y22xywh(util.img2feat(util.xywh2x1y1x2y2(patch_gt)))
-    x, y, w, h = label_feat[0, :]
+    # label_feat = util.x1y2x2y22xywh(util.img2feat(util.xywh2x1y1x2y2(patch_gt)))
+    # x, y, w, h = label_feat[0, :]
     # generate pos samples
-    feat_bboxes = sample_on_feat(1, 1, 1, 1, w, h)
+    feat_bboxes = sample_on_feat(1, 1, 1, 1)
     patch_bboxes = util.feat2img(feat_bboxes[:, 1:])
     rat = util.overlap_ratio(patch_gt, patch_bboxes)
 
     pos_samples = feat_bboxes[rat > 0.65, :]
-    neg_samples = feat_bboxes[rat < 0.35, :]
+    neg_samples = feat_bboxes[rat < 0.4, :]
     # print 'pos:%d ,neg:%d, all:%d;' % (pos_samples.shape[0], neg_samples.shape[0], feat_bboxes.shape[0])
     # select samples
     # ISSUE: what if pos_samples.shape[0] < pos_number?

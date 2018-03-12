@@ -30,9 +30,9 @@ def debug_track_seq(args, model, img_paths, gts):
             logging.getLogger().info('time cost for getting one train iter :%f' % (time.time() - t))
             eval_iter = datahelper.get_train_iter(datahelper.get_train_data(eval_img_path, eval_gt))
 
-            model.fit(train_data=train_iter, eval_data=eval_iter,
+            model.fit(train_data=train_iter, eval_data=train_iter,
                       optimizer='sgd',
-                      eval_metric=mx.metric.CompositeEvalMetric([extend.PosACC(0.6), extend.NegACC(0.3)]),
+                      eval_metric=mx.metric.CompositeEvalMetric([extend.PosACC(0.7), extend.NegACC(0.3)]),
                       optimizer_params={'learning_rate': args.lr_offline,
                                         'wd': args.wd,
                                         'momentum': args.momentum,
@@ -43,20 +43,32 @@ def debug_track_seq(args, model, img_paths, gts):
 
             # model.score(datahelper.get_val_iter(
             #     datahelper.get_val_data(img_paths[3], [256.0, 152.0, 73.0, 210.0], gts[3])),
-            #     mx.metric.CompositeEvalMetric([extend.PosACC(0.6), extend.NegACC(0.3)]))
+            #     mx.metric.CompositeEvalMetric([extend.PosACC(0.7), extend.NegACC(0.3)]))
             # model.score(datahelper.get_val_iter(
-            #     datahelper.get_val_data(img_paths[3], [256.0, 152.0, 73.0, 210.0], gts[3])), extend.TrackACC(10, 0.6))
-            # model.score(datahelper.get_val_iter(
+            #     datahelper.get_val_data(img_paths[3], [256.0, 152.0, 73.0, 210.0], gts[3])), extend.TrackTopKACC(10, 0.6))
+            # a = model.score(datahelper.get_val_iter(
             #     datahelper.get_val_data(img_paths[3], [256.0, 152.0, 100.0, 210.0], gts[3])),
-            #     mx.metric.CompositeEvalMetric([extend.PosACC(0.6), extend.NegACC(0.3)]))
-            # model.score(datahelper.get_val_iter(
-            #     datahelper.get_val_data(img_paths[3], [256.0, 152.0, 100.0, 210.0], gts[3])), extend.TrackACC(10, 0.6))
+            #     mx.metric.CompositeEvalMetric([extend.PosACC(0.7), extend.NegACC(0.3)]))
+            # b = model.score(datahelper.get_val_iter(
+            #     datahelper.get_val_data(img_paths[3], [256.0, 152.0, 100.0, 210.0], gts[3])),
+            #     extend.TrackTopKACC(10, 0.6))
+            # c = model.score(datahelper.get_val_iter(
+            #     datahelper.get_val_data(img_paths[3], [256.0, 152.0, 100.0, 210.0], gts[3])),
+            #     extend.TrackScoreACC(0.9, 0.6))
+            # [256.0, 152.0, 73.0, 210.0] for Liquor
+    # config.gt = [262, 94, 16, 26]
+    # track(model, '/media/chen/datasets/OTB/Biker/img/0001.jpg', [262, 94, 16, 26])
+    config.gt = [256.0, 152.0, 73.0, 210.0]
+    track(model, img_paths[2], [256.0, 152.0, 100.0, 210.0])
     res = []
     scores = []
     length = len(img_paths)
     region = gts[0]
 
     for cur in range(1, length):
+        config.gt = gts[cur]
+        config.cur = cur
+
         T = time.time()
         # track
         region, score = track(model, img_paths[cur], pre_region=region)
@@ -153,9 +165,14 @@ def track(model, img_path, pre_region):
     img_patch, feat_bboxes, labels = pred_data
     res = model.predict(pred_iter).asnumpy()
     pos_score = res[:, 1]
-    if 0:
+
+    patch_bboxes = util.feat2img(feat_bboxes[:, 1:])
+    img_bboxes = util.restore_img_bbox(patch_bboxes, restore_info)
+    labels = util.overlap_ratio(config.gt, img_bboxes)
+
+    if 1:
         # 按照输出概率的最大topK个的bbox来平均出结果
-        topK = 50
+        topK = 5
         top_idx = pos_score.argsort()[-topK::]
     else:
         # 按照输出概率大于0.9的所有bbox来平均出结果
@@ -165,24 +182,25 @@ def track(model, img_path, pre_region):
     top_feat_bboxes = feat_bboxes[top_idx, 1:]
     top_patch_bboxes = util.feat2img(top_feat_bboxes)
 
-    def check_pred_data(i, cur=0):
-        img_W, img_H, X, Y, W, H = restore_info
-        x, y, w, h = config.gts[cur]
-        # x, y = x + img_W - X, y + img_H - Y
+    def check_pred_data(i):
+        x, y, w, h = config.gts[config.cur]
         feat_bbox = feat_bboxes[i, 1:].reshape(1, 4)
-        patch_bbox = util.feat2img(feat_bbox).reshape(4, )
-        img_bbox = util.restore_img_bbox(patch_bbox, restore_info)
+        patch_bbox = util.feat2img(feat_bbox)
+        img_bbox = util.restore_img_bbox(patch_bbox, restore_info).reshape(4, )
 
         fig = plt.figure()
         ax = fig.add_subplot(111)
-        ax.imshow(plt.imread(config.img_paths[cur]))
+        ax.imshow(plt.imread(config.img_paths[config.cur]))
         ax.add_patch(patches.Rectangle((img_bbox[0], img_bbox[1]), img_bbox[2], img_bbox[3],
                                        linewidth=4, edgecolor='red', facecolor='none'))
         ax.add_patch(patches.Rectangle((x, y), w, h,
                                        linewidth=1, edgecolor='blue', facecolor='none'))
         fig.show()
-        return (pos_score[i])
+        return (pos_score[i], labels[i])
 
+    # [201 215 270 198 202]
+    # plt.plot(pos_score, 'r')
+    # plt.plot(labels, 'blue')
     top_img_bboxes = util.restore_img_bbox(top_patch_bboxes, restore_info)
     opt_img_bbox = np.mean(top_img_bboxes, 0)
     opt_score = top_scores.mean()
@@ -219,18 +237,18 @@ def debug_track_on_OTB():
 def parse_args():
     parser = argparse.ArgumentParser(description='Train MDNet network')
     parser.add_argument('--gpu', help='GPU device to train with', default=0, type=int)
-    parser.add_argument('--num_epoch_for_offline', default=20, type=int)
+    parser.add_argument('--num_epoch_for_offline', default=100, type=int)
     parser.add_argument('--num_epoch_for_online', default=0, help='epoch of training for every frame', type=int)
     parser.add_argument('--num_frame_for_offline', default=1, help='epoch of training for every frame', type=int)
     parser.add_argument('--lr_online', help='base learning rate', default=1e-5, type=float)
     parser.add_argument('--wd', help='base learning rate', default=1e-1, type=float)
     parser.add_argument('--OTB_path', help='OTB folder', default='/media/chen/datasets/OTB', type=str)
     parser.add_argument('--VOT_path', help='VOT folder', default='/media/chen/datasets/VOT2015', type=str)
-    parser.add_argument('--lr_step', default=121 * 20, help='every 121 num for one epoch', type=int)
+    parser.add_argument('--lr_step', default=222 * 15, help='every 121 num for one epoch', type=int)
     parser.add_argument('--lr_factor', default=0.5, help='20 times will be around 0.1', type=float)
     parser.add_argument('--momentum', default=0.9, type=float)
-    parser.add_argument('--lr_stop', default=1e-7, type=float)
-    parser.add_argument('--lr_offline', default=5e-7, help='base learning rate', type=float)
+    parser.add_argument('--lr_stop', default=5e-8, type=float)
+    parser.add_argument('--lr_offline', default=2e-7, help='base learning rate', type=float)
     parser.add_argument('--fixed_conv', help='the params before(include) which conv are all fixed',
                         default=3, type=int)
     parser.add_argument('--saved_fname', default='conv123', type=str)

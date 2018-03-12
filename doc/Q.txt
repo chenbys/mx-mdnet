@@ -2,13 +2,25 @@
 多GPU有什么操作吗？
 hard minibatch mining
 
+模型对iou=[0.3,0.7]的样本错误率很大，还是说0.93的acc算低？
+如果给一张不含目标的图片，全是0，很符合。
+
+似乎训练正负样本比有影响。我改成1:20会比1:4更好点。
+
 
 实验例子：
-INFO:root:Epoch[19] Train-PosAcc=0.903471
-INFO:root:Epoch[19] Train-NegAcc=0.973760
-INFO:root:Epoch[19] Time cost=0.650
-INFO:root:Epoch[19] Validation-PosAcc=0.900165
-INFO:root:Epoch[19] Validation-NegAcc=0.987479
+INFO:root:Epoch[98] Train-PosAcc=0.945124
+INFO:root:Epoch[98] Train-NegAcc=0.998289
+INFO:root:Epoch[98] Time cost=1.562
+INFO:root:Epoch[98] Validation-PosAcc=0.989421
+INFO:root:Epoch[98] Validation-NegAcc=0.995074
+INFO:root:Epoch[99] Train-PosAcc=0.949256
+INFO:root:Epoch[99] Train-NegAcc=0.998240
+INFO:root:Epoch[99] Time cost=1.565
+INFO:root:Epoch[99] Validation-PosAcc=0.990083
+INFO:root:Epoch[99] Validation-NegAcc=0.995372
+model.fit(train_data=train_iter, eval_data=train_iter,
+同一个iter，为什么val明显大于train
 
 现象：
 gt:[256.0, 152.0, 73.0, 210.0]
