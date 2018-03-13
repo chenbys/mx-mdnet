@@ -1,8 +1,10 @@
+# -*-coding:utf- 8-*-
+
 import logging
 import mxnet as mx
 import numpy as np
 from mxnet.lr_scheduler import LRScheduler
-
+import matplotlib.pyplot as plt
 from setting import config
 import csym
 
@@ -44,7 +46,7 @@ class MDScheduler(LRScheduler):
                 self.base_lr = self.stop_factor_lr
             else:
                 logging.info("Update[%d]: lr: %0.2e",
-                             num_update/36, self.base_lr)
+                             num_update / 36, self.base_lr)
         return self.base_lr
 
 
@@ -59,6 +61,152 @@ class MDNetACC(mx.metric.EvalMetric):
         true_num = np.sum(pred.argmax(1) == label)
         self.sum_metric += true_num
         self.num_inst += label.shape[0]
+
+
+class PosACC(mx.metric.EvalMetric):
+    def __init__(self, pos_th):
+        '''
+            评价模型在正样本和负样本上正确率
+        :param pos_th: iou >= pos_th 认为是正样本
+        '''
+        super(PosACC, self).__init__('PosAcc')
+        self.pos_th = pos_th
+
+    def update(self, labels, preds):
+        '''
+        :param labels:
+        :param preds:
+        :return:
+        '''
+        labels = labels[0].asnumpy()[0, :]
+        scores = preds[0].asnumpy()
+        res = scores.argmax(1)
+        pos_scores = scores[:, 1]
+        pos_idx = labels >= self.pos_th
+        pos_acc = res[pos_idx].sum()
+        pos_len = labels[pos_idx].shape[0]
+
+        self.sum_metric += pos_acc
+        self.num_inst += pos_len
+
+
+class PR(mx.metric.EvalMetric):
+    def __init__(self, pos_th):
+        '''
+            评价模型的准确率：判断准的正样本数量/判断是正的样本数量
+        :param pos_th: iou >= pos_th 认为是正样本
+        '''
+        super(PR, self).__init__('PR')
+        self.pos_th = pos_th
+
+    def update(self, labels, preds):
+        '''
+        :param labels:
+        :param preds:
+        :return:
+        '''
+        labels = labels[0].asnumpy()[0, :]
+        scores = preds[0].asnumpy()
+        output_pos_scores = scores[:, 1]
+        output_pos_idx = output_pos_scores >= self.pos_th
+        hit = np.sum(labels[output_pos_idx] > self.pos_th)
+        length = np.sum(output_pos_idx)
+
+        self.sum_metric += hit
+        self.num_inst += length
+
+
+class RR(mx.metric.EvalMetric):
+    def __init__(self, pos_th):
+        '''
+            评价模型的准确率：判断准的正样本数量/所有正样本数量
+        :param pos_th: iou >= pos_th 认为是正样本
+        '''
+        super(RR, self).__init__('RR')
+        self.pos_th = pos_th
+
+    def update(self, labels, preds):
+        '''
+        :param labels:
+        :param preds:
+        :return:
+        '''
+        labels = labels[0].asnumpy()[0, :]
+        scores = preds[0].asnumpy()
+        output_pos_scores = scores[:, 1]
+        output_pos_idx = output_pos_scores >= self.pos_th
+        hit = np.sum(labels[output_pos_idx] > self.pos_th)
+        length = np.sum(labels > self.pos_th)
+
+        self.sum_metric += hit
+        self.num_inst += length
+
+
+class NegACC(mx.metric.EvalMetric):
+    def __init__(self, neg_th):
+        '''
+            评价模型在正样本和负样本上正确率
+        :param pos_th: iou >= pos_th 认为是正样本
+        '''
+        super(NegACC, self).__init__('NegAcc')
+        self.neg_th = neg_th
+
+    def update(self, labels, preds):
+        '''
+        :param labels:
+        :param preds:
+        :return:
+        '''
+        labels = labels[0].asnumpy()[0, :]
+        scores = preds[0].asnumpy()
+        res = scores.argmax(1)
+        pos_scores = scores[:, 1]
+        neg_idx = labels < self.neg_th
+        neg_err_acc = res[neg_idx].sum()
+        neg_len = labels[neg_idx].shape[0]
+        self.sum_metric += neg_len - neg_err_acc
+        self.num_inst += neg_len
+
+
+class TrackTopKACC(mx.metric.EvalMetric):
+    def __init__(self, topK=5, th=0.6):
+        '''
+            评价模型输出概率的最大K个样本对应label大于th的比率
+        :param topK:
+        '''
+        super(TrackTopKACC, self).__init__('TrackTopKAcc')
+        self.topK = topK
+        self.th = th
+
+    def update(self, labels, preds):
+        labels = labels[0].asnumpy()[0, :]
+        scores = preds[0].asnumpy()
+        pos_scores = scores[:, 1]
+        self.topK = min(self.topK, pos_scores.shape[0])
+        topK_idx = pos_scores.argsort()[-self.topK::]
+        topK_acc = np.sum(labels[topK_idx] > self.th)
+        self.sum_metric += topK_acc
+        self.num_inst += self.topK
+
+
+class TrackScoreACC(mx.metric.EvalMetric):
+    def __init__(self, score=0.9, th=0.6):
+        '''
+            评价模型输出概率的大于score的样本对应label大于th的比率
+        :param topK:
+        '''
+        super(TrackScoreACC, self).__init__('TrackScoreAcc')
+        self.score = score
+        self.th = th
+
+    def update(self, labels, preds):
+        labels = labels[0].asnumpy()[0, :]
+        scores = preds[0].asnumpy()
+        pos_scores = scores[:, 1]
+        idx = pos_scores > self.score
+        acc = np.sum(labels[idx] > self.th)
+        self.sum_metric += acc
+        self.num_inst += labels[idx].shape[0]
 
 
 class MDNetLoss(mx.metric.EvalMetric):
@@ -162,8 +310,7 @@ def init_model(args):
     # elif args.loss_type == 3:
     #     sym = csym.get_mdnet_with_weighted_CE_loss(args.weight_factor)
 
-    sym = csym.get_mdnet_with_weighted_CE_loss(args.weight_factor)
-
+    sym = csym.get_mdnet()
     fixed_param_names = []
     for i in range(1, args.fixed_conv + 1):
         fixed_param_names.append('conv' + str(i) + '_weight')
@@ -172,9 +319,8 @@ def init_model(args):
                           label_names=('label',),
                           fixed_param_names=fixed_param_names)
     sample_iter = datahelper.get_train_iter(
-        datahelper.get_train_data('saved/mx-mdnet_01CE.jpg', [24, 24, 24, 24]))
+        datahelper.get_train_data('saved/mx-mdnet_01CE.jpg', [112, 112, 111, 111]))
     model.bind(sample_iter.provide_data, sample_iter.provide_label)
-
     all_params = {}
     if args.saved_fname == 'conv123':
         print '@CHEN->load params from conv123'

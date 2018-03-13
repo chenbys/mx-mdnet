@@ -1,7 +1,73 @@
-改loss，高iou比低iou将近2倍
 剔除离群bbox
 多GPU有什么操作吗？
 hard minibatch mining
-不同层用不同学习率
 
-学习率太高，输出怎么就一样了？无法区分
+模型对iou=[0.3,0.7]的样本错误率很大，还是说0.93的acc算低？
+如果给一张不含目标的图片，全是0，很符合。
+
+对gt，和形变后目标的gt，和无形变目标的pre_region
+过拟合，训练样本和跟踪样本抽样思路
+如果不load mat，很低。load mat就较好。
+一开始都是PR很高，可到0.8，RR才0.1，后面RR才涨起来
+
+INFO:root:Epoch[98] Train-PR=0.979262
+INFO:root:Epoch[98] Train-RR=0.948622
+INFO:root:Epoch[98] Train-TrackTopKAcc=1.000000
+INFO:root:Epoch[98] Time cost=1.933
+INFO:root:Epoch[98] Validation-PR=0.774354
+INFO:root:Epoch[98] Validation-RR=0.636622
+INFO:root:Epoch[98] Validation-TrackTopKAcc=0.975111
+INFO:root:Epoch[99] Train-PR=0.980125
+INFO:root:Epoch[99] Train-RR=0.951200
+INFO:root:Epoch[99] Train-TrackTopKAcc=1.000000
+INFO:root:Epoch[99] Time cost=1.932
+INFO:root:Epoch[99] Validation-PR=0.767195
+INFO:root:Epoch[99] Validation-RR=0.649422
+INFO:root:Epoch[99] Validation-TrackTopKAcc=0.977778
+序列Girl，PR,RR很低是由于pos_score>0.6，但是topK还是可以的。
+
+实验例子：
+INFO:root:Epoch[98] Train-PosAcc=0.945124
+INFO:root:Epoch[98] Train-NegAcc=0.998289
+INFO:root:Epoch[98] Time cost=1.562
+INFO:root:Epoch[98] Validation-PosAcc=0.989421
+INFO:root:Epoch[98] Validation-NegAcc=0.995074
+INFO:root:Epoch[99] Train-PosAcc=0.949256
+INFO:root:Epoch[99] Train-NegAcc=0.998240
+INFO:root:Epoch[99] Time cost=1.565
+INFO:root:Epoch[99] Validation-PosAcc=0.990083
+INFO:root:Epoch[99] Validation-NegAcc=0.995372
+model.fit(train_data=train_iter, eval_data=train_iter,
+同一个iter，为什么val明显大于train
+
+现象：
+gt:[256.0, 152.0, 73.0, 210.0]
+pre_region: [246.0, 152.0, 100.0, 210.0]
+overlap_ratio: 0.73
+
+根据gt进行采样，得到16641个候选区域。
+正样本>0.6，负样本<0.3
+正样本acc= 911/977
+负样本acc= (8259-207)/8259
+其中输出概率最大的10个样本对应的真实重叠率大于0.6的比率是10/10
+
+根据pre_region进行采样，得到16641个候选区域。
+正样本>0.6，负样本<0.3
+正样本acc= 431/538
+负样本acc= (8954-458)/8954
+其中输出概率最大的10个样本对应的真实重叠率大于0.6的比率是0/10
+输出分数top10:
+[ 0.99858654  0.99865544  0.99865758  0.99867588  0.99868888  0.99879289
+  0.99879885  0.9988907   0.99890828  0.99899846]
+而对应重叠率是:
+[ 0.59467155  0.38073322  0.47027194  0.51126492  0.43614954  0.35560659
+  0.44455799  0.49225527  0.51126492  0.35560659]
+而重叠率>0.8的样本对应的输出概率是：
+[ 0.99124485  0.95981991  0.98902738  0.98240179  0.98819178  0.99084938
+  0.98690701  0.9881053   0.94357914  0.98609412  0.94825107  0.98198891
+  0.91355795  0.97048676  0.97502553  0.96272033  0.97906029  0.97578329
+  0.8915242   0.96867049  0.94510132]
+
+分析：
+模型对样本集的拟合程度较好，即使当pre_region偏离gt的时候，模型对正负样本判断的正确率也不错。
+但是偏离gt的时候，重叠率高的样本的输出不一定是最高的，虽然它们都很高！
