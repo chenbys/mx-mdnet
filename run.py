@@ -28,9 +28,10 @@ def debug_track_seq(args, model, img_paths, gts):
             t = time.time()
             train_iter = datahelper.get_train_iter(datahelper.get_train_data(train_img_path, train_gt))
             logging.getLogger().info('time cost for getting one train iter :%f' % (time.time() - t))
-            eval_iter = datahelper.get_train_iter(datahelper.get_train_data(eval_img_path, eval_gt))
+            eval_iter = datahelper.get_train_iter(
+                datahelper.get_train_data(eval_img_path, [256.0, 152.0, 100.0, 210.0]))
 
-            model.fit(train_data=train_iter, eval_data=train_iter,
+            model.fit(train_data=train_iter, eval_data=eval_iter,
                       optimizer='sgd',
                       eval_metric=mx.metric.CompositeEvalMetric([extend.PosACC(0.7), extend.NegACC(0.3)]),
                       optimizer_params={'learning_rate': args.lr_offline,
@@ -46,15 +47,15 @@ def debug_track_seq(args, model, img_paths, gts):
             #     mx.metric.CompositeEvalMetric([extend.PosACC(0.7), extend.NegACC(0.3)]))
             # model.score(datahelper.get_val_iter(
             #     datahelper.get_val_data(img_paths[3], [256.0, 152.0, 73.0, 210.0], gts[3])), extend.TrackTopKACC(10, 0.6))
-            # a = model.score(datahelper.get_val_iter(
-            #     datahelper.get_val_data(img_paths[3], [256.0, 152.0, 100.0, 210.0], gts[3])),
-            #     mx.metric.CompositeEvalMetric([extend.PosACC(0.7), extend.NegACC(0.3)]))
-            # b = model.score(datahelper.get_val_iter(
-            #     datahelper.get_val_data(img_paths[3], [256.0, 152.0, 100.0, 210.0], gts[3])),
-            #     extend.TrackTopKACC(10, 0.6))
-            # c = model.score(datahelper.get_val_iter(
-            #     datahelper.get_val_data(img_paths[3], [256.0, 152.0, 100.0, 210.0], gts[3])),
-            #     extend.TrackScoreACC(0.9, 0.6))
+            a = model.score(datahelper.get_val_iter(
+                datahelper.get_val_data(img_paths[3], [256.0, 152.0, 100.0, 210.0], gts[3])),
+                mx.metric.CompositeEvalMetric([extend.PosACC(0.7), extend.NegACC(0.3)]))
+            b = model.score(datahelper.get_val_iter(
+                datahelper.get_val_data(img_paths[3], [256.0, 152.0, 100.0, 210.0], gts[3])),
+                extend.TrackTopKACC(10, 0.6))
+            c = model.score(datahelper.get_val_iter(
+                datahelper.get_val_data(img_paths[3], [256.0, 152.0, 100.0, 210.0], gts[3])),
+                extend.TrackScoreACC(0.9, 0.6))
             # [256.0, 152.0, 73.0, 210.0] for Liquor
     # config.gt = [262, 94, 16, 26]
     # track(model, '/media/chen/datasets/OTB/Biker/img/0001.jpg', [262, 94, 16, 26])
