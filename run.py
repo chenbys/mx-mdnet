@@ -24,16 +24,17 @@ def debug_track_seq(args, model, img_paths, gts):
         for i in range(args.num_frame_for_offline):
             print 'train offine on frame %d' % i
             train_img_path, train_gt = img_paths[i], gts[i]
-            eval_img_path, eval_gt = img_paths[i + 1], gts[i + 1]
+            eval_img_path, eval_gt = img_paths[i + 2], gts[i + 2]
             t = time.time()
             train_iter = datahelper.get_train_iter(datahelper.get_train_data(train_img_path, train_gt))
             logging.getLogger().info('time cost for getting one train iter :%f' % (time.time() - t))
             eval_iter = datahelper.get_train_iter(
-                datahelper.get_train_data(eval_img_path, [256.0, 152.0, 100.0, 210.0]))
+                datahelper.get_train_data(eval_img_path, eval_gt))
 
             model.fit(train_data=train_iter, eval_data=eval_iter,
                       optimizer='sgd',
-                      eval_metric=mx.metric.CompositeEvalMetric([extend.PosACC(0.7), extend.NegACC(0.3)]),
+                      eval_metric=mx.metric.CompositeEvalMetric(
+                          [extend.PR(0.6), extend.RR(0.6), extend.TrackTopKACC(10, 0.6)]),
                       optimizer_params={'learning_rate': args.lr_offline,
                                         'wd': args.wd,
                                         'momentum': args.momentum,
@@ -42,37 +43,25 @@ def debug_track_seq(args, model, img_paths, gts):
                                             args.lr_step, args.lr_factor, args.lr_stop)},
                       begin_epoch=i * 30, num_epoch=i * 30 + args.num_epoch_for_offline)
 
-            # model.score(datahelper.get_val_iter(
-            #     datahelper.get_val_data(img_paths[3], [256.0, 152.0, 73.0, 210.0], gts[3])),
-            #     mx.metric.CompositeEvalMetric([extend.PosACC(0.7), extend.NegACC(0.3)]))
-            # model.score(datahelper.get_val_iter(
-            #     datahelper.get_val_data(img_paths[3], [256.0, 152.0, 73.0, 210.0], gts[3])), extend.TrackTopKACC(10, 0.6))
-            a = model.score(datahelper.get_val_iter(
-                datahelper.get_val_data(img_paths[3], [256.0, 152.0, 100.0, 210.0], gts[3])),
-                mx.metric.CompositeEvalMetric([extend.PosACC(0.7), extend.NegACC(0.3)]))
-            b = model.score(datahelper.get_val_iter(
-                datahelper.get_val_data(img_paths[3], [256.0, 152.0, 100.0, 210.0], gts[3])),
-                extend.TrackTopKACC(10, 0.6))
-            c = model.score(datahelper.get_val_iter(
-                datahelper.get_val_data(img_paths[3], [256.0, 152.0, 100.0, 210.0], gts[3])),
-                extend.TrackScoreACC(0.9, 0.6))
             # [256.0, 152.0, 73.0, 210.0] for Liquor
     # config.gt = [262, 94, 16, 26]
     # track(model, '/media/chen/datasets/OTB/Biker/img/0001.jpg', [262, 94, 16, 26])
-    config.gt = [256.0, 152.0, 73.0, 210.0]
-    track(model, img_paths[2], [256.0, 152.0, 100.0, 210.0])
+    # config.gt = [256.0, 152.0, 73.0, 210.0]
+    # track(model, img_paths[2], [256.0, 152.0, 100.0, 210.0])
+    # model.score(datahelper.get_val_iter(
+    #     datahelper.get_val_data(img_paths[4], pre_region=[61.0, 29.0, 35.0, 46.0], gt=[61.0, 19.0, 35.0, 46.0])),
+    #     mx.metric.CompositeEvalMetric([extend.PR(0.6), extend.RR(0.6), extend.TrackTopKACC(10, 0.6)]))
+
+    a = track(model, img_paths[0], pre_region=gts[0], gt=gts[0])
     res = []
     scores = []
     length = len(img_paths)
     region = gts[0]
 
     for cur in range(1, length):
-        config.gt = gts[cur]
-        config.cur = cur
-
         T = time.time()
         # track
-        region, score = track(model, img_paths[cur], pre_region=region)
+        region, score = track(model, img_paths[cur], pre_region=region, gt=gts[cur])
 
         res.append(region)
 
@@ -160,7 +149,7 @@ def online_update(args, model, img_paths, res, cur, history_len=10, num_epoch=10
     return model
 
 
-def track(model, img_path, pre_region):
+def track(model, img_path, pre_region, gt):
     pred_data, restore_info = datahelper.get_predict_data(img_path, pre_region)
     pred_iter = datahelper.get_predict_iter(pred_data)
     img_patch, feat_bboxes, labels = pred_data
@@ -169,7 +158,7 @@ def track(model, img_path, pre_region):
 
     patch_bboxes = util.feat2img(feat_bboxes[:, 1:])
     img_bboxes = util.restore_img_bbox(patch_bboxes, restore_info)
-    labels = util.overlap_ratio(config.gt, img_bboxes)
+    labels = util.overlap_ratio(gt, img_bboxes)
 
     if 1:
         # 按照输出概率的最大topK个的bbox来平均出结果
@@ -184,14 +173,14 @@ def track(model, img_path, pre_region):
     top_patch_bboxes = util.feat2img(top_feat_bboxes)
 
     def check_pred_data(i):
-        x, y, w, h = config.gts[config.cur]
+        x, y, w, h = gt
         feat_bbox = feat_bboxes[i, 1:].reshape(1, 4)
         patch_bbox = util.feat2img(feat_bbox)
         img_bbox = util.restore_img_bbox(patch_bbox, restore_info).reshape(4, )
 
         fig = plt.figure()
         ax = fig.add_subplot(111)
-        ax.imshow(plt.imread(config.img_paths[config.cur]))
+        ax.imshow(plt.imread(img_path))
         ax.add_patch(patches.Rectangle((img_bbox[0], img_bbox[1]), img_bbox[2], img_bbox[3],
                                        linewidth=4, edgecolor='red', facecolor='none'))
         ax.add_patch(patches.Rectangle((x, y), w, h,
@@ -223,7 +212,7 @@ def debug_track_on_OTB():
     config.ctx = mx.gpu(args.gpu)
 
     otb = datahelper.OTBHelper(args.OTB_path)
-    img_paths, gts = otb.get_seq('Liquor')
+    img_paths, gts = otb.get_seq('Bird1')
 
     # for debug and check
     config.gts = gts
@@ -242,7 +231,7 @@ def parse_args():
     parser.add_argument('--num_epoch_for_online', default=0, help='epoch of training for every frame', type=int)
     parser.add_argument('--num_frame_for_offline', default=1, help='epoch of training for every frame', type=int)
     parser.add_argument('--lr_online', help='base learning rate', default=1e-5, type=float)
-    parser.add_argument('--wd', help='base learning rate', default=1e-1, type=float)
+    parser.add_argument('--wd', default=1e1, help='weight decay', type=float)
     parser.add_argument('--OTB_path', help='OTB folder', default='/media/chen/datasets/OTB', type=str)
     parser.add_argument('--VOT_path', help='VOT folder', default='/media/chen/datasets/VOT2015', type=str)
     parser.add_argument('--lr_step', default=222 * 15, help='every 121 num for one epoch', type=int)

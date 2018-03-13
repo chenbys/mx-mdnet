@@ -90,6 +90,58 @@ class PosACC(mx.metric.EvalMetric):
         self.num_inst += pos_len
 
 
+class PR(mx.metric.EvalMetric):
+    def __init__(self, pos_th):
+        '''
+            评价模型的准确率：判断准的正样本数量/判断是正的样本数量
+        :param pos_th: iou >= pos_th 认为是正样本
+        '''
+        super(PR, self).__init__('PR')
+        self.pos_th = pos_th
+
+    def update(self, labels, preds):
+        '''
+        :param labels:
+        :param preds:
+        :return:
+        '''
+        labels = labels[0].asnumpy()[0, :]
+        scores = preds[0].asnumpy()
+        output_pos_scores = scores[:, 1]
+        output_pos_idx = output_pos_scores >= self.pos_th
+        hit = np.sum(labels[output_pos_idx] > self.pos_th)
+        length = np.sum(output_pos_idx)
+
+        self.sum_metric += hit
+        self.num_inst += length
+
+
+class RR(mx.metric.EvalMetric):
+    def __init__(self, pos_th):
+        '''
+            评价模型的准确率：判断准的正样本数量/所有正样本数量
+        :param pos_th: iou >= pos_th 认为是正样本
+        '''
+        super(RR, self).__init__('RR')
+        self.pos_th = pos_th
+
+    def update(self, labels, preds):
+        '''
+        :param labels:
+        :param preds:
+        :return:
+        '''
+        labels = labels[0].asnumpy()[0, :]
+        scores = preds[0].asnumpy()
+        output_pos_scores = scores[:, 1]
+        output_pos_idx = output_pos_scores >= self.pos_th
+        hit = np.sum(labels[output_pos_idx] > self.pos_th)
+        length = np.sum(labels > self.pos_th)
+
+        self.sum_metric += hit
+        self.num_inst += length
+
+
 class NegACC(mx.metric.EvalMetric):
     def __init__(self, neg_th):
         '''
