@@ -212,7 +212,7 @@ def debug_track_on_OTB():
     config.ctx = mx.gpu(args.gpu)
 
     otb = datahelper.OTBHelper(args.OTB_path)
-    img_paths, gts = otb.get_seq('Bird1')
+    img_paths, gts = otb.get_seq('Girl')
 
     # for debug and check
     config.gts = gts
