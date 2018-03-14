@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 
 
 def sample_on_feat(stride_x=2, stride_y=2, stride_w=2, stride_h=2,
-                   ideal_w=12, ideal_h=12, feat_w=24, feat_h=24):
+                   ideal_w=9, ideal_h=9, feat_w=20, feat_h=20):
     '''
 
     :param stride_x:
@@ -22,11 +22,11 @@ def sample_on_feat(stride_x=2, stride_y=2, stride_w=2, stride_h=2,
     feat_boxes = list()
     for x in np.arange(0, feat_w - ideal_w / 3., stride_x):
         for y in np.arange(0, feat_h - ideal_h / 3., stride_y):
-            max_w = min(ideal_w * 1.6, feat_w - x)
-            max_h = min(ideal_h * 1.6, feat_h - y)
+            max_w = min(ideal_w * 1.9, feat_w - x)
+            max_h = min(ideal_h * 1.9, feat_h - y)
             for w in np.arange(ideal_w * 0.4, max_w + 0.1, stride_w):
                 for h in np.arange(ideal_h * 0.4, max_h + 0.1, stride_h):
-                    feat_boxes.append([0, x, y, x + w - 1, y + h - 1])
+                    feat_boxes.append([0, int(x), int(y), int(x + w - 1), int(y + h - 1)])
 
     return np.array(feat_boxes)
 

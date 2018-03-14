@@ -20,8 +20,8 @@ def get_train_data(img_path, region, stride_w=0.08, stride_h=0.08):
     x, y, w, h = region
     X, Y, W, H = x - w / 2., y - h / 2., 2 * w, 2 * h
     patches = list()
-    for scale_w in np.arange(0.5, 1.7, stride_w):
-        for scale_h in np.arange(0.5, 1.7, stride_h):
+    for scale_w in np.arange(0.5, 1.5, stride_w):
+        for scale_h in np.arange(0.5, 1.5, stride_h):
             W_, H_ = W * scale_w, H * scale_h
             X_, Y_ = x + w / 2. - W_ / 2., y + h / 2. - H_ / 2.
             patches.append([X_, Y_, W_, H_])
@@ -34,12 +34,12 @@ def get_train_data(img_path, region, stride_w=0.08, stride_h=0.08):
         # 我的
         X, Y, W, H = patch
         img_patch = imresize(img_pad[int(Y + img_H):int(Y + img_H + H), int(X + img_W):int(X + img_W + W), :],
-                             [227, 227])
+                             [195, 195])
         # ISSUE: change HWC to CHW
-        img_patch = img_patch.reshape((3, 227, 227))
+        img_patch = img_patch.reshape((3, 195, 195))
 
         # get region
-        patch_gt = np.array([[227. * (x - X) / W, 227. * (y - Y) / H, 227. * w / W, 227. * h / H]])
+        patch_gt = np.array([[195. * (x - X) / W, 195. * (y - Y) / H, 195. * w / W, 195. * h / H]])
         feat_bbox, label = sample.get_01samples(patch_gt)
         image_patches.append(img_patch)
         feat_bboxes.append(feat_bbox)
@@ -68,12 +68,12 @@ def get_predict_data(img_path, pre_region):
     img_H, img_W, c = np.shape(img)
     img_pad = np.concatenate((img, img, img), 0)
     img_pad = np.concatenate((img_pad, img_pad, img_pad), 1)
-    W, H = 227 / 131. * w, 227 / 131. * h
+    W, H = 195 / 107. * w, 195 / 107. * h
     X, Y = img_W + x + w / 2. - W / 2., img_H + y + h / 2. - H / 2.
 
     img_patch = img_pad[int(Y):int(Y + H), int(X):int(X + W), :]
-    img_patch = imresize(img_patch, [227, 227])
-    img_patch = img_patch.reshape((3, 227, 227))
+    img_patch = imresize(img_patch, [195, 195])
+    img_patch = img_patch.reshape((3, 195, 195))
     # label的值应该不影响predict的输出，设为gt方便调试
     label = np.zeros((feat_bbox.shape[0],))
 

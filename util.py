@@ -20,15 +20,15 @@ def restore_img_bbox(patch_bboxes, restore_info):
     ph = patch_bboxes[:, 3]
 
     img_W, img_H, X, Y, W, H = restore_info
-    px, py = W / 227. * px + X - img_W, H / 227. * py + Y - img_H
-    pw, ph = W / 227. * pw, H / 227. * ph
+    px, py = W / 195. * px + X - img_W, H / 195. * py + Y - img_H
+    pw, ph = W / 195. * pw, H / 195. * ph
     px = np.max((np.zeros_like(px), px), axis=0)
     py = np.max((np.zeros_like(py), py), axis=0)
     pw = np.min((img_W - px, pw), axis=0)
     ph = np.min((img_H - py, ph), axis=0)
 
-    # x, y = W / 227. * xo + X - img_W, H / 227. * yo + Y - img_H
-    # w, h = W / 227. * wo, H / 227. * ho
+    # x, y = W / 195. * xo + X - img_W, H / 195. * yo + Y - img_H
+    # w, h = W / 195. * wo, H / 195. * ho
 
     # CUT in case out of range
     # x, y = max(0, x), max(0, y)
@@ -70,7 +70,7 @@ def img2feat(bbox):
     img_bbox = copy.deepcopy(bbox)
     img_bbox = np.floor((img_bbox - constant.recf / 2) / constant.stride)
     img_bbox[img_bbox < 0] = 0
-    img_bbox[img_bbox > 23] = 23
+    img_bbox[img_bbox > 19] = 19
     return img_bbox
 
 

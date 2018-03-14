@@ -319,7 +319,7 @@ def init_model(args):
                           label_names=('label',),
                           fixed_param_names=fixed_param_names)
     sample_iter = datahelper.get_train_iter(
-        datahelper.get_train_data('saved/mx-mdnet_01CE.jpg', [112, 112, 111, 111]))
+        datahelper.get_train_data('saved/mx-mdnet_01CE.jpg', [112, 112, 107, 107]))
     model.bind(sample_iter.provide_data, sample_iter.provide_label)
     all_params = {}
     if args.saved_fname == 'conv123':
