@@ -227,7 +227,7 @@ def debug_track_on_OTB():
 def parse_args():
     parser = argparse.ArgumentParser(description='Train MDNet network')
     parser.add_argument('--gpu', help='GPU device to train with', default=0, type=int)
-    parser.add_argument('--num_epoch_for_offline', default=100, type=int)
+    parser.add_argument('--num_epoch_for_offline', default=20, type=int)
     parser.add_argument('--num_epoch_for_online', default=0, help='epoch of training for every frame', type=int)
     parser.add_argument('--num_frame_for_offline', default=1, help='epoch of training for every frame', type=int)
     parser.add_argument('--lr_online', help='base learning rate', default=1e-5, type=float)
