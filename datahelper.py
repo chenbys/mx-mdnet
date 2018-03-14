@@ -62,7 +62,7 @@ def get_predict_data(img_path, pre_region):
     :return: pred_data and restore_info,
     restore_info include the XYWH of img_patch respect to
     '''
-    feat_bbox = sample.sample_on_feat(3, 3, 4, 4)
+    feat_bbox = sample.get_predict_feat_sample()
     img = cv2.imread(img_path)
     x, y, w, h = pre_region
     img_H, img_W, c = np.shape(img)

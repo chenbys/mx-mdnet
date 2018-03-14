@@ -20,7 +20,7 @@ import logging
 
 def debug_track_seq(args, model, img_paths, gts):
     # train on first frame
-    for j in range(1):
+    for j in range(3):
         for i in range(args.num_frame_for_offline):
             print 'train offine on frame %d' % i
             train_img_path, train_gt = img_paths[i], gts[i]
@@ -34,25 +34,29 @@ def debug_track_seq(args, model, img_paths, gts):
             model.fit(train_data=train_iter, eval_data=eval_iter,
                       optimizer='sgd',
                       eval_metric=mx.metric.CompositeEvalMetric(
-                          [extend.PR(0.6), extend.RR(0.6), extend.TrackTopKACC(10, 0.6)]),
+                          [extend.PR(0.7), extend.RR(0.7), extend.TrackTopKACC(10, 0.6)]),
                       optimizer_params={'learning_rate': args.lr_offline,
                                         'wd': args.wd,
                                         'momentum': args.momentum,
                                         # 'clip_gradient': 5,
                                         'lr_scheduler': extend.MDScheduler(
                                             args.lr_step, args.lr_factor, args.lr_stop)},
-                      begin_epoch=i * 30, num_epoch=i * 30 + args.num_epoch_for_offline)
+                      begin_epoch=j * 30, num_epoch=j * 30 + args.num_epoch_for_offline)
+            track(model, img_paths[0], pre_region=gts[0], gt=gts[0])
+            track(model, img_paths[1], pre_region=gts[1], gt=gts[1])
+            track(model, img_paths[2], pre_region=gts[2], gt=gts[2])
+            track(model, img_paths[3], pre_region=gts[3], gt=gts[3])
+            track(model, img_paths[5], pre_region=gts[5], gt=gts[5])
 
             # [256.0, 152.0, 73.0, 210.0] for Liquor
     # config.gt = [262, 94, 16, 26]
     # track(model, '/media/chen/datasets/OTB/Biker/img/0001.jpg', [262, 94, 16, 26])
     # config.gt = [256.0, 152.0, 73.0, 210.0]
     # track(model, img_paths[2], [256.0, 152.0, 100.0, 210.0])
-    # model.score(datahelper.get_val_iter(
-    #     datahelper.get_val_data(img_paths[4], pre_region=[61.0, 29.0, 35.0, 46.0], gt=[61.0, 19.0, 35.0, 46.0])),
-    #     mx.metric.CompositeEvalMetric([extend.PR(0.6), extend.RR(0.6), extend.TrackTopKACC(10, 0.6)]))
+    a = model.score(datahelper.get_val_iter(
+        datahelper.get_val_data(img_paths[0], pre_region=gts[0], gt=gts[0])),
+        mx.metric.CompositeEvalMetric([extend.PR(0.7), extend.RR(0.7), extend.TrackTopKACC(10, 0.6)]))
 
-    a = track(model, img_paths[0], pre_region=gts[0], gt=gts[0])
     res = []
     scores = []
     length = len(img_paths)
@@ -173,7 +177,6 @@ def track(model, img_path, pre_region, gt):
     top_patch_bboxes = util.feat2img(top_feat_bboxes)
 
     def check_pred_data(i):
-        x, y, w, h = gt
         feat_bbox = feat_bboxes[i, 1:].reshape(1, 4)
         patch_bbox = util.feat2img(feat_bbox)
         img_bbox = util.restore_img_bbox(patch_bbox, restore_info).reshape(4, )
@@ -183,24 +186,30 @@ def track(model, img_path, pre_region, gt):
         ax.imshow(plt.imread(img_path))
         ax.add_patch(patches.Rectangle((img_bbox[0], img_bbox[1]), img_bbox[2], img_bbox[3],
                                        linewidth=4, edgecolor='red', facecolor='none'))
-        ax.add_patch(patches.Rectangle((x, y), w, h,
+        ax.add_patch(patches.Rectangle((gt[0], gt[1]), gt[2], gt[3],
                                        linewidth=1, edgecolor='blue', facecolor='none'))
         fig.show()
         return (pos_score[i], labels[i])
 
     # [201 215 270 198 202]
-    # plt.plot(pos_score, 'r')
-    # plt.plot(labels, 'blue')
     top_img_bboxes = util.restore_img_bbox(top_patch_bboxes, restore_info)
     opt_img_bbox = np.mean(top_img_bboxes, 0)
     opt_score = top_scores.mean()
+
+    def plot():
+        plt.plot(pos_score, 'r')
+        plt.plot(labels, 'blue')
 
     def show_tracking():
         fig = plt.figure()
         ax = fig.add_subplot(111)
         ax.imshow(plt.imread(img_path))
         ax.add_patch(patches.Rectangle((opt_img_bbox[0], opt_img_bbox[1]), opt_img_bbox[2], opt_img_bbox[3],
-                                       linewidth=2, edgecolor='red', facecolor='none'))
+                                       linewidth=4, edgecolor='red', facecolor='none'))
+        ax.add_patch(patches.Rectangle((gt[0], gt[1]), gt[2], gt[3],
+                                       linewidth=1, edgecolor='blue', facecolor='none'))
+        ax.add_patch(patches.Rectangle((pre_region[0], pre_region[1]), pre_region[2], pre_region[3],
+                                       linewidth=1, edgecolor='yellow', facecolor='none'))
         fig.show()
 
     show_tracking()
@@ -217,6 +226,7 @@ def debug_track_on_OTB():
     # for debug and check
     config.gts = gts
     config.img_paths = img_paths
+    datahelper.get_predict_data(img_paths[0], gts[0])
 
     model, all_params = extend.init_model(args)
 
@@ -227,7 +237,7 @@ def debug_track_on_OTB():
 def parse_args():
     parser = argparse.ArgumentParser(description='Train MDNet network')
     parser.add_argument('--gpu', help='GPU device to train with', default=0, type=int)
-    parser.add_argument('--num_epoch_for_offline', default=100, type=int)
+    parser.add_argument('--num_epoch_for_offline', default=30, type=int)
     parser.add_argument('--num_epoch_for_online', default=0, help='epoch of training for every frame', type=int)
     parser.add_argument('--num_frame_for_offline', default=1, help='epoch of training for every frame', type=int)
     parser.add_argument('--lr_online', help='base learning rate', default=1e-5, type=float)
@@ -240,8 +250,8 @@ def parse_args():
     parser.add_argument('--lr_stop', default=5e-8, type=float)
     parser.add_argument('--lr_offline', default=2e-7, help='base learning rate', type=float)
     parser.add_argument('--fixed_conv', help='the params before(include) which conv are all fixed',
-                        default=2, type=int)
-    parser.add_argument('--saved_fname', default='conv123', type=str)
+                        default=3, type=int)
+    parser.add_argument('--saved_fname', default='conv123fc4fc5', type=str)
 
     args = parser.parse_args()
     return args

@@ -298,6 +298,48 @@ def get_mdnet_conv123_params(prefix='', mat_path='saved/conv123.mat'):
     return arg_params
 
 
+def get_mdnet_conv123fc4fc5_params(prefix='', mat_path='saved/conv123fc4fc5.mat'):
+    import scipy.io as sio
+    import numpy as np
+    conv123 = sio.loadmat(mat_path)
+    conv123 = conv123['conv123']
+    conv1_weight = conv123[0, 0][0]
+    conv1_bias = conv123[0, 0][1]
+    conv2_weight = conv123[0, 0][2]
+    conv2_bias = conv123[0, 0][3]
+    conv3_weight = conv123[0, 0][4]
+    conv3_bias = conv123[0, 0][5]
+    fc4_weight = conv123[0, 0][6]
+    fc4_bias = conv123[0, 0][7]
+    fc5_weight = conv123[0, 0][8]
+    fc5_bias = conv123[0, 0][9]
+
+    conv1_weight_ = np.transpose(conv1_weight, [3, 2, 0, 1])
+    conv1_bias_ = conv1_bias.reshape((96,))
+    conv2_weight_ = np.transpose(conv2_weight, [3, 2, 0, 1])
+    conv2_bias_ = conv2_bias.reshape((256,))
+    conv3_weight_ = np.transpose(conv3_weight, [3, 2, 0, 1])
+    conv3_bias_ = conv3_bias.reshape((512,))
+    fc4_weight_ = np.transpose(fc4_weight, [3, 2, 0, 1])
+    fc4_bias_ = fc4_bias.reshape((512,))
+    fc5_weight_ = np.transpose(fc5_weight, [3, 2, 0, 1])
+    fc5_bias_ = fc5_bias.reshape((512,))
+
+    arg_params = dict()
+    arg_params[prefix + 'conv1_weight'] = conv1_weight_
+    arg_params[prefix + 'conv1_bias'] = conv1_bias_
+    arg_params[prefix + 'conv2_weight'] = conv2_weight_
+    arg_params[prefix + 'conv2_bias'] = conv2_bias_
+    arg_params[prefix + 'conv3_weight'] = conv3_weight_
+    arg_params[prefix + 'conv3_bias'] = conv3_bias_
+    arg_params[prefix + 'fc4_weight'] = fc4_weight_
+    arg_params[prefix + 'fc4_bias'] = fc4_bias_
+    arg_params[prefix + 'fc5_weight'] = fc5_weight_
+    arg_params[prefix + 'fc5_bias'] = fc5_bias_
+
+    return arg_params
+
+
 def init_model(args):
     import datahelper
 
@@ -328,6 +370,13 @@ def init_model(args):
         for k in conv123.keys():
             conv123[k] = mx.ndarray.array(conv123.get(k))
         model.init_params(arg_params=conv123, allow_missing=True, force_init=False, allow_extra=True)
+    elif args.saved_fname == 'conv123fc4fc5':
+        print '@CHEN->load params from conv123fc4fc5'
+        conv123fc4fc5 = get_mdnet_conv123fc4fc5_params()
+        for k in conv123fc4fc5.keys():
+            conv123fc4fc5[k] = mx.ndarray.array(conv123fc4fc5.get(k))
+        model.init_params(arg_params=conv123fc4fc5, allow_missing=True, force_init=False, allow_extra=True)
+
     elif args.saved_fname is not None:
         print '@CHEN->load all params from:' + args.saved_fname
         all_params, arg_params = load_all_params(args.saved_fname)
