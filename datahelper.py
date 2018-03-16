@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 import util
 
 
-def get_train_data(img_path, region, stride_w=0.08, stride_h=0.08):
+def get_train_data(img_path, region, stride_w=0.1, stride_h=0.1):
     img = cv2.imread(img_path)
     img_H, img_W, c = np.shape(img)
     img_pad = np.concatenate((img, img, img), 0)
@@ -20,8 +20,8 @@ def get_train_data(img_path, region, stride_w=0.08, stride_h=0.08):
     x, y, w, h = region
     X, Y, W, H = x - w / 2., y - h / 2., 2 * w, 2 * h
     patches = list()
-    for scale_w in np.arange(0.5, 1.5, stride_w):
-        for scale_h in np.arange(0.5, 1.5, stride_h):
+    for scale_w in np.arange(0.5, 2, stride_w):
+        for scale_h in np.arange(0.5, 2, stride_h):
             W_, H_ = W * scale_w, H * scale_h
             X_, Y_ = x + w / 2. - W_ / 2., y + h / 2. - H_ / 2.
             patches.append([X_, Y_, W_, H_])

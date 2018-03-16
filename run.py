@@ -20,11 +20,11 @@ import logging
 
 def debug_track_seq(args, model, img_paths, gts):
     # train on first frame
-    for j in range(3):
+    for j in range(1):
         for i in range(args.num_frame_for_offline):
             print 'train offine on frame %d' % i
             train_img_path, train_gt = img_paths[i], gts[i]
-            eval_img_path, eval_gt = img_paths[i + 2], gts[i + 2]
+            eval_img_path, eval_gt = img_paths[i + 4], gts[i + 4]
             t = time.time()
             train_iter = datahelper.get_train_iter(datahelper.get_train_data(train_img_path, train_gt))
             logging.getLogger().info('time cost for getting one train iter :%f' % (time.time() - t))
@@ -237,7 +237,7 @@ def debug_track_on_OTB():
 def parse_args():
     parser = argparse.ArgumentParser(description='Train MDNet network')
     parser.add_argument('--gpu', help='GPU device to train with', default=0, type=int)
-    parser.add_argument('--num_epoch_for_offline', default=30, type=int)
+    parser.add_argument('--num_epoch_for_offline', default=90, type=int)
     parser.add_argument('--num_epoch_for_online', default=0, help='epoch of training for every frame', type=int)
     parser.add_argument('--num_frame_for_offline', default=1, help='epoch of training for every frame', type=int)
     parser.add_argument('--lr_online', help='base learning rate', default=1e-5, type=float)

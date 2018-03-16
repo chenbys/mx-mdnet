@@ -1,3 +1,37 @@
+train on frame0,val on frame2
+INFO:root:Epoch[28] Train-PR=0.928740
+INFO:root:Epoch[28] Train-RR=0.488889
+INFO:root:Epoch[28] Train-TrackTopKAcc=0.952444
+INFO:root:Epoch[28] Time cost=1.787
+INFO:root:Epoch[28] Validation-PR=0.830365
+INFO:root:Epoch[28] Validation-RR=0.348089
+INFO:root:Epoch[28] Validation-TrackTopKAcc=0.781778
+INFO:root:Epoch[29] Train-PR=0.924294
+INFO:root:Epoch[29] Train-RR=0.482933
+INFO:root:Epoch[29] Train-TrackTopKAcc=0.947556
+INFO:root:Epoch[29] Time cost=1.790
+INFO:root:Epoch[29] Validation-PR=0.836540
+INFO:root:Epoch[29] Validation-RR=0.374844
+INFO:root:Epoch[29] Validation-TrackTopKAcc=0.796444
+
+INFO:root:Epoch[58] Train-PR=0.941509
+INFO:root:Epoch[58] Train-RR=0.636711
+INFO:root:Epoch[58] Train-TrackTopKAcc=0.980444
+INFO:root:Epoch[58] Time cost=1.789
+INFO:root:Epoch[58] Validation-PR=0.759520
+INFO:root:Epoch[58] Validation-RR=0.427289
+INFO:root:Epoch[58] Validation-TrackTopKAcc=0.876889
+INFO:root:Epoch[59] Train-PR=0.945865
+INFO:root:Epoch[59] Train-RR=0.644533
+INFO:root:Epoch[59] Train-TrackTopKAcc=0.986667
+INFO:root:Epoch[59] Time cost=1.792
+INFO:root:Epoch[59] Validation-PR=0.758271
+INFO:root:Epoch[59] Validation-RR=0.438044
+INFO:root:Epoch[59] Validation-TrackTopKAcc=0.878667
+
+
+
+
 剔除离群bbox
 多GPU有什么操作吗？
 hard minibatch mining
