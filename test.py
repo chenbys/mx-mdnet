@@ -1,9 +1,30 @@
 import numpy as np
 from matplotlib import patches
+import mxnet as mx
 
+import csym
 import util
 import matplotlib.pyplot as plt
 import datahelper
+
+
+def check_internal(model, train_iter):
+    # internals = model.symbol.get_internals()
+    # lrn2_sym = internals['lrn2_output']
+    # roi_sym = internals['roi_pool_output']
+    # pool2_sym = internals['pool2_output']
+    # sym = mx.symbol.Group([lrn2_sym, roi_sym, pool2_sym])
+    mod = mx.mod.Module(symbol=csym.get_check_mdnet(), context=mx.gpu(0), data_names=('image_patch', 'feat_bbox',),
+                        label_names=('label',))
+    mod.bind(train_iter.provide_data, train_iter.provide_label, for_training=True)
+    mod.set_params(model.get_params()[0], model.get_params()[1])
+    data_iter = next(iter(train_iter))
+    mod.forward(data_iter)
+    lrn2, roi, pool2, label_, score, score_, loss = mod.get_outputs()
+    i, j = 0, 0
+    a, b, c = lrn2[i, j, :].asnumpy(), roi[i, j, :].asnumpy(), pool2[i, j, :].asnumpy()
+    label_, score, score_, loss = label_.asnumpy(), score.asnumpy(), score_.asnumpy(), loss.asnumpy()
+    return
 
 
 def check_val_data():

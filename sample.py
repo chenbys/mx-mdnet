@@ -63,7 +63,6 @@ def get_predict_feat_sample():
 
 def get_01samples(patch_gt, pos_number=100, neg_number=500):
     '''
-        Q: patch上的重叠率作为label，和还原到原图上的重叠率做label一样吗
     :param patch_gt:
     :param pos_number:
     :param neg_number:

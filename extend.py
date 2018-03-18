@@ -44,9 +44,11 @@ class MDScheduler(LRScheduler):
             self.base_lr *= self.factor
             if self.base_lr < self.stop_factor_lr:
                 self.base_lr = self.stop_factor_lr
+                logging.info("Update[%d]: lr: %0.2e",
+                             num_update, self.base_lr)
             else:
                 logging.info("Update[%d]: lr: %0.2e",
-                             num_update / 36, self.base_lr)
+                             num_update, self.base_lr)
         return self.base_lr
 
 
@@ -98,6 +100,7 @@ class PR(mx.metric.EvalMetric):
         '''
         super(PR, self).__init__('PR')
         self.pos_th = pos_th
+        self.pred, self.label = ['score_'], ['label']
 
     def update(self, labels, preds):
         '''
@@ -105,7 +108,7 @@ class PR(mx.metric.EvalMetric):
         :param preds:
         :return:
         '''
-        labels = labels[0].asnumpy()[0, :]
+        labels = labels[0].asnumpy()
         scores = preds[0].asnumpy()
         output_pos_scores = scores[:, 1]
         output_pos_idx = output_pos_scores >= self.pos_th
@@ -131,7 +134,7 @@ class RR(mx.metric.EvalMetric):
         :param preds:
         :return:
         '''
-        labels = labels[0].asnumpy()[0, :]
+        labels = labels[0].asnumpy()
         scores = preds[0].asnumpy()
         output_pos_scores = scores[:, 1]
         output_pos_idx = output_pos_scores >= self.pos_th
@@ -179,7 +182,7 @@ class TrackTopKACC(mx.metric.EvalMetric):
         self.th = th
 
     def update(self, labels, preds):
-        labels = labels[0].asnumpy()[0, :]
+        labels = labels[0].asnumpy()
         scores = preds[0].asnumpy()
         pos_scores = scores[:, 1]
         self.topK = min(self.topK, pos_scores.shape[0])
@@ -362,6 +365,15 @@ def init_model(args):
                           fixed_param_names=fixed_param_names)
     sample_iter = datahelper.get_train_iter(
         datahelper.get_train_data('saved/mx-mdnet_01CE.jpg', [112, 112, 107, 107]))
+
+    # arg_names = sym.list_arguments()
+    # grad_reqs = {}
+    # for name in arg_names:
+    #     grad_reqs[name] = "write"
+
+    # grad_reqs['score_re'] = 'write'
+    # grad_reqs['score'] = 'write'
+
     model.bind(sample_iter.provide_data, sample_iter.provide_label)
     all_params = {}
     if args.saved_fname == 'conv123':
