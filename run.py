@@ -70,7 +70,7 @@ def debug_track_seq(args, model, img_paths, gts):
 
         # report
         logging.getLogger().info(
-            '@CHEN-> IOU : -> %.2f <- !!!  prob: %.2f for tracking on frame %d, cost %4.4f' \
+            '@CHEN-> IOU : [ %.2f ] !!!  prob: %.2f for tracking on frame %d, cost %4.4f' \
             % (util.overlap_ratio(gts[cur], region), prob, cur, time.time() - T))
 
         # show
@@ -98,9 +98,6 @@ def debug_track_seq(args, model, img_paths, gts):
             # long term update
             logging.getLogger().info('@CHEN->long term update')
             model = online_update(args, model, 100)
-        if cur % 20 == 0:
-            a = 1
-            # show_tracking()
 
     return res, probs
 
@@ -238,13 +235,14 @@ def debug_track_on_OTB():
     config.ctx = mx.gpu(args.gpu)
 
     otb = datahelper.OTBHelper(args.OTB_path)
-    img_paths, gts = otb.get_seq('Biker')
+    img_paths, gts = otb.get_seq('Diving')
 
     # for debug and check
     config.gts = gts
     config.img_paths = img_paths
 
     # debug
+    # Diving 0042.jpg 需要short term update
     model, all_params = extend.init_model(args)
 
     logging.getLogger().setLevel(logging.DEBUG)
