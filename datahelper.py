@@ -8,7 +8,52 @@ from scipy.misc import imresize
 import matplotlib.pyplot as plt
 
 import util
-from setting import constant
+from setting import const
+
+
+def get_update_data(img_path, gt):
+    '''
+        原版mdnet每一帧采50 pos 200 neg
+        返回该帧构造出的 4 个img_patch, each 16 pos 48 neg
+    :param img_patch:
+    :param gt:
+    :return:
+    '''
+    img = plt.imread(img_path)
+    img_H, img_W, c = np.shape(img)
+    img_pad = np.concatenate((img, img, img), 0)
+    img_pad = np.concatenate((img_pad, img_pad, img_pad), 1)
+
+    x, y, w, h = gt
+    X, Y, W, H = x - w / 2., y - h / 2., 2 * w, 2 * h
+    patches = list()
+    for scale_w in [0.8, 1.2]:
+        for scale_h in [0.8, 1.2]:
+            W_, H_ = W * scale_w, H * scale_h
+            X_, Y_ = x + w / 2. - W_ / 2., y + h / 2. - H_ / 2.
+            patches.append([int(X_), int(Y_), int(W_), int(H_)])
+
+    image_patches = list()
+    feat_bboxes = list()
+    labels = list()
+    for patch in patches:
+        # crop image as train_data
+        # 我的
+        X, Y, W, H = patch
+        img_patch = imresize(img_pad[int(Y + img_H):int(Y + img_H + H), int(X + img_W):int(X + img_W + W), :],
+                             [int(const.patch_H), int(const.patch_W)])
+        # ISSUE: change HWC to CHW
+        img_patch = img_patch.transpose(const.HWN2NHW)
+
+        # get region
+        patch_gt = np.array([[const.patch_W * (x - X) / W, const.patch_H * (y - Y) / H,
+                              const.patch_W * w / W, const.patch_H * h / H]])
+        feat_bbox, label = sample.get_update_samples(patch_gt, 16, 48)
+        image_patches.append(img_patch)
+        feat_bboxes.append(feat_bbox)
+        labels.append(label)
+
+    return image_patches, feat_bboxes, labels
 
 
 def get_train_data(img_path, region):
@@ -45,13 +90,13 @@ def get_train_data(img_path, region):
         # 我的
         X, Y, W, H = patch
         img_patch = imresize(img_pad[int(Y + img_H):int(Y + img_H + H), int(X + img_W):int(X + img_W + W), :],
-                             [int(constant.patch_H), int(constant.patch_W)])
+                             [int(const.patch_H), int(const.patch_W)])
         # ISSUE: change HWC to CHW
-        img_patch = img_patch.transpose(constant.HWN2NHW)
+        img_patch = img_patch.transpose(const.HWN2NHW)
 
         # get region
-        patch_gt = np.array([[constant.patch_W * (x - X) / W, constant.patch_H * (y - Y) / H,
-                              constant.patch_W * w / W, constant.patch_H * h / H]])
+        patch_gt = np.array([[const.patch_W * (x - X) / W, const.patch_H * (y - Y) / H,
+                              const.patch_W * w / W, const.patch_H * h / H]])
         feat_bbox, label = sample.get_01samples(patch_gt)
         image_patches.append(img_patch)
         feat_bboxes.append(feat_bbox)
@@ -81,12 +126,12 @@ def get_predict_data(img_path, pre_region):
     img_pad = np.concatenate((img, img, img), 0)
     img_pad = np.concatenate((img_pad, img_pad, img_pad), 1)
 
-    W, H = constant.patch_W / 107. * w, constant.patch_H / 107. * h
+    W, H = const.patch_W / 107. * w, const.patch_H / 107. * h
     X, Y = img_W + x + w / 2. - W / 2., img_H + y + h / 2. - H / 2.
 
     img_patch = img_pad[int(Y):int(Y + H), int(X):int(X + W), :]
     img_patch = imresize(img_patch, [219, 219])
-    img_patch = img_patch.transpose(constant.HWN2NHW)
+    img_patch = img_patch.transpose(const.HWN2NHW)
     # label的值应该不影响predict的输出，设为gt方便调试
     label = np.ones((feat_bbox.shape[0],))
 

@@ -62,6 +62,28 @@ def get_predict_feat_sample():
     return np.array(feat_boxes)
 
 
+def get_update_samples(patch_gt, pos_number=16, neg_number=32):
+    label_feat = util.x1y2x2y22xywh(util.img2feat(util.xywh2x1y1x2y2(patch_gt)))
+    x, y, w, h = label_feat[0, :]
+    # pos
+    pos_bboxes = get_train_feat_sample(1, 1, 1, 1, x, y, w, h)
+    pos_patch_bboxes = util.feat2img(pos_bboxes[:, 1:])
+    rat = util.overlap_ratio(patch_gt, pos_patch_bboxes)
+    pos_samples = pos_bboxes[rat > 0.7, :]
+    pos_select_index = rand_sample(np.arange(0, pos_samples.shape[0]), pos_number)
+
+    # neg
+    neg_bboxes = get_train_feat_sample(3, 3, 3, 3)
+    neg_patch_bboxes = util.feat2img(neg_bboxes[:, 1:])
+    rat = util.overlap_ratio(patch_gt, neg_patch_bboxes)
+    neg_samples = neg_bboxes[rat < 0.3, :]
+    neg_select_index = rand_sample(np.arange(0, neg_samples.shape[0]), neg_number)
+
+    a, b = np.vstack((pos_samples[pos_select_index], neg_samples[neg_select_index])), \
+           np.hstack((np.ones((pos_number,)), np.zeros((neg_number,))))
+    return a, b
+
+
 def get_01samples(patch_gt, pos_number=32, neg_number=96):
     '''
     :param patch_gt:
@@ -106,5 +128,5 @@ def rand_sample(pop, num):
     if A == 0:
         return pop[sample_idx]
     else:
-        print 'not enough: %d, acquire: %d' % (pop_size, num)
+        # print 'not enough: %d, acquire: %d' % (pop_size, num)
         return np.hstack((np.repeat(pop, A, axis=0), pop[sample_idx]))

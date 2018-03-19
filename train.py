@@ -3,7 +3,7 @@ import logging
 import mxnet as mx
 import datahelper
 import extend
-from setting import config, constant
+from setting import config, const
 from kit import p
 import run
 import util

@@ -1,4 +1,5 @@
 # -*-coding:utf- 8-*-
+import Queue
 
 import mxnet as mx
 import argparse
@@ -17,64 +18,60 @@ import matplotlib.pyplot as plt
 from matplotlib import patches
 import logging
 
+update_data_queue = Queue.Queue(maxsize=100)
+
 
 def debug_track_seq(args, model, img_paths, gts):
+    '''
+
+    :param args:
+    :param model:
+    :param img_paths: 待跟踪的图片地址list，首个是有标注的，用来首帧训练的。
+    :param gts: 用来调试的每帧的gt，本应只传gts[0]
+    :return:
+    '''
     # train on first frame
-    for j in range(1):
-        for i in range(args.num_frame_for_offline):
-            print 'train offine on frame %d' % i
-            train_img_path, train_gt = img_paths[i], gts[i]
-            eval_img_path, eval_gt = img_paths[i + 9], gts[i + 9]
-            t = time.time()
-            train_iter = datahelper.get_train_iter(datahelper.get_train_data(train_img_path, train_gt))
-            logging.getLogger().info('time cost for getting one train iter :%f' % (time.time() - t))
+    print 'train offine on frame 0'
+    train_img_path, train_gt = img_paths[0], gts[0]
+    eval_img_path, eval_gt = img_paths[5], gts[5]
+    t = time.time()
+    train_iter = datahelper.get_train_iter(datahelper.get_train_data(train_img_path, train_gt))
+    print('time cost for getting one train iter :%f' % (time.time() - t))
 
-            eval_iter = datahelper.get_train_iter(
-                datahelper.get_train_data(eval_img_path, eval_gt))
+    eval_iter = datahelper.get_train_iter(
+        datahelper.get_train_data(eval_img_path, eval_gt))
 
-            model.fit(train_data=train_iter, eval_data=eval_iter,
-                      optimizer='sgd',
-                      eval_metric=mx.metric.CompositeEvalMetric(
-                          [extend.PR(0.5), extend.RR(0.5), extend.TrackTopKACC(10, 0.6)]),
-                      optimizer_params={'learning_rate': args.lr_offline,
-                                        'wd': args.wd,
-                                        'momentum': args.momentum,
-                                        # 'clip_gradient': 5,
-                                        # 'lr_scheduler': extend.MDScheduler(
-                                        #     args.lr_step, args.lr_factor, args.lr_stop)
-                                        },
-                      begin_epoch=0, num_epoch=args.num_epoch_for_offline)
-            # track(model, img_paths[0], pre_region=gts[0], gt=gts[0])
-            # track(model, img_paths[1], pre_region=gts[1], gt=gts[1])
-            # track(model, img_paths[2], pre_region=gts[2], gt=gts[2])
-            # track(model, img_paths[3], pre_region=gts[3], gt=gts[3])
-            # track(model, img_paths[5], pre_region=gts[5], gt=gts[5])
+    model.fit(train_data=train_iter, eval_data=eval_iter,
+              optimizer='sgd',
+              eval_metric=mx.metric.CompositeEvalMetric(
+                  [extend.PR(0.5), extend.RR(0.5), extend.TrackTopKACC(10, 0.6)]),
+              optimizer_params={'learning_rate': args.lr_offline,
+                                'wd': args.wd,
+                                'momentum': args.momentum,
+                                # 'clip_gradient': 5,
+                                },
+              begin_epoch=0, num_epoch=args.num_epoch_for_offline)
 
-            # [256.0, 152.0, 73.0, 210.0] for Liquor
-    # config.gt = [262, 94, 16, 26]
-    # track(model, '/media/chen/datasets/OTB/Biker/img/0001.jpg', [262, 94, 16, 26])
-    # config.gt = [256.0, 152.0, 73.0, 210.0]
-    # track(model, img_paths[2], [256.0, 152.0, 100.0, 210.0])
-    # a = model.score(datahelper.get_val_iter(
-    #     datahelper.get_val_data(img_paths[0], pre_region=gts[0], gt=gts[0])),
-    #     mx.metric.CompositeEvalMetric([extend.PR(0.7), extend.RR(0.7), extend.TrackTopKACC(10, 0.6)]))
-
-    res = []
-    scores = []
-    length = len(img_paths)
+    # res, scores 是保存每一帧的结果位置和给出的是目标的概率的list，包括用来训练的首帧
+    res, probs = [gts[0]], [1]
     region = gts[0]
 
+    # prepare online update data
+    add_update_data(img_paths[0], gts[0])
+
+    length = len(img_paths)
     for cur in range(1, length):
         T = time.time()
         # track
-        region, score = track(model, img_paths[cur], pre_region=region, gt=gts[cur])
+        region, prob = track(model, img_paths[cur], pre_region=region, gt=gts[cur])
 
         res.append(region)
+        probs.append(prob)
 
         # report
         logging.getLogger().info(
-            '@CHEN-> IOU : -> %.2f <- !!!  score: %.2f for tracking on frame %d, cost %4.4f' \
-            % (util.overlap_ratio(gts[cur], region), score, cur, time.time() - T))
+            '@CHEN-> IOU : -> %.2f <- !!!  prob: %.2f for tracking on frame %d, cost %4.4f' \
+            % (util.overlap_ratio(gts[cur], region), prob, cur, time.time() - T))
 
         # show
         def show_tracking():
@@ -89,40 +86,87 @@ def debug_track_seq(args, model, img_paths, gts):
                                            linewidth=1, edgecolor='blue', facecolor='none'))
             fig.show()
 
+        # prepare online update data
+        add_update_data(img_paths[cur], res[cur])
+
         # online update
-        scores.append(score)
-        if score < 0.9:
+        if prob < 0.5:
             # short term update
             logging.getLogger().info('@CHEN->short term update')
-            model = online_update(args, model, img_paths, res, cur,
-                                  num_epoch=args.num_epoch_for_online)
+            model = online_update(args, model, 20)
         elif cur % 10 == 0:
             # long term update
             logging.getLogger().info('@CHEN->long term update')
-            model = online_update(args, model, img_paths, res, cur,
-                                  num_epoch=args.num_epoch_for_online)
+            model = online_update(args, model, 100)
         if cur % 20 == 0:
             a = 1
             # show_tracking()
 
-    return res, scores
+    return res, probs
 
 
-def online_update(args, model, img_paths, res, cur, history_len=10, num_epoch=10):
-    return model
-    for i in range(max(0, cur - history_len), cur + 1):
-        metric = mx.metric.CompositeEvalMetric()
-        metric.add(extend.MDNetIOUACC())
-        metric.add(extend.MDNetIOULoss())
-        train_iter = datahelper.get_train_iter(datahelper.get_train_data(img_paths[i], res[i]))
-        model.fit(train_data=train_iter, optimizer='sgd',
-                  optimizer_params={'learning_rate': args.lr_online,
-                                    'wd': args.wd,
-                                    'momentum': args.momentum,
-                                    # 'clip_gradient': 5,
-                                    'lr_scheduler': extend.MDScheduler(
-                                        args.lr_step, args.lr_factor, args.lr_stop)},
-                  eval_metric=metric, begin_epoch=0, num_epoch=num_epoch)
+def get_update_data(frame_len=20):
+    '''
+        返回最近frame_len帧 组成的 update_data
+    :param frame_len: 长期100，短期20
+    :return:
+    '''
+    frame_len = min(frame_len, update_data_queue.qsize())
+    img_patches, feat_bboxes, labels = [], [], []
+    for i in range(1, frame_len + 1):
+        a, b, c = update_data_queue.queue[-i]
+        img_patches += a
+        feat_bboxes += b
+        labels += c
+    return img_patches, feat_bboxes, labels
+
+
+def add_update_data(img_patch, gt):
+    '''
+        原版mdnet每一帧采50 pos 200 neg
+        返回该帧构造出的 4 个img_patch, each 16 pos 32 neg
+    :param img_patch:
+    :param gt:
+    :return:
+    '''
+    if update_data_queue.full():
+        update_data_queue.get()
+
+    update_data = datahelper.get_update_data(img_patch, gt)
+    update_data_queue.put(update_data)
+
+
+def online_update(args, model, data_len=20):
+    '''
+        pos sample 只用短期的，因为老旧的负样本是无关的。（如果速度允许的话，为了省事，都更新应该影响不大吧。）
+        mdnet：long term len 100F, short term len 20F（感觉短期有点太长了吧，可能大多变化都在几帧之内完成）
+
+        用一个list保存每一帧对应的update_data, 每一帧有几个 batch，每个batch 几个img_patch，每个img_patch 32 pos 32 neg
+
+        long term: every 10 frames
+            利用近长期帧组成 batch, each 32 pos, 96 neg
+        short term: score < 0
+            利用近短期帧组成 batch, each 32 pos, 96 neg
+
+    :param args:
+    :param model:
+    :param img_paths:
+    :param res:
+    :param cur:
+    :param history_len:
+    :param num_epoch:
+    :return:
+    '''
+    update_iter = datahelper.get_train_iter(get_update_data(data_len))
+    model.fit(train_data=update_iter, optimizer='sgd',
+              eval_metric=mx.metric.CompositeEvalMetric(
+                  [extend.PR(0.5), extend.RR(0.5), extend.TrackTopKACC(10, 0.6)]),
+              optimizer_params={'learning_rate': args.lr_offline,
+                                'wd': args.wd,
+                                'momentum': args.momentum,
+                                # 'clip_gradient': 5,
+                                },
+              begin_epoch=0, num_epoch=args.num_epoch_for_online)
     return model
 
 
@@ -199,8 +243,8 @@ def debug_track_on_OTB():
     # for debug and check
     config.gts = gts
     config.img_paths = img_paths
-    # datahelper.get_predict_data(img_paths[0], gts[0])
 
+    # debug
     model, all_params = extend.init_model(args)
 
     logging.getLogger().setLevel(logging.DEBUG)
@@ -211,11 +255,10 @@ def parse_args():
     parser = argparse.ArgumentParser(description='Train MDNet network')
     parser.add_argument('--gpu', help='GPU device to train with', default=0, type=int)
     parser.add_argument('--num_epoch_for_offline', default=10, type=int)
-
+    parser.add_argument('--num_epoch_for_online', default=3, type=int)
+    parser.add_argument('--fixed_conv', help='these params of [ conv_i <= ? ] will be fixed', default=3, type=int)
     parser.add_argument('--saved_fname', default='conv123fc4fc5', type=str)
-    parser.add_argument('--num_epoch_for_online', default=0, help='epoch of training for every frame', type=int)
-    parser.add_argument('--num_frame_for_offline', default=1, help='epoch of training for every frame', type=int)
-    parser.add_argument('--lr_online', help='base learning rate', default=1e-5, type=float)
+
     parser.add_argument('--OTB_path', help='OTB folder', default='/media/chen/datasets/OTB', type=str)
     parser.add_argument('--VOT_path', help='VOT folder', default='/media/chen/datasets/VOT2015', type=str)
     parser.add_argument('--lr_step', default=222 * 15, help='every 121 num for one epoch', type=int)
@@ -225,7 +268,7 @@ def parse_args():
     parser.add_argument('--wd', default=1e-3, help='weight decay', type=float)
     parser.add_argument('--momentum', default=0.9, type=float)
     parser.add_argument('--lr_offline', default=2e-5, help='base learning rate', type=float)
-    parser.add_argument('--fixed_conv', help='the params before(include) which conv are fixed', default=3, type=int)
+    parser.add_argument('--lr_online', default=1e-5, help='base learning rate', type=float)
 
     args = parser.parse_args()
     return args

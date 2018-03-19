@@ -1,19 +1,21 @@
 from easydict import EasyDict as edict
 
-constant = edict()
-constant.stride = 8.
-constant.recf = 43.
-constant.patch_W = 219.
-constant.patch_H = 219.
-constant.feat_W = 23.
-constant.feat_H = 23.
-constant.HWN2NHW = (2, 0, 1)
-constant.NHW2HWN = (1, 2, 0)
+const = edict()
+const.stride = 8.
+const.recf = 43.
+const.patch_W = 219.
+const.patch_H = 219.
+const.feat_W = 23.
+const.feat_H = 23.
+const.HWN2NHW = (2, 0, 1)
+const.NHW2HWN = (1, 2, 0)
+const.long_term = 100
+const.short_term = 20
 
-constant.P_DEBUG = 0
-constant.P_TEST = 1
-constant.P_RUN = 2
-constant.P_FORBID = 3
+const.P_DEBUG = 0
+const.P_TEST = 1
+const.P_RUN = 2
+const.P_FORBID = 3
 
 config = edict()
 

@@ -3,7 +3,7 @@ import logging
 import mxnet as mx
 import datahelper
 import extend
-from setting import config, constant
+from setting import config, const
 from kit import p
 import run
 import util
@@ -89,7 +89,7 @@ def main():
 
         model = one_step_train(args, model, train_iter, val_iter, begin_epoch, begin_epoch + args.num_epoch)
         begin_epoch += args.num_epoch
-        p('finished training on frame %d.' % i, level=constant.P_RUN)
+        p('finished training on frame %d.' % i, level=const.P_RUN)
 
 
 if __name__ == '__main__':

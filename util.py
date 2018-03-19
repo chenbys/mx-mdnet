@@ -3,7 +3,7 @@
 from scipy.misc import imresize
 import numpy as np
 import copy
-from setting import constant
+from setting import const
 
 
 def restore_img_bbox(patch_bboxes, restore_info):
@@ -53,10 +53,10 @@ def feat2img(box):
     bbox[:, 3] = bbox[:, 3] - bbox[:, 1] + 1
 
     # value range from 0~23
-    bbox[:, 0] = bbox[:, 0] * constant.stride
-    bbox[:, 1] = bbox[:, 1] * constant.stride
-    bbox[:, 2] = (bbox[:, 2] - 1) * constant.stride + constant.recf
-    bbox[:, 3] = (bbox[:, 3] - 1) * constant.stride + constant.recf
+    bbox[:, 0] = bbox[:, 0] * const.stride
+    bbox[:, 1] = bbox[:, 1] * const.stride
+    bbox[:, 2] = (bbox[:, 2] - 1) * const.stride + const.recf
+    bbox[:, 3] = (bbox[:, 3] - 1) * const.stride + const.recf
 
     return np.array(bbox)
 
@@ -68,7 +68,7 @@ def img2feat(bbox):
     :return: feat_bbox: in format of (x1,y1,x2,y2)
     '''
     img_bbox = copy.deepcopy(bbox)
-    img_bbox = np.floor((img_bbox - constant.recf / 2) / constant.stride)
+    img_bbox = np.floor((img_bbox - const.recf / 2) / const.stride)
     img_bbox[img_bbox < 0] = 0
     img_bbox[img_bbox > 22] = 22
     return img_bbox
