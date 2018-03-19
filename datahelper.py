@@ -4,15 +4,26 @@ import numpy as np
 import mxnet as mx
 import sample
 import os
-import cv2
 from scipy.misc import imresize
 import matplotlib.pyplot as plt
 
 import util
+from setting import constant
 
 
-def get_train_data(img_path, region, stride_w=0.1, stride_h=0.1):
-    img = cv2.imread(img_path)
+def get_train_data(img_path, region):
+    '''
+        source mdnet : 30 batch, each 32 pos 96 neg
+        now : 30*5 batch, each 1 img_patch 32 pos 96 neg
+
+
+    :param img_path:
+    :param region:
+    :param stride_w:
+    :param stride_h:
+    :return:
+    '''
+    img = plt.imread(img_path)
     img_H, img_W, c = np.shape(img)
     img_pad = np.concatenate((img, img, img), 0)
     img_pad = np.concatenate((img_pad, img_pad, img_pad), 1)
@@ -20,11 +31,11 @@ def get_train_data(img_path, region, stride_w=0.1, stride_h=0.1):
     x, y, w, h = region
     X, Y, W, H = x - w / 2., y - h / 2., 2 * w, 2 * h
     patches = list()
-    for scale_w in np.arange(0.5, 2, stride_w):
-        for scale_h in np.arange(0.5, 2, stride_h):
+    for scale_w in np.arange(0.5, 2, 0.1):
+        for scale_h in np.arange(0.5, 2, 0.1):
             W_, H_ = W * scale_w, H * scale_h
             X_, Y_ = x + w / 2. - W_ / 2., y + h / 2. - H_ / 2.
-            patches.append([X_, Y_, W_, H_])
+            patches.append([int(X_), int(Y_), int(W_), int(H_)])
 
     image_patches = list()
     feat_bboxes = list()
@@ -34,12 +45,13 @@ def get_train_data(img_path, region, stride_w=0.1, stride_h=0.1):
         # 我的
         X, Y, W, H = patch
         img_patch = imresize(img_pad[int(Y + img_H):int(Y + img_H + H), int(X + img_W):int(X + img_W + W), :],
-                             [195, 195])
+                             [int(constant.patch_H), int(constant.patch_W)])
         # ISSUE: change HWC to CHW
-        img_patch = img_patch.reshape((3, 195, 195))
+        img_patch = img_patch.transpose(constant.HWN2NHW)
 
         # get region
-        patch_gt = np.array([[195. * (x - X) / W, 195. * (y - Y) / H, 195. * w / W, 195. * h / H]])
+        patch_gt = np.array([[constant.patch_W * (x - X) / W, constant.patch_H * (y - Y) / H,
+                              constant.patch_W * w / W, constant.patch_H * h / H]])
         feat_bbox, label = sample.get_01samples(patch_gt)
         image_patches.append(img_patch)
         feat_bboxes.append(feat_bbox)
@@ -63,19 +75,20 @@ def get_predict_data(img_path, pre_region):
     restore_info include the XYWH of img_patch respect to
     '''
     feat_bbox = sample.get_predict_feat_sample()
-    img = cv2.imread(img_path)
+    img = plt.imread(img_path)
     x, y, w, h = pre_region
     img_H, img_W, c = np.shape(img)
     img_pad = np.concatenate((img, img, img), 0)
     img_pad = np.concatenate((img_pad, img_pad, img_pad), 1)
-    W, H = 195 / 107. * w, 195 / 107. * h
+
+    W, H = constant.patch_W / 107. * w, constant.patch_H / 107. * h
     X, Y = img_W + x + w / 2. - W / 2., img_H + y + h / 2. - H / 2.
 
     img_patch = img_pad[int(Y):int(Y + H), int(X):int(X + W), :]
-    img_patch = imresize(img_patch, [195, 195])
-    img_patch = img_patch.reshape((3, 195, 195))
+    img_patch = imresize(img_patch, [219, 219])
+    img_patch = img_patch.transpose(constant.HWN2NHW)
     # label的值应该不影响predict的输出，设为gt方便调试
-    label = np.zeros((feat_bbox.shape[0],))
+    label = np.ones((feat_bbox.shape[0],))
 
     return (img_patch, feat_bbox, label), (img_W, img_H, X, Y, W, H)
 

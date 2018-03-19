@@ -44,26 +44,26 @@ def get_train_feat_sample(stride_x=2, stride_y=2, stride_w=2, stride_h=2,
 
 def get_predict_feat_sample():
     # return: bbox on feature map, in format of (0,x1,y1,x2,y2)
-
+    # ideal feat bbox :(7,7,15,15)
+    # feat size 23,23
     feat_boxes = list()
     # 目标小变化的候选区域
-    for x1 in range(4, 9, 2):
-        for y1 in range(4, 9, 2):
-            for x2 in range(12, 17, 2):
-                for y2 in range(12, 17, 2):
+    for x1 in [5, 7, 9]:
+        for y1 in [5, 7, 9]:
+            for x2 in [13, 14, 15, 17]:
+                for y2 in [13, 15, 16, 17]:
                     feat_boxes.append([0, x1, y1, x2, y2])
     # 目标大变化的候选区域
-    for x1 in range(0, 20, 3):
-        for y1 in range(0, 20, 3):
-            for x2 in range(x1 + 5, min(x1 + 15, 20), 3):
-                for y2 in range(y1 + 5, min(y1 + 15, 20), 3):
+    for x1 in range(0, 20, 4):
+        for y1 in range(0, 20, 4):
+            for x2 in range(x1 + 5, min(x1 + 15, 22), 3):
+                for y2 in range(y1 + 5, min(y1 + 15, 22), 3):
                     feat_boxes.append([0, x1, y1, x2, y2])
     return np.array(feat_boxes)
 
 
-def get_01samples(patch_gt, pos_number=100, neg_number=500):
+def get_01samples(patch_gt, pos_number=32, neg_number=96):
     '''
-        Q: patch上的重叠率作为label，和还原到原图上的重叠率做label一样吗
     :param patch_gt:
     :param pos_number:
     :param neg_number:
@@ -75,11 +75,11 @@ def get_01samples(patch_gt, pos_number=100, neg_number=500):
     pos_bboxes = get_train_feat_sample(1, 1, 1, 1, x, y, w, h)
     pos_patch_bboxes = util.feat2img(pos_bboxes[:, 1:])
     rat = util.overlap_ratio(patch_gt, pos_patch_bboxes)
-    pos_samples = pos_bboxes[rat > 0.65, :]
+    pos_samples = pos_bboxes[rat > 0.7, :]
     pos_select_index = rand_sample(np.arange(0, pos_samples.shape[0]), pos_number)
 
     # neg
-    neg_bboxes = get_train_feat_sample(2, 2, 2, 2)
+    neg_bboxes = get_train_feat_sample(2, 3, 3, 2)
     neg_patch_bboxes = util.feat2img(neg_bboxes[:, 1:])
     rat = util.overlap_ratio(patch_gt, neg_patch_bboxes)
     neg_samples = neg_bboxes[rat < 0.5, :]
