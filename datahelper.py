@@ -48,7 +48,7 @@ def get_update_data(img_path, gt):
         # get region
         patch_gt = np.array([[const.patch_W * (x - X) / W, const.patch_H * (y - Y) / H,
                               const.patch_W * w / W, const.patch_H * h / H]])
-        feat_bbox, label = sample.get_update_samples(patch_gt, 16, 48)
+        feat_bbox, label = sample.get_update_samples(patch_gt, 16, 64)
         image_patches.append(img_patch)
         feat_bboxes.append(feat_bbox)
         labels.append(label)

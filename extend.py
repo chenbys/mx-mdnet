@@ -298,7 +298,7 @@ def get_mdnet_conv123_params(prefix='', mat_path='saved/conv123.mat'):
     return arg_params
 
 
-def get_mdnet_conv123fc4fc5_params(prefix='', mat_path='saved/conv123fc4fc5.mat'):
+def get_mdnet_conv123fc4fc5_params(prefix='', mat_path='saved/mdnet_otb-vot15_in_py.mat'):
     import scipy.io as sio
     import numpy as np
     conv123 = sio.loadmat(mat_path)
@@ -343,15 +343,6 @@ def get_mdnet_conv123fc4fc5_params(prefix='', mat_path='saved/conv123fc4fc5.mat'
 def init_model(args):
     import datahelper
 
-    # if args.loss_type == 0:
-    #     sym = csym.get_mdnet()
-    # elif args.loss_type == 1:
-    #     sym = csym.get_mdnet_with_smooth_l1_loss()
-    # elif args.loss_type == 2:
-    #     sym = csym.get_mdnet_with_CE_loss()
-    # elif args.loss_type == 3:
-    #     sym = csym.get_mdnet_with_weighted_CE_loss(args.weight_factor)
-
     sym = csym.get_mdnet()
     fixed_param_names = []
     for i in range(1, args.fixed_conv + 1):
@@ -370,6 +361,7 @@ def init_model(args):
         for k in conv123.keys():
             conv123[k] = mx.ndarray.array(conv123.get(k))
         model.init_params(arg_params=conv123, allow_missing=True, force_init=False, allow_extra=True)
+
     elif args.saved_fname == 'conv123fc4fc5':
         print '@CHEN->load params from conv123fc4fc5'
         conv123fc4fc5 = get_mdnet_conv123fc4fc5_params()

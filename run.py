@@ -33,15 +33,15 @@ def debug_track_seq(args, model, img_paths, gts):
     # train on first frame
     print 'train offine on frame 0'
     train_img_path, train_gt = img_paths[0], gts[0]
-    eval_img_path, eval_gt = img_paths[5], gts[5]
+    # eval_img_path, eval_gt = img_paths[5], gts[5]
     t = time.time()
     train_iter = datahelper.get_train_iter(datahelper.get_train_data(train_img_path, train_gt))
     print('time cost for getting one train iter :%f' % (time.time() - t))
 
-    eval_iter = datahelper.get_train_iter(
-        datahelper.get_train_data(eval_img_path, eval_gt))
+    # eval_iter = datahelper.get_train_iter(
+    #     datahelper.get_train_data(eval_img_path, eval_gt))
 
-    model.fit(train_data=train_iter, eval_data=eval_iter,
+    model.fit(train_data=train_iter, eval_data=None,
               optimizer='sgd',
               eval_metric=mx.metric.CompositeEvalMetric(
                   [extend.PR(0.5), extend.RR(0.5), extend.TrackTopKACC(10, 0.6)]),
@@ -56,11 +56,14 @@ def debug_track_seq(args, model, img_paths, gts):
     res, probs = [gts[0]], [1]
     region = gts[0]
 
+    ious = []
     # prepare online update data
     add_update_data(img_paths[0], gts[0])
 
     length = len(img_paths)
     for cur in range(1, length):
+        if cur == 40:
+            a = 1
         T = time.time()
         # track
         region, prob = track(model, img_paths[cur], pre_region=region, gt=gts[cur])
@@ -68,10 +71,12 @@ def debug_track_seq(args, model, img_paths, gts):
         res.append(region)
         probs.append(prob)
 
+        iou = util.overlap_ratio(gts[cur], region)
+        ious.append(iou)
         # report
         logging.getLogger().info(
             '@CHEN-> IOU : [ %.2f ] !!!  prob: %.2f for tracking on frame %d, cost %4.4f' \
-            % (util.overlap_ratio(gts[cur], region), prob, cur, time.time() - T))
+            % (iou, prob, cur, time.time() - T))
 
         # show
         def show_tracking():
@@ -87,19 +92,20 @@ def debug_track_seq(args, model, img_paths, gts):
             fig.show()
 
         # prepare online update data
-        add_update_data(img_paths[cur], res[cur])
+        if prob > 0.9:
+            add_update_data(img_paths[cur], res[cur])
 
         # online update
-        if prob < 0.5:
+        if prob < 0.7:
             # short term update
             logging.getLogger().info('@CHEN->short term update')
             model = online_update(args, model, 20)
-        elif cur % 10 == 0:
+        elif cur % 20 == 0:
             # long term update
             logging.getLogger().info('@CHEN->long term update')
             model = online_update(args, model, 100)
 
-    return res, probs
+    return res, probs, ious
 
 
 def get_update_data(frame_len=20):
@@ -234,8 +240,10 @@ def debug_track_on_OTB():
     args = parse_args()
     config.ctx = mx.gpu(args.gpu)
 
-    otb = datahelper.OTBHelper(args.OTB_path)
-    img_paths, gts = otb.get_seq('Diving')
+    # otb = datahelper.OTBHelper(args.OTB_path)
+    # img_paths, gts = otb.get_seq('Diving')
+    vot = datahelper.VOTHelper(args.VOT_path)
+    img_paths, gts = vot.get_seq('bolt1')
 
     # for debug and check
     config.gts = gts
@@ -243,17 +251,19 @@ def debug_track_on_OTB():
 
     # debug
     # Diving 0042.jpg 需要short term update
+
     model, all_params = extend.init_model(args)
 
-    logging.getLogger().setLevel(logging.DEBUG)
-    res, scores = debug_track_seq(args, model, img_paths, gts)
+    logging.getLogger().setLevel(logging.INFO)
+    res, scores, ious = debug_track_seq(args, model, img_paths, gts)
+    return
 
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Train MDNet network')
     parser.add_argument('--gpu', help='GPU device to train with', default=0, type=int)
     parser.add_argument('--num_epoch_for_offline', default=10, type=int)
-    parser.add_argument('--num_epoch_for_online', default=3, type=int)
+    parser.add_argument('--num_epoch_for_online', default=1, type=int)
     parser.add_argument('--fixed_conv', help='these params of [ conv_i <= ? ] will be fixed', default=3, type=int)
     parser.add_argument('--saved_fname', default='conv123fc4fc5', type=str)
 
@@ -263,7 +273,7 @@ def parse_args():
     parser.add_argument('--lr_factor', default=0.5, help='20 times will be around 0.1', type=float)
     parser.add_argument('--lr_stop', default=5e-8, type=float)
 
-    parser.add_argument('--wd', default=1e-3, help='weight decay', type=float)
+    parser.add_argument('--wd', default=1e-2, help='weight decay', type=float)
     parser.add_argument('--momentum', default=0.9, type=float)
     parser.add_argument('--lr_offline', default=2e-5, help='base learning rate', type=float)
     parser.add_argument('--lr_online', default=1e-5, help='base learning rate', type=float)

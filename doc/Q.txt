@@ -1,81 +1,14 @@
-train on frame0,val on frame2
-INFO:root:Epoch[28] Train-PR=0.928740
-INFO:root:Epoch[28] Train-RR=0.488889
-INFO:root:Epoch[28] Train-TrackTopKAcc=0.952444
-INFO:root:Epoch[28] Time cost=1.787
-INFO:root:Epoch[28] Validation-PR=0.830365
-INFO:root:Epoch[28] Validation-RR=0.348089
-INFO:root:Epoch[28] Validation-TrackTopKAcc=0.781778
-INFO:root:Epoch[29] Train-PR=0.924294
-INFO:root:Epoch[29] Train-RR=0.482933
-INFO:root:Epoch[29] Train-TrackTopKAcc=0.947556
-INFO:root:Epoch[29] Time cost=1.790
-INFO:root:Epoch[29] Validation-PR=0.836540
-INFO:root:Epoch[29] Validation-RR=0.374844
-INFO:root:Epoch[29] Validation-TrackTopKAcc=0.796444
+在线训练：
+不可靠的正负样本
 
-INFO:root:Epoch[58] Train-PR=0.941509
-INFO:root:Epoch[58] Train-RR=0.636711
-INFO:root:Epoch[58] Train-TrackTopKAcc=0.980444
-INFO:root:Epoch[58] Time cost=1.789
-INFO:root:Epoch[58] Validation-PR=0.759520
-INFO:root:Epoch[58] Validation-RR=0.427289
-INFO:root:Epoch[58] Validation-TrackTopKAcc=0.876889
-INFO:root:Epoch[59] Train-PR=0.945865
-INFO:root:Epoch[59] Train-RR=0.644533
-INFO:root:Epoch[59] Train-TrackTopKAcc=0.986667
-INFO:root:Epoch[59] Time cost=1.792
-INFO:root:Epoch[59] Validation-PR=0.758271
-INFO:root:Epoch[59] Validation-RR=0.438044
-INFO:root:Epoch[59] Validation-TrackTopKAcc=0.878667
+离线训练：
+真实重叠率高较高的样本预测概率都很高，以至于没有差异。
+就是说，它能分出高的和低的，但分不出最高的和高的；
+而在线训练中，本来负样本可能作为正样本，就更可能带偏了。
 
+何时在线更新？
+score>0
+与prob>0.5有什么区别。。。
+mxnet的SoftmaxOutput   mod.predict()出来的是 prob，不能反解出f+,f-吧。
 
-
-
-剔除离群bbox
-多GPU有什么操作吗？
-hard minibatch mining
-1.train_iter fit well, val_iter 较差
-2.预测样本减少
-3.训练样本均衡
-4.load fc4,fc5
-
-怎么我看MDNet论文第一帧训练的负样本重叠率是0.3，代码里面是0.5，我改成0.5后，好多了。
-
-模型对iou=[0.3,0.7]的样本错误率很大，还是说0.93的acc算低？
-如果给一张不含目标的图片，全是0，很符合。
-
-对gt，和形变后目标的gt，和无形变目标的pre_region
-过拟合，训练样本和跟踪样本抽样思路
-如果不load mat，很低。load mat就较好。
-一开始都是PR很高，可到0.8，RR才0.1，后面RR才涨起来
-
-INFO:root:Epoch[98] Train-PR=0.979262
-INFO:root:Epoch[98] Train-RR=0.948622
-INFO:root:Epoch[98] Train-TrackTopKAcc=1.000000
-INFO:root:Epoch[98] Time cost=1.933
-INFO:root:Epoch[98] Validation-PR=0.774354
-INFO:root:Epoch[98] Validation-RR=0.636622
-INFO:root:Epoch[98] Validation-TrackTopKAcc=0.975111
-INFO:root:Epoch[99] Train-PR=0.980125
-INFO:root:Epoch[99] Train-RR=0.951200
-INFO:root:Epoch[99] Train-TrackTopKAcc=1.000000
-INFO:root:Epoch[99] Time cost=1.932
-INFO:root:Epoch[99] Validation-PR=0.767195
-INFO:root:Epoch[99] Validation-RR=0.649422
-INFO:root:Epoch[99] Validation-TrackTopKAcc=0.977778
-序列Girl，PR,RR很低是由于pos_score>0.6，但是topK还是可以的。
-
-实验例子：
-INFO:root:Epoch[98] Train-PosAcc=0.945124
-INFO:root:Epoch[98] Train-NegAcc=0.998289
-INFO:root:Epoch[98] Time cost=1.562
-INFO:root:Epoch[98] Validation-PosAcc=0.989421
-INFO:root:Epoch[98] Validation-NegAcc=0.995074
-INFO:root:Epoch[99] Train-PosAcc=0.949256
-INFO:root:Epoch[99] Train-NegAcc=0.998240
-INFO:root:Epoch[99] Time cost=1.565
-INFO:root:Epoch[99] Validation-PosAcc=0.990083
-INFO:root:Epoch[99] Validation-NegAcc=0.995372
-model.fit(train_data=train_iter, eval_data=train_iter,
-同一个iter，为什么val明显大于train
+perfect on 'bolt1' ! fps 86 , mean iou: 0.63, no file

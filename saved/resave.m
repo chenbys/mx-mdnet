@@ -1,4 +1,4 @@
-net=load('mdnet_vot-otb.mat')
+net=load('mdnet_otb-vot15.mat')
 net=net.layers
 conv1=net{1,1}
 conv123.conv1_filters=gather(conv1.filters);
@@ -15,4 +15,4 @@ conv123.fc4_biases=gather(fc4.biases);
 fc5=net{1,14}
 conv123.fc5_filters=gather(fc5.filters);
 conv123.fc5_biases=gather(fc5.biases);
-save conv123fc4fc5 conv123 
+save mdnet_otb-vot15_in_py conv123 
