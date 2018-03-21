@@ -6,6 +6,9 @@ import sample
 import os
 from scipy.misc import imresize
 import matplotlib.pyplot as plt
+from PIL import ImageFile
+
+ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 import util
 from setting import const
@@ -14,7 +17,7 @@ from setting import const
 def get_update_data(img_path, gt):
     '''
         原版mdnet每一帧采50 pos 200 neg
-        返回该帧构造出的 4 个img_patch, each 16 pos 48 neg
+        返回该帧构造出的 9 个img_patch, each 16 pos 32 neg
     :param img_patch:
     :param gt:
     :return:
@@ -27,8 +30,8 @@ def get_update_data(img_path, gt):
     x, y, w, h = gt
     X, Y, W, H = x - w / 2., y - h / 2., 2 * w, 2 * h
     patches = list()
-    for scale_w in [0.8, 1.2]:
-        for scale_h in [0.8, 1.2]:
+    for scale_w in [0.8, 1.0, 1.2]:
+        for scale_h in [0.8, 1.0, 1.2]:
             W_, H_ = W * scale_w, H * scale_h
             X_, Y_ = x + w / 2. - W_ / 2., y + h / 2. - H_ / 2.
             patches.append([int(X_), int(Y_), int(W_), int(H_)])
@@ -48,7 +51,7 @@ def get_update_data(img_path, gt):
         # get region
         patch_gt = np.array([[const.patch_W * (x - X) / W, const.patch_H * (y - Y) / H,
                               const.patch_W * w / W, const.patch_H * h / H]])
-        feat_bbox, label = sample.get_update_samples(patch_gt, 16, 64)
+        feat_bbox, label = sample.get_update_samples(patch_gt, 16, 16)
         image_patches.append(img_patch)
         feat_bboxes.append(feat_bbox)
         labels.append(label)
@@ -120,7 +123,11 @@ def get_predict_data(img_path, pre_region):
     restore_info include the XYWH of img_patch respect to
     '''
     feat_bbox = sample.get_predict_feat_sample()
-    img = plt.imread(img_path)
+    try:
+        img = plt.imread(img_path)
+    except Exception as e:
+        print '@CHEN->Err in imread'
+        raise e
     x, y, w, h = pre_region
     img_H, img_W, c = np.shape(img)
     img_pad = np.concatenate((img, img, img), 0)

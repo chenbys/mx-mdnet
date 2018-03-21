@@ -5,7 +5,6 @@ import mxnet as mx
 import numpy as np
 from mxnet.lr_scheduler import LRScheduler
 import matplotlib.pyplot as plt
-from setting import config
 import csym
 
 
@@ -209,20 +208,20 @@ class TrackScoreACC(mx.metric.EvalMetric):
         self.num_inst += labels[idx].shape[0]
 
 
-class MDNetLoss(mx.metric.EvalMetric):
-    def __init__(self):
-        super(MDNetLoss, self).__init__('MDNetLoss')
-        self.pred, self.label = ['score'], ['label']
-
-    def update(self, labels, preds):
-        label = labels[0].reshape((-1,)).as_in_context(config.ctx)
-        pred = preds[0].as_in_context(config.ctx)
-        loss = mx.ndarray.softmax_cross_entropy(pred, label).asnumpy()
-        if loss > 7000:
-            print pred.asnumpy()
-            exit(0)
-        self.sum_metric += loss
-        self.num_inst += label.shape[0]
+# class MDNetLoss(mx.metric.EvalMetric):
+#     def __init__(self):
+#         super(MDNetLoss, self).__init__('MDNetLoss')
+#         self.pred, self.label = ['score'], ['label']
+#
+#     def update(self, labels, preds):
+#         label = labels[0].reshape((-1,)).as_in_context(config.ctx)
+#         pred = preds[0].as_in_context(config.ctx)
+#         loss = mx.ndarray.softmax_cross_entropy(pred, label).asnumpy()
+#         if loss > 7000:
+#             print pred.asnumpy()
+#             exit(0)
+#         self.sum_metric += loss
+#         self.num_inst += label.shape[0]
 
 
 class WeightedIOUACC(mx.metric.EvalMetric):
@@ -256,16 +255,16 @@ class MDNetIOUACC(mx.metric.EvalMetric):
         self.num_inst += len(label)
 
 
-class MDNetIOULoss(mx.metric.EvalMetric):
-    def __init__(self):
-        super(MDNetIOULoss, self).__init__('MDNetIOULoss')
-
-    def update(self, labels, preds):
-        label = labels[0].reshape((-1,)).as_in_context(config.ctx)
-        pred = preds[0].as_in_context(config.ctx)
-        loss = mx.ndarray.smooth_l1(pred - label, scalar=1).asnumpy().sum()
-        self.sum_metric += pred.sum().asnumpy() * 1000
-        self.num_inst += len(label)
+# class MDNetIOULoss(mx.metric.EvalMetric):
+#     def __init__(self):
+#         super(MDNetIOULoss, self).__init__('MDNetIOULoss')
+#
+#     def update(self, labels, preds):
+#         label = labels[0].reshape((-1,)).as_in_context(config.ctx)
+#         pred = preds[0].as_in_context(config.ctx)
+#         loss = mx.ndarray.smooth_l1(pred - label, scalar=1).asnumpy().sum()
+#         self.sum_metric += pred.sum().asnumpy() * 1000
+#         self.num_inst += len(label)
 
 
 def get_mdnet_conv123_params(prefix='', mat_path='saved/conv123.mat'):
@@ -348,11 +347,11 @@ def init_model(args):
     for i in range(1, args.fixed_conv + 1):
         fixed_param_names.append('conv' + str(i) + '_weight')
         fixed_param_names.append('conv' + str(i) + '_bias')
-    model = mx.mod.Module(symbol=sym, context=config.ctx, data_names=('image_patch', 'feat_bbox',),
+    model = mx.mod.Module(symbol=sym, context=mx.gpu(0), data_names=('image_patch', 'feat_bbox',),
                           label_names=('label',),
                           fixed_param_names=fixed_param_names)
     sample_iter = datahelper.get_train_iter(
-        datahelper.get_train_data('saved/mx-mdnet_01CE.jpg', [112, 112, 107, 107]))
+        datahelper.get_train_data(args.ROOT_path + '/saved/mx-mdnet_01CE.jpg', [112, 112, 107, 107]))
     model.bind(sample_iter.provide_data, sample_iter.provide_label)
     all_params = {}
     if args.saved_fname == 'conv123':
@@ -364,7 +363,7 @@ def init_model(args):
 
     elif args.saved_fname == 'conv123fc4fc5':
         print '@CHEN->load params from conv123fc4fc5'
-        conv123fc4fc5 = get_mdnet_conv123fc4fc5_params()
+        conv123fc4fc5 = get_mdnet_conv123fc4fc5_params(mat_path=args.ROOT_path + '/saved/mdnet_otb-vot15_in_py.mat')
         for k in conv123fc4fc5.keys():
             conv123fc4fc5[k] = mx.ndarray.array(conv123fc4fc5.get(k))
         model.init_params(arg_params=conv123fc4fc5, allow_missing=True, force_init=False, allow_extra=True)

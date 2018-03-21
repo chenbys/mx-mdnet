@@ -1,5 +1,4 @@
 import mxnet as mx
-from kit import p
 
 
 def get_mdnet(prefix=''):
