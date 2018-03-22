@@ -30,7 +30,7 @@ def debug_track_seq(args, model, img_paths, gts):
     print 'train offine on frame 0'
     train_img_path, train_gt = img_paths[0], gts[0]
     t = time.time()
-    train_iter = datahelper.get_train_iter(datahelper.get_train_data(train_img_path, train_gt))
+    train_iter = datahelper.get_iter(datahelper.get_train_data(train_img_path, train_gt))
     print('time cost for getting one train iter :%f' % (time.time() - t))
 
     model.fit(train_data=train_iter, optimizer='sgd',
@@ -148,7 +148,7 @@ def online_update(args, model, data_len=20):
     :param num_epoch:
     :return:
     '''
-    update_iter = datahelper.get_train_iter(get_update_data(data_len))
+    update_iter = datahelper.get_iter(get_update_data(data_len))
     model.fit(train_data=update_iter, optimizer='sgd',
               eval_metric=mx.metric.CompositeEvalMetric(
                   [extend.PR(0.5), extend.RR(0.5), extend.TrackTopKACC(10, 0.6)]),

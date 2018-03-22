@@ -3,7 +3,7 @@
 import logging
 import sys
 from time import time
-
+import matplotlib.pyplot as plt
 import vot
 import mxnet as mx
 import extend
@@ -20,12 +20,14 @@ try:
     imagefile = handle.frame()
     if not imagefile:
         sys.exit(0)
+    img = plt.imread(imagefile)
+
     cur = 0
 
     args = run.parse_args()
     model, all_params = extend.init_model(args)
     logging.getLogger().setLevel(logging.INFO)
-    train_iter = datahelper.get_train_iter(datahelper.get_train_data(imagefile, region))
+    train_iter = datahelper.get_iter(datahelper.get_train_data(img, region))
     model.fit(train_data=train_iter, optimizer='sgd',
               eval_metric=mx.metric.CompositeEvalMetric(
                   [extend.PR(0.5), extend.RR(0.5), extend.TrackTopKACC(10, 0.6)]),
@@ -34,7 +36,7 @@ try:
                                 'momentum': args.momentum},
               begin_epoch=0, num_epoch=args.num_epoch_for_offline)
 
-    run.add_update_data(imagefile, region)
+    run.add_update_data(img, region)
     regions, probs = [region], [1]
 
     # Process next
@@ -42,15 +44,24 @@ try:
         imagefile = handle.frame()
         if not imagefile:
             break
-        cur += 1
-        T1 = time()
-        # 初步检测结果
-        region, prob = run.track(model, imagefile, pre_region=region)
+        TT = time()
+        img = plt.imread(imagefile)
+        logging.getLogger().info('@CHEN-> time for imread:%.6f' % (time() - TT))
 
+        cur += 1
+
+        # 初步检测结果
+        T1 = time()
+        region, prob = run.track(model, img, pre_region=region)
         T2 = time()
+
         # prepare online update data
         if prob > 0.6:
-            run.add_update_data(imagefile, region)
+            T3 = time()
+            run.add_update_data(img, region)
+            T4 = time()
+            logging.getLogger().info(
+                '@CHEN->Time for track:%8.6f,Time for add_update_data:%8.6f\n' % (T2 - T1, T4 - T3))
 
         # online update
         if prob < 0.6:
@@ -64,16 +75,16 @@ try:
             model = run.online_update(args, model, 100)
 
         # 汇报检测结果
-        logging.getLogger().info('@CHEN->Curf:%d, prob:%5.2f' % (cur, prob))
+        logging.getLogger().info('\n')
+        logging.getLogger().info('@CHEN->Curf:%d, prob:%5.2f\n' % (cur, prob))
+        logging.getLogger().info('^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^')
         regions.append(region)
         probs.append(prob)
 
-        logging.getLogger().info('@CHEN->Time1:%4.2f, time2:%4.2f' % (T2 - T1, time() - T2))
         handle.report(vot.Rectangle(region[0], region[1], region[2], region[3]))
 
 except Exception as e:
-    print '\n=============CHEN=============\n'
-    print traceback.print_exc()
+    traceback.print_exc()
     print '\n=============CHEN=============\n'
     print traceback.format_exc()
     print '\n=============CHEN=============\n'

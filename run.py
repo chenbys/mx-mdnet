@@ -1,10 +1,9 @@
 # -*-coding:utf- 8-*-
-import Queue
 
+import Queue
 import mxnet as mx
 import argparse
 import numpy as np
-
 import datahelper
 import util
 import extend
@@ -28,7 +27,7 @@ def get_update_data(frame_len=20):
     return img_patches, feat_bboxes, labels
 
 
-def add_update_data(img_patch, gt):
+def add_update_data(img, gt):
     '''
         原版mdnet每一帧采50 pos 200 neg
         返回该帧构造出的 4 个img_patch, each 16 pos 32 neg
@@ -38,8 +37,8 @@ def add_update_data(img_patch, gt):
     '''
     if update_data_queue.full():
         update_data_queue.get()
+    update_data = datahelper.get_update_data(img, gt)
 
-    update_data = datahelper.get_update_data(img_patch, gt)
     update_data_queue.put(update_data)
 
 
@@ -64,7 +63,7 @@ def online_update(args, model, data_len=20):
     :param num_epoch:
     :return:
     '''
-    update_iter = datahelper.get_train_iter(get_update_data(data_len))
+    update_iter = datahelper.get_iter(get_update_data(data_len))
     model.fit(train_data=update_iter, optimizer='sgd', begin_epoch=0, num_epoch=args.num_epoch_for_online,
               eval_metric=mx.metric.CompositeEvalMetric([extend.PR(0.7), extend.RR(0.7), extend.TrackTopKACC(10, 0.7)]),
               optimizer_params={'learning_rate': args.lr_offline,
@@ -72,11 +71,14 @@ def online_update(args, model, data_len=20):
     return model
 
 
-def track(model, img_path, pre_region):
-    pred_data, restore_info = datahelper.get_predict_data(img_path, pre_region)
-    pred_iter = datahelper.get_predict_iter(pred_data)
-    img_patch, feat_bboxes, labels = pred_data
+def track(model, img, pre_region):
+    pred_data, restore_info = datahelper.get_predict_data(img, pre_region)
+
+    pred_iter = datahelper.get_iter(pred_data)
+    [img_patch], [feat_bboxes], [labels] = pred_data
+
     res = model.predict(pred_iter).asnumpy()
+
     pos_score = res[:, 1]
 
     # 取最大 topK 个候选区域平均作为结果

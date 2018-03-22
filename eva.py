@@ -55,7 +55,7 @@ def val_for_tracking(arg_params, img_path, pre_region, gt):
 
 
 def val_for_overfitting(arg_params, train_img_path, train_gt):
-    train_iter = datahelper.get_train_iter(datahelper.get_train_data(train_img_path, train_gt))
+    train_iter = datahelper.get_iter(datahelper.get_train_data(train_img_path, train_gt))
     val_for_fitting(arg_params, train_iter)
 
 
@@ -148,7 +148,7 @@ def fit(model, train_img_path, train_gt, val_img_path, val_pre_region, val_gt,
     :return:
     '''
     assert num_epoch is not None, 'please specify number of epochs'
-    train_iter = datahelper.get_train_iter(datahelper.get_train_data(train_img_path, train_gt))
+    train_iter = datahelper.get_iter(datahelper.get_train_data(train_img_path, train_gt))
 
     model.bind(data_shapes=train_iter.provide_data, label_shapes=train_iter.provide_label,
                for_training=True, force_rebind=force_rebind)

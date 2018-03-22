@@ -9,7 +9,7 @@ import datahelper
 def check_val_data():
     path = '/media/chen/datasets/OTB/Liquor/img/0001.jpg'
     region = [256, 152, 73, 210]
-    datahelper.get_val_data(path, region, region)
+    datahelper.get_update_data(path, region)
 
 
 def check_fit(patch_idx, sample_idx, img_patches, feat_bboxes, labels, scores):
@@ -130,7 +130,7 @@ def test_train_iter():
     img_path = '/Users/chenjunjie/workspace/OTB/Liquor/img/0001.jpg'
     region = [256, 152, 73, 210]
     train_data = datahelper.get_train_data(img_path, region, iou_label=True)
-    trian_iter = datahelper.get_train_iter(train_data)
+    trian_iter = datahelper.get_iter(train_data)
     return
 
 

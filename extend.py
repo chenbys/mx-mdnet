@@ -350,8 +350,8 @@ def init_model(args):
     model = mx.mod.Module(symbol=sym, context=mx.gpu(0), data_names=('image_patch', 'feat_bbox',),
                           label_names=('label',),
                           fixed_param_names=fixed_param_names)
-    sample_iter = datahelper.get_train_iter(
-        datahelper.get_train_data(args.ROOT_path + '/saved/mx-mdnet_01CE.jpg', [112, 112, 107, 107]))
+    sample_iter = datahelper.get_iter(
+        datahelper.get_train_data(plt.imread(args.ROOT_path + '/saved/mx-mdnet_01CE.jpg'), [112, 112, 107, 107]))
     model.bind(sample_iter.provide_data, sample_iter.provide_label)
     all_params = {}
     if args.saved_fname == 'conv123':

@@ -27,12 +27,6 @@ def restore_img_bbox(patch_bboxes, restore_info):
     pw = np.min((img_W - px, pw), axis=0)
     ph = np.min((img_H - py, ph), axis=0)
 
-    # x, y = W / 195. * xo + X - img_W, H / 195. * yo + Y - img_H
-    # w, h = W / 195. * wo, H / 195. * ho
-
-    # CUT in case out of range
-    # x, y = max(0, x), max(0, y)
-    # w, h = min(w, img_W - x), min(h, img_H - y)
     img_bboxes = np.vstack((px, py, pw, ph)).transpose()
     return img_bboxes
 
@@ -47,7 +41,7 @@ def feat2img(box):
     :param box: bbox on feature map in format of (x1,y1,x2,y2)
     :return: bbox on img in format of (x,y,w,h)
     '''
-    bbox = copy.deepcopy(box)
+    bbox = np.array(copy.deepcopy(box))
     # in format of (x,y,w,h)
     bbox[:, 2] = bbox[:, 2] - bbox[:, 0] + 1
     bbox[:, 3] = bbox[:, 3] - bbox[:, 1] + 1
@@ -63,15 +57,21 @@ def feat2img(box):
 
 def img2feat(bbox):
     '''
-
-    :param img_bbox: in format of (x1,y1,x2,y2)
-    :return: feat_bbox: in format of (x1,y1,x2,y2)
+        算x1,y1是算感受野的左侧，算x2,y2是算感受野的右侧
+        省略了一种情况：img_bbox的w和h小与43
+    :param img_bbox: in format of N*(x1,y1,x2,y2)
+    :return: feat_bbox: in format of N*(x1,y1,x2,y2)
     '''
-    img_bbox = copy.deepcopy(bbox)
-    img_bbox = np.floor((img_bbox - const.recf / 2) / const.stride)
-    img_bbox[img_bbox < 0] = 0
-    img_bbox[img_bbox > 22] = 22
-    return img_bbox
+    bbox = np.array(copy.deepcopy(bbox))
+    bbox[:, 0] = np.floor(bbox[:, 0] / const.stride)
+    bbox[:, 1] = np.floor(bbox[:, 1] / const.stride)
+    bbox[:, 2] = np.floor((bbox[:, 2] - const.recf) / const.stride) + 1
+    bbox[:, 3] = np.floor((bbox[:, 3] - const.recf) / const.stride) + 1
+
+    assert np.min(bbox[:, 0] <= bbox[:, 2]), 'W of img_bbox must greater than 43'
+    assert np.min(bbox[:, 1] <= bbox[:, 3]), 'H of img_bbox must greater than 43'
+
+    return bbox
 
 
 def xywh2x1y1x2y2(bbox):

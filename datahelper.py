@@ -5,61 +5,10 @@ import mxnet as mx
 import sample
 import os
 from scipy.misc import imresize
-import matplotlib.pyplot as plt
-from PIL import ImageFile
-
-ImageFile.LOAD_TRUNCATED_IMAGES = True
-
-import util
 from setting import const
 
 
-def get_update_data(img_path, gt):
-    '''
-        原版mdnet每一帧采50 pos 200 neg
-        返回该帧构造出的 9 个img_patch, each 16 pos 32 neg
-    :param img_patch:
-    :param gt:
-    :return:
-    '''
-    img = plt.imread(img_path)
-    img_H, img_W, c = np.shape(img)
-    img_pad = np.concatenate((img, img, img), 0)
-    img_pad = np.concatenate((img_pad, img_pad, img_pad), 1)
-
-    x, y, w, h = gt
-    X, Y, W, H = x - w / 2., y - h / 2., 2 * w, 2 * h
-    patches = list()
-    for scale_w in [0.8, 1.0, 1.2]:
-        for scale_h in [0.8, 1.0, 1.2]:
-            W_, H_ = W * scale_w, H * scale_h
-            X_, Y_ = x + w / 2. - W_ / 2., y + h / 2. - H_ / 2.
-            patches.append([int(X_), int(Y_), int(W_), int(H_)])
-
-    image_patches = list()
-    feat_bboxes = list()
-    labels = list()
-    for patch in patches:
-        # crop image as train_data
-        # 我的
-        X, Y, W, H = patch
-        img_patch = imresize(img_pad[int(Y + img_H):int(Y + img_H + H), int(X + img_W):int(X + img_W + W), :],
-                             [int(const.patch_H), int(const.patch_W)])
-        # ISSUE: change HWC to CHW
-        img_patch = img_patch.transpose(const.HWN2NHW)
-
-        # get region
-        patch_gt = np.array([[const.patch_W * (x - X) / W, const.patch_H * (y - Y) / H,
-                              const.patch_W * w / W, const.patch_H * h / H]])
-        feat_bbox, label = sample.get_update_samples(patch_gt, 16, 16)
-        image_patches.append(img_patch)
-        feat_bboxes.append(feat_bbox)
-        labels.append(label)
-
-    return image_patches, feat_bboxes, labels
-
-
-def get_train_data(img_path, region):
+def get_train_data(img, region):
     '''
         source mdnet : 30 batch, each 32 pos 96 neg
         now : 30*5 batch, each 1 img_patch 32 pos 96 neg
@@ -71,7 +20,6 @@ def get_train_data(img_path, region):
     :param stride_h:
     :return:
     '''
-    img = plt.imread(img_path)
     img_H, img_W, c = np.shape(img)
     img_pad = np.concatenate((img, img, img), 0)
     img_pad = np.concatenate((img_pad, img_pad, img_pad), 1)
@@ -100,7 +48,7 @@ def get_train_data(img_path, region):
         # get region
         patch_gt = np.array([[const.patch_W * (x - X) / W, const.patch_H * (y - Y) / H,
                               const.patch_W * w / W, const.patch_H * h / H]])
-        feat_bbox, label = sample.get_01samples(patch_gt)
+        feat_bbox, label = sample.get_train_samples(patch_gt)
         image_patches.append(img_patch)
         feat_bboxes.append(feat_bbox)
         labels.append(label)
@@ -108,13 +56,50 @@ def get_train_data(img_path, region):
     return image_patches, feat_bboxes, labels
 
 
-def get_train_iter(train_data):
-    image_patches, feat_bboxes, labels = train_data
-    return mx.io.NDArrayIter({'image_patch': image_patches, 'feat_bbox': feat_bboxes}, {'label': labels},
-                             batch_size=1, data_name=('image_patch', 'feat_bbox',), label_name=('label',))
+def get_update_data(img, gt):
+    '''
+        原版mdnet每一帧采50 pos 200 neg
+        返回该帧构造出的 9 个img_patch, each 16 pos 32 neg
+    :param img_patch:
+    :param gt:
+    :return:
+    '''
+    img_H, img_W, c = np.shape(img)
+    img_pad = np.concatenate((img, img, img), 0)
+    img_pad = np.concatenate((img_pad, img_pad, img_pad), 1)
+
+    x, y, w, h = gt
+    X, Y, W, H = x - w / 2., y - h / 2., 2 * w, 2 * h
+    patches = list()
+    for scale_w, scale_h in zip([0.8, 1, 1.2, 1, 1],
+                                [1, 1, 1, 1.2, 0.8]):
+        W_, H_ = W * scale_w, H * scale_h
+        X_, Y_ = x + w / 2. - W_ / 2., y + h / 2. - H_ / 2.
+        patches.append([int(X_), int(Y_), int(W_), int(H_)])
+
+    image_patches = list()
+    feat_bboxes = list()
+    labels = list()
+    for patch in patches:
+        # crop image as train_data
+        X, Y, W, H = patch
+        img_patch = imresize(img_pad[int(Y + img_H):int(Y + img_H + H), int(X + img_W):int(X + img_W + W), :],
+                             [int(const.patch_H), int(const.patch_W)])
+        # ISSUE: change HWC to CHW
+        img_patch = img_patch.transpose(const.HWN2NHW)
+
+        # get region
+        patch_gt = np.array([[const.patch_W * (x - X) / W, const.patch_H * (y - Y) / H,
+                              const.patch_W * w / W, const.patch_H * h / H]])
+        feat_bbox, label = sample.get_update_samples(patch_gt, 16, 32)
+
+        image_patches.append(img_patch)
+        feat_bboxes.append(feat_bbox)
+        labels.append(label)
+    return image_patches, feat_bboxes, labels
 
 
-def get_predict_data(img_path, pre_region):
+def get_predict_data(img, pre_region):
     '''
 
     :param img_path:
@@ -122,48 +107,27 @@ def get_predict_data(img_path, pre_region):
     :return: pred_data and restore_info,
     restore_info include the XYWH of img_patch respect to
     '''
-    feat_bbox = sample.get_predict_feat_sample()
-    try:
-        img = plt.imread(img_path)
-    except Exception as e:
-        print '@CHEN->Err in imread'
-        raise e
+    feat_bbox = sample.get_predict_feat_bboxes()
     x, y, w, h = pre_region
     img_H, img_W, c = np.shape(img)
     img_pad = np.concatenate((img, img, img), 0)
     img_pad = np.concatenate((img_pad, img_pad, img_pad), 1)
-
     W, H = const.patch_W / 107. * w, const.patch_H / 107. * h
     X, Y = img_W + x + w / 2. - W / 2., img_H + y + h / 2. - H / 2.
 
     img_patch = img_pad[int(Y):int(Y + H), int(X):int(X + W), :]
     img_patch = imresize(img_patch, [219, 219])
     img_patch = img_patch.transpose(const.HWN2NHW)
-    # label的值应该不影响predict的输出，设为gt方便调试
+    # label的值应该不影响predict的输出
     label = np.ones((feat_bbox.shape[0],))
 
-    return (img_patch, feat_bbox, label), (img_W, img_H, X, Y, W, H)
+    return ([img_patch], [feat_bbox], [label]), (img_W, img_H, X, Y, W, H)
 
 
-def get_predict_iter(predict_data):
-    img_patch, feat_bbox, label = predict_data
-    return mx.io.NDArrayIter({'image_patch': [img_patch], 'feat_bbox': [feat_bbox]}, {'label': [label]},
-                             batch_size=1, data_name=('image_patch', 'feat_bbox'), label_name=('label',))
-
-
-def get_val_data(img_path, pre_region, gt):
-    pred_data, restore_info = get_predict_data(img_path, pre_region)
-    img_patch, feat_bboxes, label = pred_data
-    patch_bboxes = util.feat2img(feat_bboxes[:, 1:])
-    img_bboxes = util.restore_img_bbox(patch_bboxes, restore_info)
-    rat = util.overlap_ratio(gt, img_bboxes)
-    return img_patch, feat_bboxes, rat
-
-
-def get_val_iter(val_data):
-    img_patch, feat_bbox, label = val_data
-    return mx.io.NDArrayIter({'image_patch': [img_patch], 'feat_bbox': [feat_bbox]}, {'label': [label]},
-                             batch_size=1, data_name=('image_patch', 'feat_bbox'), label_name=('label',))
+def get_iter(data):
+    image_patches, feat_bboxes, labels = data
+    return mx.io.NDArrayIter({'image_patch': image_patches, 'feat_bbox': feat_bboxes}, {'label': labels},
+                             batch_size=1, data_name=('image_patch', 'feat_bbox',), label_name=('label',))
 
 
 class OTBHelper(object):
@@ -378,4 +342,4 @@ class VOTHelper(object):
 
         img_path, gt = img_paths[frame_idx], gts[frame_idx]
         val_path, val_gt = img_paths[(frame_idx + 1) % length], gts[(frame_idx + 1) % length]
-        return rep_times, get_train_iter(get_train_data(img_path, gt)), get_train_iter(get_train_data(val_path, val_gt))
+        return rep_times, get_iter(get_train_data(img_path, gt)), get_iter(get_train_data(val_path, val_gt))

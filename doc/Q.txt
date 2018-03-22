@@ -11,4 +11,19 @@ score>0
 与prob>0.5有什么区别。。。
 mxnet的SoftmaxOutput   mod.predict()出来的是 prob，不能反解出f+,f-吧。
 
-good on 'bolt1' ! fps 86 , mean iou: 0.53, no failure
+耗时分析：
+
+
+imread  2.6ms
+pridict:              7ms
+    get_pridict_data  2.7ms
+        imresize      1.3ms
+    mod.pridict       3.8ms
+
+add_update_data:
+    get_update_data:    16.5ms
+        4个patch:
+            imresize    1.3ms
+            get_update_samples: 1.8ms
+                get_bboxes: 1.4ms
+                rand_select:
