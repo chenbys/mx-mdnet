@@ -60,8 +60,7 @@ try:
             T3 = time()
             run.add_update_data(img, region)
             T4 = time()
-            logging.getLogger().info(
-                '@CHEN->Time for track:%8.6f,Time for add_update_data:%8.6f\n' % (T2 - T1, T4 - T3))
+            logging.getLogger().info('@CHEN->track:%8.6f, add_update_data:%8.6f\n' % (T2 - T1, T4 - T3))
 
         # online update
         if prob < 0.6:
@@ -81,7 +80,8 @@ try:
         regions.append(region)
         probs.append(prob)
 
-        handle.report(vot.Rectangle(region[0], region[1], region[2], region[3]))
+        # W,H 最小值为10pix
+        handle.report(vot.Rectangle(region[0], region[1], max(10, region[2]), max(10, region[3])))
 
 except Exception as e:
     traceback.print_exc()
@@ -89,3 +89,4 @@ except Exception as e:
     print traceback.format_exc()
     print '\n=============CHEN=============\n'
     raise e
+    sys.exit(0)

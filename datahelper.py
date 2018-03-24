@@ -71,11 +71,11 @@ def get_update_data(img, gt):
     x, y, w, h = gt
     X, Y, W, H = x - w / 2., y - h / 2., 2 * w, 2 * h
     patches = list()
-    for scale_w, scale_h in zip([0.8, 1, 1.2, 1, 1],
-                                [1, 1, 1, 1.2, 0.8]):
-        W_, H_ = W * scale_w, H * scale_h
-        X_, Y_ = x + w / 2. - W_ / 2., y + h / 2. - H_ / 2.
-        patches.append([int(X_), int(Y_), int(W_), int(H_)])
+    for scale_w in [0.5, 0.8, 1, 1.2, 1.5]:
+        for scale_h in [0.5, 0.8, 1, 1.2, 1.5]:
+            W_, H_ = W * scale_w, H * scale_h
+            X_, Y_ = x + w / 2. - W_ / 2., y + h / 2. - H_ / 2.
+            patches.append([int(X_), int(Y_), int(W_), int(H_)])
 
     image_patches = list()
     feat_bboxes = list()
@@ -91,7 +91,7 @@ def get_update_data(img, gt):
         # get region
         patch_gt = np.array([[const.patch_W * (x - X) / W, const.patch_H * (y - Y) / H,
                               const.patch_W * w / W, const.patch_H * h / H]])
-        feat_bbox, label = sample.get_update_samples(patch_gt, 16, 32)
+        feat_bbox, label = sample.get_update_samples(patch_gt, 32, 128)
 
         image_patches.append(img_patch)
         feat_bboxes.append(feat_bbox)

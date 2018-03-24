@@ -93,20 +93,21 @@ def track(model, img, pre_region):
     opt_img_bbox = np.mean(top_img_bboxes, 0)
     opt_score = top_scores.mean()
 
+    opt_img_bbox[2] = max(opt_img_bbox[2], 10)
+    opt_img_bbox[3] = max(opt_img_bbox[3], 10)
+
     return opt_img_bbox, opt_score
 
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Train MDNet network')
     parser.add_argument('--gpu', help='GPU device to train with', default=0, type=int)
-    parser.add_argument('--num_epoch_for_offline', default=5, type=int)
+    parser.add_argument('--num_epoch_for_offline', default=10, type=int)
     parser.add_argument('--num_epoch_for_online', default=1, type=int)
     parser.add_argument('--fixed_conv', help='these params of [ conv_i <= ? ] will be fixed', default=3, type=int)
     parser.add_argument('--saved_fname', default='conv123fc4fc5', type=str)
 
     parser.add_argument('--ROOT_path', help='cmd folder', default='/home/chen/mx-mdnet', type=str)
-    parser.add_argument('--OTB_path', help='OTB folder', default='/media/chen/datasets/OTB', type=str)
-    parser.add_argument('--VOT_path', help='VOT folder', default='/media/chen/datasets/VOT2015', type=str)
     parser.add_argument('--lr_step', default=222 * 15, help='every 121 num for one epoch', type=int)
     parser.add_argument('--lr_factor', default=0.5, help='20 times will be around 0.1', type=float)
     parser.add_argument('--lr_stop', default=5e-8, type=float)

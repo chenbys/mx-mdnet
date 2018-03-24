@@ -7,7 +7,7 @@ import util
 from setting import const, config
 
 
-def get_train_samples(patch_gt, pos_number=32, neg_number=96):
+def get_train_samples(patch_gt, pos_number=48, neg_number=96):
     '''
     :param patch_gt:
     :param pos_number:
@@ -63,7 +63,7 @@ def get_train_feat_bboxes(labal_feat_bbox,
 
 
 def get_update_feat_bboxes(labal_feat_bbox,
-                           strides=[2, 2, 2, 2],
+                           strides=[2, 2, 1, 1],
                            feat_size=const.feat_size):
     T = time()
     stride_x1, stride_y1, stride_x2, stride_y2 = strides
@@ -105,7 +105,6 @@ def get_update_samples(patch_gt, pos_number=16, neg_number=32):
 
 
 def get_predict_feat_bboxes(strides=[2, 2, 2, 2], ideal_feat_bbox=const.ideal_feat_bbox, feat_size=const.feat_size):
-    T = time()
     # return: bbox on feature map, in format of (0,x1,y1,x2,y2)
 
     stride_x1, stride_y1, stride_x2, stride_y2 = strides
@@ -114,7 +113,7 @@ def get_predict_feat_bboxes(strides=[2, 2, 2, 2], ideal_feat_bbox=const.ideal_fe
 
     feat_boxes = list()
 
-    DX1 = 6
+    DX1 = 8
     for dx1 in np.arange(max(-l_x1, -DX1), DX1 + 1, stride_x1):
         DY1 = DX1 - abs(dx1)
         for dy1 in np.arange(max(-l_y1, -DY1), DY1 + 1, stride_y1):

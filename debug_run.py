@@ -30,10 +30,12 @@ def debug_track_seq(args, model, img_paths, gts):
     print 'train offine on frame 0'
     train_img_path, train_gt = img_paths[0], gts[0]
     t = time.time()
-    train_iter = datahelper.get_iter(datahelper.get_train_data(train_img_path, train_gt))
+    img = plt.imread(train_img_path)
+    train_iter = datahelper.get_iter(datahelper.get_train_data(img, train_gt))
+    eval_iter = datahelper.get_iter(datahelper.get_train_data(plt.imread(img_paths[5]), gts[5]))
     print('time cost for getting one train iter :%f' % (time.time() - t))
 
-    model.fit(train_data=train_iter, optimizer='sgd',
+    model.fit(train_data=train_iter, eval_data=eval_iter, optimizer='sgd',
               eval_metric=mx.metric.CompositeEvalMetric(
                   [extend.PR(0.5), extend.RR(0.5), extend.TrackTopKACC(10, 0.6)]),
               optimizer_params={'learning_rate': args.lr_offline,
@@ -49,27 +51,28 @@ def debug_track_seq(args, model, img_paths, gts):
 
     ious = []
     # prepare online update data
-    add_update_data(img_paths[0], gts[0])
+    add_update_data(img, gts[0])
 
     length = len(img_paths)
     for cur in range(1, length):
+        img = plt.imread(img_paths[cur])
         T = time.time()
         # track
-        region, prob = track(model, img_paths[cur], pre_region=region, gt=gts[cur])
+        region, prob = track(model, img, pre_region=region, gt=gts[cur])
 
         res.append(region)
         probs.append(prob)
 
         iou = util.overlap_ratio(gts[cur], region)
         ious.append(iou)
+
         # report
         # show
         def show_tracking():
-            img_path = img_paths[cur]
             gt = gts[cur]
             fig = plt.figure()
             ax = fig.add_subplot(111)
-            ax.imshow(plt.imread(img_path))
+            ax.imshow(img)
             ax.add_patch(patches.Rectangle((region[0], region[1]), region[2], region[3],
                                            linewidth=4, edgecolor='red', facecolor='none'))
             ax.add_patch(patches.Rectangle((gt[0], gt[1]), gt[2], gt[3],
@@ -78,15 +81,16 @@ def debug_track_seq(args, model, img_paths, gts):
 
         # prepare online update data
         if prob > 0.6:
-            add_update_data(img_paths[cur], res[cur])
-
+            add_update_data(img, res[cur])
         # online update
         if prob < 0.6:
             # short term update
             logging.getLogger().info('@CHEN->short term update')
             model = online_update(args, model, 20)
+            # region, prob = track(model, img, pre_region=region, gt=gts[cur])
+            # a = 1
             # cur = cur - 1
-        elif cur % 20 == 0:
+        elif cur % 10 == 0:
             # long term update
             logging.getLogger().info('@CHEN->long term update')
             model = online_update(args, model, 100)
@@ -109,10 +113,15 @@ def get_update_data(frame_len=20):
         img_patches += a
         feat_bboxes += b
         labels += c
+    for i in range(1, 5 + 1):
+        a, b, c = update_data_queue.queue[-i]
+        img_patches += a
+        feat_bboxes += b
+        labels += c
     return img_patches, feat_bboxes, labels
 
 
-def add_update_data(img_patch, gt):
+def add_update_data(img, gt):
     '''
         原版mdnet每一帧采50 pos 200 neg
         返回该帧构造出的 4 个img_patch, each 16 pos 32 neg
@@ -123,7 +132,7 @@ def add_update_data(img_patch, gt):
     if update_data_queue.full():
         update_data_queue.get()
 
-    update_data = datahelper.get_update_data(img_patch, gt)
+    update_data = datahelper.get_update_data(img, gt)
     update_data_queue.put(update_data)
 
 
@@ -161,10 +170,10 @@ def online_update(args, model, data_len=20):
     return model
 
 
-def track(model, img_path, pre_region, gt):
-    pred_data, restore_info = datahelper.get_predict_data(img_path, pre_region)
-    pred_iter = datahelper.get_predict_iter(pred_data)
-    img_patch, feat_bboxes, labels = pred_data
+def track(model, img, pre_region, gt):
+    pred_data, restore_info = datahelper.get_predict_data(img, pre_region)
+    pred_iter = datahelper.get_iter(pred_data)
+    [img_patch], [feat_bboxes], [l] = pred_data
     res = model.predict(pred_iter).asnumpy()
     pos_score = res[:, 1]
 
@@ -191,7 +200,7 @@ def track(model, img_path, pre_region, gt):
 
         fig = plt.figure()
         ax = fig.add_subplot(111)
-        ax.imshow(plt.imread(img_path))
+        ax.imshow(img)
         ax.add_patch(patches.Rectangle((img_bbox[0], img_bbox[1]), img_bbox[2], img_bbox[3],
                                        linewidth=4, edgecolor='red', facecolor='none'))
         ax.add_patch(patches.Rectangle((gt[0], gt[1]), gt[2], gt[3],
@@ -199,7 +208,6 @@ def track(model, img_path, pre_region, gt):
         fig.show()
         return (pos_score[i], labels[i])
 
-    # [201 215 270 198 202]
     top_img_bboxes = util.restore_img_bbox(top_patch_bboxes, restore_info)
     opt_img_bbox = np.mean(top_img_bboxes, 0)
     opt_score = top_scores.mean()
@@ -211,7 +219,7 @@ def track(model, img_path, pre_region, gt):
     def show_tracking():
         fig = plt.figure()
         ax = fig.add_subplot(111)
-        ax.imshow(plt.imread(img_path))
+        ax.imshow(img)
         ax.add_patch(patches.Rectangle((opt_img_bbox[0], opt_img_bbox[1]), opt_img_bbox[2], opt_img_bbox[3],
                                        linewidth=4, edgecolor='red', facecolor='none'))
         ax.add_patch(patches.Rectangle((gt[0], gt[1]), gt[2], gt[3],
@@ -220,23 +228,37 @@ def track(model, img_path, pre_region, gt):
                                        linewidth=1, edgecolor='yellow', facecolor='none'))
         fig.show()
 
+    def check_PR_RR_TopK():
+        # PR RR
+        output_pos_idx = pos_score > 0.5
+        hit = np.sum(labels[output_pos_idx] > 0.5)
+        PR_len = 1. * np.sum(output_pos_idx)
+        RR_len = 1. * np.sum(labels > 0.5)
+        # TopK
+        topK_idx = pos_score.argsort()[-5::]
+        hit2 = np.sum(labels[topK_idx] > 0.5)
+
+        logging.getLogger().info('PR:%.2f,RR:%.2f,TopK:%.2f,IOU:%.2f' % (
+            hit / PR_len, hit / RR_len, hit2 / 5., util.overlap_ratio(gt, opt_img_bbox)))
+
     # show_tracking()
+    check_PR_RR_TopK()
     return opt_img_bbox, opt_score
 
 
-def debug_track_on_OTB():
+def debug_seq():
     args = parse_args()
     config.ctx = mx.gpu(args.gpu)
 
     vot = datahelper.VOTHelper(args.VOT_path)
     img_paths, gts = vot.get_seq('bolt2')
 
+    first_idx = 50
+    img_paths, gts = img_paths[first_idx:], gts[first_idx:]
+
     # for debug and check
-    img_paths, gts = img_paths[20:], gts[20:]
     config.gts = gts
     config.img_paths = img_paths
-
-    # debug
 
     model, all_params = extend.init_model(args)
 
@@ -248,7 +270,7 @@ def debug_track_on_OTB():
 def parse_args():
     parser = argparse.ArgumentParser(description='Train MDNet network')
     parser.add_argument('--gpu', help='GPU device to train with', default=0, type=int)
-    parser.add_argument('--num_epoch_for_offline', default=10, type=int)
+    parser.add_argument('--num_epoch_for_offline', default=5, type=int)
     parser.add_argument('--num_epoch_for_online', default=1, type=int)
     parser.add_argument('--fixed_conv', help='these params of [ conv_i <= ? ] will be fixed', default=3, type=int)
     parser.add_argument('--saved_fname', default='conv123fc4fc5', type=str)
@@ -259,14 +281,15 @@ def parse_args():
     parser.add_argument('--lr_factor', default=0.5, help='20 times will be around 0.1', type=float)
     parser.add_argument('--lr_stop', default=5e-8, type=float)
 
-    parser.add_argument('--wd', default=1e-2, help='weight decay', type=float)
+    parser.add_argument('--wd', default=1e0, help='weight decay', type=float)
     parser.add_argument('--momentum', default=0.9, type=float)
     parser.add_argument('--lr_offline', default=2e-5, help='base learning rate', type=float)
     parser.add_argument('--lr_online', default=1e-5, help='base learning rate', type=float)
+    parser.add_argument('--ROOT_path', help='cmd folder', default='/home/chen/mx-mdnet', type=str)
 
     args = parser.parse_args()
     return args
 
 
 if __name__ == '__main__':
-    debug_track_on_OTB()
+    debug_seq()
