@@ -83,7 +83,7 @@ def debug_track_seq(args, model, img_paths, gts):
         if prob > 0.6:
             add_update_data(img, res[cur])
         # online update
-        if prob < 0.6:
+        if prob < 0.8:
             # short term update
             logging.getLogger().info('@CHEN->short term update')
             model = online_update(args, model, 20)
@@ -108,16 +108,13 @@ def get_update_data(frame_len=20):
     '''
     frame_len = min(frame_len, update_data_queue.qsize())
     img_patches, feat_bboxes, labels = [], [], []
-    for i in range(1, frame_len + 1):
-        a, b, c = update_data_queue.queue[-i]
+
+    for i in range(1, frame_len + 5):
+        a, b, c = update_data_queue.queue[-(i % frame_len)]
         img_patches += a
         feat_bboxes += b
         labels += c
-    for i in range(1, 5 + 1):
-        a, b, c = update_data_queue.queue[-i]
-        img_patches += a
-        feat_bboxes += b
-        labels += c
+
     return img_patches, feat_bboxes, labels
 
 
@@ -157,7 +154,10 @@ def online_update(args, model, data_len=20):
     :param num_epoch:
     :return:
     '''
+    T = time.time()
     update_iter = datahelper.get_iter(get_update_data(data_len))
+    T2 = time.time()
+
     model.fit(train_data=update_iter, optimizer='sgd',
               eval_metric=mx.metric.CompositeEvalMetric(
                   [extend.PR(0.5), extend.RR(0.5), extend.TrackTopKACC(10, 0.6)]),
@@ -167,6 +167,7 @@ def online_update(args, model, data_len=20):
                                 # 'clip_gradient': 5,
                                 },
               begin_epoch=0, num_epoch=args.num_epoch_for_online)
+    # logging.getLogger().info('@CHEN->get update iter:%.4f,fit:%.4f' % (T2 - T, time.time() - T2))
     return model
 
 
@@ -242,7 +243,7 @@ def track(model, img, pre_region, gt):
             hit / PR_len, hit / RR_len, hit2 / 5., util.overlap_ratio(gt, opt_img_bbox)))
 
     # show_tracking()
-    check_PR_RR_TopK()
+    # check_PR_RR_TopK()
     return opt_img_bbox, opt_score
 
 
@@ -251,7 +252,7 @@ def debug_seq():
     config.ctx = mx.gpu(args.gpu)
 
     vot = datahelper.VOTHelper(args.VOT_path)
-    img_paths, gts = vot.get_seq('bolt2')
+    img_paths, gts = vot.get_seq('girl')
 
     first_idx = 50
     img_paths, gts = img_paths[first_idx:], gts[first_idx:]
@@ -281,7 +282,7 @@ def parse_args():
     parser.add_argument('--lr_factor', default=0.5, help='20 times will be around 0.1', type=float)
     parser.add_argument('--lr_stop', default=5e-8, type=float)
 
-    parser.add_argument('--wd', default=1e0, help='weight decay', type=float)
+    parser.add_argument('--wd', default=4e0, help='weight decay', type=float)
     parser.add_argument('--momentum', default=0.9, type=float)
     parser.add_argument('--lr_offline', default=2e-5, help='base learning rate', type=float)
     parser.add_argument('--lr_online', default=1e-5, help='base learning rate', type=float)
