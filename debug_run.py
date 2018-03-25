@@ -171,6 +171,7 @@ def online_update(args, model, data_len=20):
 
 
 def track(model, img, pre_region, gt):
+    # pridict 1
     pred_data, restore_info = datahelper.get_predict_data(img, pre_region)
     pred_iter = datahelper.get_iter(pred_data)
     [img_patch], [feat_bboxes], [l] = pred_data
@@ -180,18 +181,79 @@ def track(model, img, pre_region, gt):
     patch_bboxes = util.feat2img(feat_bboxes[:, 1:])
     img_bboxes = util.restore_img_bbox(patch_bboxes, restore_info)
     labels = util.overlap_ratio(gt, img_bboxes)
-
-    if 1:
-        # 按照输出概率的最大topK个的bbox来平均出结果
-        topK = 5
-        top_idx = pos_score.argsort()[-topK::]
-    else:
-        # 按照输出概率大于0.9的所有bbox来平均出结果
-        top_idx = pos_score > 0.9
-
+    # 按照输出概率的最大topK个的bbox来平均出结果
+    topK = 5
+    top_idx = pos_score.argsort()[-topK::]
     top_scores = pos_score[top_idx]
     top_feat_bboxes = feat_bboxes[top_idx, 1:]
     top_patch_bboxes = util.feat2img(top_feat_bboxes)
+
+    top_img_bboxes = util.restore_img_bbox(top_patch_bboxes, restore_info)
+    opt_img_bbox1 = np.mean(top_img_bboxes, 0)
+    opt_score1 = top_scores.mean()
+
+    # pridict 2
+    pred_data, restore_info = datahelper.get_predict_data(img, util.central_bbox(pre_region, 1.3, 1.3))
+    pred_iter = datahelper.get_iter(pred_data)
+    [img_patch], [feat_bboxes], [l] = pred_data
+    res = model.predict(pred_iter).asnumpy()
+    pos_score = res[:, 1]
+
+    patch_bboxes = util.feat2img(feat_bboxes[:, 1:])
+    img_bboxes = util.restore_img_bbox(patch_bboxes, restore_info)
+    labels = util.overlap_ratio(gt, img_bboxes)
+    # 按照输出概率的最大topK个的bbox来平均出结果
+    topK = 5
+    top_idx = pos_score.argsort()[-topK::]
+    top_scores = pos_score[top_idx]
+    top_feat_bboxes = feat_bboxes[top_idx, 1:]
+    top_patch_bboxes = util.feat2img(top_feat_bboxes)
+
+    top_img_bboxes = util.restore_img_bbox(top_patch_bboxes, restore_info)
+    opt_img_bbox2 = np.mean(top_img_bboxes, 0)
+    opt_score2 = top_scores.mean()
+
+    # pridict 3
+    pred_data, restore_info = datahelper.get_predict_data(img, util.central_bbox(pre_region, 0.8, 0.8))
+    pred_iter = datahelper.get_iter(pred_data)
+    [img_patch], [feat_bboxes], [l] = pred_data
+    res = model.predict(pred_iter).asnumpy()
+    pos_score = res[:, 1]
+
+    patch_bboxes = util.feat2img(feat_bboxes[:, 1:])
+    img_bboxes = util.restore_img_bbox(patch_bboxes, restore_info)
+    labels = util.overlap_ratio(gt, img_bboxes)
+    # 按照输出概率的最大topK个的bbox来平均出结果
+    topK = 5
+    top_idx = pos_score.argsort()[-topK::]
+    top_scores = pos_score[top_idx]
+    top_feat_bboxes = feat_bboxes[top_idx, 1:]
+    top_patch_bboxes = util.feat2img(top_feat_bboxes)
+
+    top_img_bboxes = util.restore_img_bbox(top_patch_bboxes, restore_info)
+    opt_img_bbox3 = np.mean(top_img_bboxes, 0)
+    opt_score3 = top_scores.mean()
+
+    # pridict 4
+    pred_data, restore_info = datahelper.get_predict_data(img, util.central_bbox(pre_region, 0.7, 0.7))
+    pred_iter = datahelper.get_iter(pred_data)
+    [img_patch], [feat_bboxes], [l] = pred_data
+    res = model.predict(pred_iter).asnumpy()
+    pos_score = res[:, 1]
+
+    patch_bboxes = util.feat2img(feat_bboxes[:, 1:])
+    img_bboxes = util.restore_img_bbox(patch_bboxes, restore_info)
+    labels = util.overlap_ratio(gt, img_bboxes)
+    # 按照输出概率的最大topK个的bbox来平均出结果
+    topK = 5
+    top_idx = pos_score.argsort()[-topK::]
+    top_scores = pos_score[top_idx]
+    top_feat_bboxes = feat_bboxes[top_idx, 1:]
+    top_patch_bboxes = util.feat2img(top_feat_bboxes)
+
+    top_img_bboxes = util.restore_img_bbox(top_patch_bboxes, restore_info)
+    opt_img_bbox4 = np.mean(top_img_bboxes, 0)
+    opt_score4 = top_scores.mean()
 
     def check_pred_data(i):
         feat_bbox = feat_bboxes[i, 1:].reshape(1, 4)
@@ -207,10 +269,6 @@ def track(model, img, pre_region, gt):
                                        linewidth=1, edgecolor='blue', facecolor='none'))
         fig.show()
         return (pos_score[i], labels[i])
-
-    top_img_bboxes = util.restore_img_bbox(top_patch_bboxes, restore_info)
-    opt_img_bbox = np.mean(top_img_bboxes, 0)
-    opt_score = top_scores.mean()
 
     def plot():
         plt.plot(pos_score, 'r')
@@ -242,8 +300,8 @@ def track(model, img, pre_region, gt):
             hit / PR_len, hit / RR_len, hit2 / 5., util.overlap_ratio(gt, opt_img_bbox)))
 
     # show_tracking()
-    check_PR_RR_TopK()
-    return opt_img_bbox, opt_score
+    # check_PR_RR_TopK()
+    return opt_img_bbox1, opt_score1
 
 
 def debug_seq():
