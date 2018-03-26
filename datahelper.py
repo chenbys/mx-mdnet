@@ -27,22 +27,32 @@ def get_train_data(img, region):
     x, y, w, h = region
     X, Y, W, H = x - w / 2., y - h / 2., 2 * w, 2 * h
     patches = list()
-    for scale_w in np.arange(0.5, 2, 0.1):
-        for scale_h in np.arange(0.5, 2, 0.1):
+    for scale_w in np.arange(0.5, 2.1, 0.1):
+        for scale_h in np.arange(0.5, 2.1, 0.1):
             W_, H_ = W * scale_w, H * scale_h
             X_, Y_ = x + w / 2. - W_ / 2., y + h / 2. - H_ / 2.
             patches.append([int(X_), int(Y_), int(W_), int(H_)])
+
+    # for scale_w in np.arange(0.8, 1.11, 0.05):
+    #     for scale_h in np.arange(0.8, 1.11, 0.05):
+    #         W_, H_ = W * scale_w, H * scale_h
+    #         X_, Y_ = x + w / 2. - W_ / 2., y + h / 2. - H_ / 2.
+    #         patches.append([int(X_), int(Y_), int(W_), int(H_)])
+    #
+    # #
+    # W_, H_ = const.patch_W / 107. * w, const.patch_H / 107. * h
+    # X_, Y_ = x + w / 2. - W_ / 2., y + h / 2. - H_ / 2.
+    # patches.append([int(X_), int(Y_), int(W_), int(H_)])
+    # patches.append([int(X_), int(Y_), int(W_), int(H_)])
+    # patches.append([int(X_), int(Y_), int(W_), int(H_)])
 
     image_patches = list()
     feat_bboxes = list()
     labels = list()
     for patch in patches:
-        # crop image as train_data
-        # 我的
         X, Y, W, H = patch
         img_patch = imresize(img_pad[int(Y + img_H):int(Y + img_H + H), int(X + img_W):int(X + img_W + W), :],
                              [int(const.patch_H), int(const.patch_W)])
-        # ISSUE: change HWC to CHW
         img_patch = img_patch.transpose(const.HWN2NHW)
 
         # get region

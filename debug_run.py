@@ -10,7 +10,8 @@ import time
 import datahelper
 import util
 import extend
-from setting import config
+from nm_suppression import NMSuppression
+from setting import config, const
 import matplotlib.pyplot as plt
 from matplotlib import patches
 import logging
@@ -37,10 +38,13 @@ def debug_track_seq(args, model, img_paths, gts):
 
     model.fit(train_data=train_iter, eval_data=eval_iter, optimizer='sgd',
               eval_metric=mx.metric.CompositeEvalMetric(
-                  [extend.PR(0.5), extend.RR(0.5), extend.TrackTopKACC(10, 0.6)]),
+                  [extend.SMLoss(), extend.PR(0.5), extend.RR(0.5), extend.TrackTopKACC(10, 0.6)]),
               optimizer_params={'learning_rate': args.lr_offline,
                                 'wd': args.wd,
                                 'momentum': args.momentum,
+                                'lr_scheduler': mx.lr_scheduler.FactorScheduler(step=args.lr_step,
+                                                                                factor=args.lr_factor,
+                                                                                stop_factor_lr=args.lr_stop)
                                 # 'clip_gradient': 5,
                                 },
               begin_epoch=0, num_epoch=args.num_epoch_for_offline)
@@ -182,13 +186,9 @@ def track(model, img, pre_region, gt):
     img_bboxes = util.restore_img_bbox(patch_bboxes, restore_info)
     labels = util.overlap_ratio(gt, img_bboxes)
 
-    if 1:
-        # 按照输出概率的最大topK个的bbox来平均出结果
-        topK = 5
-        top_idx = pos_score.argsort()[-topK::]
-    else:
-        # 按照输出概率大于0.9的所有bbox来平均出结果
-        top_idx = pos_score > 0.9
+    topK = 5
+    top_idx = pos_score.argsort()[-topK::]
+    # top_idx = pos_score[topK_idx] > 0.6
 
     top_scores = pos_score[top_idx]
     top_feat_bboxes = feat_bboxes[top_idx, 1:]
@@ -229,21 +229,33 @@ def track(model, img, pre_region, gt):
                                        linewidth=1, edgecolor='yellow', facecolor='none'))
         fig.show()
 
-    def check_PR_RR_TopK():
+    def check_PR_RR_TopK(th=0.5):
         # PR RR
-        output_pos_idx = pos_score > 0.5
-        hit = np.sum(labels[output_pos_idx] > 0.5)
+        output_pos_idx = pos_score > th
+        hit = np.sum(labels[output_pos_idx] > th)
         PR_len = 1. * np.sum(output_pos_idx)
-        RR_len = 1. * np.sum(labels > 0.5)
+        RR_len = 1. * np.sum(labels > th)
         # TopK
         topK_idx = pos_score.argsort()[-5::]
-        hit2 = np.sum(labels[topK_idx] > 0.5)
+        hit2 = np.sum(labels[topK_idx] > th)
+        # Loss
+        tl = labels
+        tl[tl > config.train_pos_th] = 1
+        tl[tl < config.train_neg_th] = 0
 
-        logging.getLogger().info('PR:%.2f,RR:%.2f,TopK:%.2f,IOU:%.2f' % (
-            hit / PR_len, hit / RR_len, hit2 / 5., util.overlap_ratio(gt, opt_img_bbox)))
+        loss = mx.ndarray.softmax_cross_entropy(mx.ndarray.array(res), mx.ndarray.array(tl)).asnumpy()[0]
+        logging.getLogger().info('TH_%.1f =>Loss: %6.2f, PR:%.2f, RR:%.2f, TopK:%.2f, IOU:%.2f' % (
+            th, loss / labels.shape[0], hit / PR_len, hit / RR_len, hit2 / 5., util.overlap_ratio(gt, opt_img_bbox)))
 
     # show_tracking()
-    # check_PR_RR_TopK()
+    def nms():
+        t = time.time()
+        bbox, idx = NMSuppression(bbs=top_img_bboxes, probs=np.array(top_scores), overlapThreshold=0.5).fast_suppress()
+        logging.getLogger().info('@CHEN->get:%.4f' % (time.time() - t))
+        return idx
+
+    check_PR_RR_TopK(0.5)
+    check_PR_RR_TopK(0.7)
     return opt_img_bbox, opt_score
 
 
@@ -252,7 +264,7 @@ def debug_seq():
     config.ctx = mx.gpu(args.gpu)
 
     vot = datahelper.VOTHelper(args.VOT_path)
-    img_paths, gts = vot.get_seq('girl')
+    img_paths, gts = vot.get_seq('bolt1')
 
     first_idx = 50
     img_paths, gts = img_paths[first_idx:], gts[first_idx:]
@@ -271,22 +283,23 @@ def debug_seq():
 def parse_args():
     parser = argparse.ArgumentParser(description='Train MDNet network')
     parser.add_argument('--gpu', help='GPU device to train with', default=0, type=int)
-    parser.add_argument('--num_epoch_for_offline', default=5, type=int)
+    parser.add_argument('--num_epoch_for_offline', default=20, type=int)
     parser.add_argument('--num_epoch_for_online', default=1, type=int)
+
     parser.add_argument('--fixed_conv', help='these params of [ conv_i <= ? ] will be fixed', default=3, type=int)
     parser.add_argument('--saved_fname', default='conv123fc4fc5', type=str)
-
     parser.add_argument('--OTB_path', help='OTB folder', default='/media/chen/datasets/OTB', type=str)
     parser.add_argument('--VOT_path', help='VOT folder', default='/media/chen/datasets/VOT2015', type=str)
-    parser.add_argument('--lr_step', default=222 * 15, help='every 121 num for one epoch', type=int)
-    parser.add_argument('--lr_factor', default=0.5, help='20 times will be around 0.1', type=float)
-    parser.add_argument('--lr_stop', default=5e-8, type=float)
+    parser.add_argument('--ROOT_path', help='cmd folder', default='/home/chen/mx-mdnet', type=str)
 
-    parser.add_argument('--wd', default=4e0, help='weight decay', type=float)
+    parser.add_argument('--lr_step', default=307 * 1, help='every x num for y epoch', type=int)
+    parser.add_argument('--lr_factor', default=0.8, help='20 times will be around 0.1', type=float)
+    parser.add_argument('--lr_stop', default=1e-6, type=float)
+
+    parser.add_argument('--wd', default=0, help='weight decay', type=float)
     parser.add_argument('--momentum', default=0.9, type=float)
     parser.add_argument('--lr_offline', default=2e-5, help='base learning rate', type=float)
     parser.add_argument('--lr_online', default=1e-5, help='base learning rate', type=float)
-    parser.add_argument('--ROOT_path', help='cmd folder', default='/home/chen/mx-mdnet', type=str)
 
     args = parser.parse_args()
     return args
