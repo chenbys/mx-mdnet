@@ -4,7 +4,7 @@ import random
 from time import time
 import numpy as np
 import util
-from setting import const, config
+from setting import const
 
 
 def get_train_samples(patch_gt, pos_number=32, neg_number=96):
@@ -19,10 +19,10 @@ def get_train_samples(patch_gt, pos_number=32, neg_number=96):
     patch_bboxes = util.feat2img(feat_bboxes[:, 1:])
     rat = util.overlap_ratio(patch_gt, patch_bboxes)
     # pos
-    pos_samples = feat_bboxes[rat > config.train_pos_th, :]
+    pos_samples = feat_bboxes[rat > const.train_pos_th, :]
     pos_select_index = rand_sample(np.arange(0, pos_samples.shape[0]), pos_number)
     # neg
-    neg_samples = feat_bboxes[rat < config.train_neg_th, :]
+    neg_samples = feat_bboxes[rat < const.train_neg_th, :]
     neg_select_index = rand_sample(np.arange(0, neg_samples.shape[0]), neg_number)
 
     a, b = np.vstack((pos_samples[pos_select_index], neg_samples[neg_select_index])), \
@@ -94,10 +94,10 @@ def get_update_samples(patch_gt, pos_number=16, neg_number=32):
     patch_bboxes = util.feat2img(feat_bboxes[:, 1:])
     rat = util.overlap_ratio(patch_gt, patch_bboxes)
     # pos
-    pos_samples = feat_bboxes[rat > config.update_pos_th, :]
+    pos_samples = feat_bboxes[rat > const.update_pos_th, :]
     pos_select_index = rand_sample(np.arange(0, pos_samples.shape[0]), pos_number)
     # neg
-    neg_samples = feat_bboxes[rat < config.update_neg_th, :]
+    neg_samples = feat_bboxes[rat < const.update_neg_th, :]
     neg_select_index = rand_sample(np.arange(0, neg_samples.shape[0]), neg_number)
 
     a, b = np.vstack((pos_samples[pos_select_index], neg_samples[neg_select_index])), \

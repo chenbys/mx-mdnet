@@ -21,3 +21,6 @@ INFO:root:Epoch[4] Validation-RR=0.605833
 INFO:root:Epoch[4] Validation-TrackTopKAcc=0.982222
 也就是说，训练集上很好，预测集不好。训练集与预测集是否一致？ 
 但是其中预测集包含0.5到0.7的样本，可能会扰乱PR,RR,Loss
+
+
+glove 这个序列说明 搜索范围不足够大，多尺度pre_region更好

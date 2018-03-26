@@ -4,14 +4,14 @@ import Queue
 import mxnet as mx
 import argparse
 import numpy as np
-
+import copy
 import time
 
 import datahelper
 import util
 import extend
 from nm_suppression import NMSuppression
-from setting import config, const
+from setting import const
 import matplotlib.pyplot as plt
 from matplotlib import patches
 import logging
@@ -87,7 +87,7 @@ def debug_track_seq(args, model, img_paths, gts):
         if prob > 0.6:
             add_update_data(img, res[cur])
         # online update
-        if prob < 0.8:
+        if prob < 0.6:
             # short term update
             logging.getLogger().info('@CHEN->short term update')
             model = online_update(args, model, 20)
@@ -229,7 +229,7 @@ def track(model, img, pre_region, gt):
                                        linewidth=1, edgecolor='yellow', facecolor='none'))
         fig.show()
 
-    def check_PR_RR_TopK(th=0.5):
+    def check_all_metric(th=const.train_pos_th):
         # PR RR
         output_pos_idx = pos_score > th
         hit = np.sum(labels[output_pos_idx] > th)
@@ -239,13 +239,36 @@ def track(model, img, pre_region, gt):
         topK_idx = pos_score.argsort()[-5::]
         hit2 = np.sum(labels[topK_idx] > th)
         # Loss
-        tl = labels
-        tl[tl > config.train_pos_th] = 1
-        tl[tl < config.train_neg_th] = 0
+        tl = copy.deepcopy(labels)
+        tl[tl > const.train_pos_th] = 1
+        tl[tl < const.train_neg_th] = 0
 
         loss = mx.ndarray.softmax_cross_entropy(mx.ndarray.array(res), mx.ndarray.array(tl)).asnumpy()[0]
         logging.getLogger().info('TH_%.1f =>Loss: %6.2f, PR:%.2f, RR:%.2f, TopK:%.2f, IOU:%.2f' % (
             th, loss / labels.shape[0], hit / PR_len, hit / RR_len, hit2 / 5., util.overlap_ratio(gt, opt_img_bbox)))
+
+    def check_train_metric(th=const.train_pos_th):
+        # PR RR
+        idx = (labels > const.train_pos_th) | (labels < const.train_neg_th)
+        import copy
+        tl = copy.deepcopy(labels[idx])
+        ps = pos_score[idx]
+        rs = res[idx, :]
+
+        output_pos_idx = ps > th
+        hit = np.sum(tl[output_pos_idx] > th)
+        PR_len = 1. * np.sum(output_pos_idx)
+        RR_len = 1. * np.sum(tl > th)
+        # TopK
+        topK_idx = ps.argsort()[-5::]
+        hit2 = np.sum(tl[topK_idx] > th)
+        # Loss
+        tl[tl > const.train_pos_th] = 1
+        tl[tl < const.train_neg_th] = 0
+
+        loss = mx.ndarray.softmax_cross_entropy(mx.ndarray.array(rs), mx.ndarray.array(tl)).asnumpy()[0]
+        logging.getLogger().info('Check Train =>Loss: %6.2f, PR:%.2f, RR:%.2f, TopK:%.2f, IOU:%.2f' % (
+            loss / tl.shape[0], hit / PR_len, hit / RR_len, hit2 / 5., util.overlap_ratio(gt, opt_img_bbox)))
 
     # show_tracking()
     def nms():
@@ -254,24 +277,27 @@ def track(model, img, pre_region, gt):
         logging.getLogger().info('@CHEN->get:%.4f' % (time.time() - t))
         return idx
 
-    check_PR_RR_TopK(0.5)
-    check_PR_RR_TopK(0.7)
+    # check_all_metric(0.5)
+    # check_all_metric(0.7)
+    # check_train_metric()
     return opt_img_bbox, opt_score
+
+
+# track(model,plt.imread(const.img_paths[0]),const.gts[0],const.gts[0])
 
 
 def debug_seq():
     args = parse_args()
-    config.ctx = mx.gpu(args.gpu)
 
     vot = datahelper.VOTHelper(args.VOT_path)
-    img_paths, gts = vot.get_seq('bolt1')
+    img_paths, gts = vot.get_seq('bolt2')
 
     first_idx = 50
     img_paths, gts = img_paths[first_idx:], gts[first_idx:]
 
     # for debug and check
-    config.gts = gts
-    config.img_paths = img_paths
+    const.gts = gts
+    const.img_paths = img_paths
 
     model, all_params = extend.init_model(args)
 
@@ -283,7 +309,7 @@ def debug_seq():
 def parse_args():
     parser = argparse.ArgumentParser(description='Train MDNet network')
     parser.add_argument('--gpu', help='GPU device to train with', default=0, type=int)
-    parser.add_argument('--num_epoch_for_offline', default=20, type=int)
+    parser.add_argument('--num_epoch_for_offline', default=5, type=int)
     parser.add_argument('--num_epoch_for_online', default=1, type=int)
 
     parser.add_argument('--fixed_conv', help='these params of [ conv_i <= ? ] will be fixed', default=3, type=int)
@@ -294,7 +320,7 @@ def parse_args():
 
     parser.add_argument('--lr_step', default=307 * 1, help='every x num for y epoch', type=int)
     parser.add_argument('--lr_factor', default=0.8, help='20 times will be around 0.1', type=float)
-    parser.add_argument('--lr_stop', default=1e-6, type=float)
+    parser.add_argument('--lr_stop', default=2e-5, type=float)
 
     parser.add_argument('--wd', default=0, help='weight decay', type=float)
     parser.add_argument('--momentum', default=0.9, type=float)

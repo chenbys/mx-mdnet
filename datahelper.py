@@ -33,18 +33,18 @@ def get_train_data(img, region):
             X_, Y_ = x + w / 2. - W_ / 2., y + h / 2. - H_ / 2.
             patches.append([int(X_), int(Y_), int(W_), int(H_)])
 
-    # for scale_w in np.arange(0.8, 1.11, 0.05):
-    #     for scale_h in np.arange(0.8, 1.11, 0.05):
-    #         W_, H_ = W * scale_w, H * scale_h
-    #         X_, Y_ = x + w / 2. - W_ / 2., y + h / 2. - H_ / 2.
-    #         patches.append([int(X_), int(Y_), int(W_), int(H_)])
+    for scale_w in np.arange(0.8, 1.11, 0.05):
+        for scale_h in np.arange(0.8, 1.11, 0.05):
+            W_, H_ = W * scale_w, H * scale_h
+            X_, Y_ = x + w / 2. - W_ / 2., y + h / 2. - H_ / 2.
+            patches.append([int(X_), int(Y_), int(W_), int(H_)])
+
     #
-    # #
-    # W_, H_ = const.patch_W / 107. * w, const.patch_H / 107. * h
-    # X_, Y_ = x + w / 2. - W_ / 2., y + h / 2. - H_ / 2.
-    # patches.append([int(X_), int(Y_), int(W_), int(H_)])
-    # patches.append([int(X_), int(Y_), int(W_), int(H_)])
-    # patches.append([int(X_), int(Y_), int(W_), int(H_)])
+    W_, H_ = const.patch_W / 107. * w, const.patch_H / 107. * h
+    X_, Y_ = x + w / 2. - W_ / 2., y + h / 2. - H_ / 2.
+    patches.append([int(X_), int(Y_), int(W_), int(H_)])
+    patches.append([int(X_), int(Y_), int(W_), int(H_)])
+    patches.append([int(X_), int(Y_), int(W_), int(H_)])
 
     image_patches = list()
     feat_bboxes = list()
