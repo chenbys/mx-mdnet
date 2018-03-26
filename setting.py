@@ -20,8 +20,7 @@ const.P_TEST = 1
 const.P_RUN = 2
 const.P_FORBID = 3
 
-config = edict()
-config.update_pos_th = 0.7
-config.update_neg_th = 0.3
-config.train_pos_th = 0.7
-config.train_neg_th = 0.5
+const.update_pos_th = 0.7
+const.update_neg_th = 0.3
+const.train_pos_th = 0.7
+const.train_neg_th = 0.5

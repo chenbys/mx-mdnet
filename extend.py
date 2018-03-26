@@ -1,92 +1,9 @@
 # -*-coding:utf- 8-*-
 
-import logging
 import mxnet as mx
 import numpy as np
-from mxnet.lr_scheduler import LRScheduler
 import matplotlib.pyplot as plt
 import csym
-
-
-class MDScheduler(LRScheduler):
-    """Reduce the learning rate by a factor for every *n* steps.
-
-    It returns a new learning rate by::
-
-        base_lr * pow(factor, floor(num_update/step))
-
-    Parameters
-    ----------
-    step : int
-        Changes the learning rate for every n updates.
-    factor : float, optional
-        The factor to change the learning rate.
-    stop_factor_lr : float, optional
-        Stop updating the learning rate if it is less than this value.
-    """
-
-    def __init__(self, step, factor=1, stop_factor_lr=1e-8):
-        super(MDScheduler, self).__init__()
-        if step < 1:
-            raise ValueError("Schedule step must be greater or equal than 1 round")
-        if factor > 1.0:
-            raise ValueError("Factor must be no more than 1 to make lr reduce")
-        self.step = step
-        self.factor = factor
-        self.stop_factor_lr = stop_factor_lr
-        self.count = 0
-
-    def __call__(self, num_update):
-        # NOTE: use while rather than if  (for continuing training via load_epoch)
-        while num_update > self.count + self.step:
-            self.count += self.step
-            self.base_lr *= self.factor
-            if self.base_lr < self.stop_factor_lr:
-                self.base_lr = self.stop_factor_lr
-            else:
-                logging.info("Update[%d]: lr: %0.2e",
-                             num_update / 36, self.base_lr)
-        return self.base_lr
-
-
-class MDNetACC(mx.metric.EvalMetric):
-    def __init__(self):
-        super(MDNetACC, self).__init__('MDNetAcc')
-        self.pred, self.label = ['score'], ['label']
-
-    def update(self, labels, preds):
-        label = labels[0].reshape((-1,)).asnumpy()
-        pred = preds[0].asnumpy()
-        true_num = np.sum(pred.argmax(1) == label)
-        self.sum_metric += true_num
-        self.num_inst += label.shape[0]
-
-
-class PosACC(mx.metric.EvalMetric):
-    def __init__(self, pos_th):
-        '''
-            评价模型在正样本和负样本上正确率
-        :param pos_th: iou >= pos_th 认为是正样本
-        '''
-        super(PosACC, self).__init__('PosAcc')
-        self.pos_th = pos_th
-
-    def update(self, labels, preds):
-        '''
-        :param labels:
-        :param preds:
-        :return:
-        '''
-        labels = labels[0].asnumpy()[0, :]
-        scores = preds[0].asnumpy()
-        res = scores.argmax(1)
-        pos_scores = scores[:, 1]
-        pos_idx = labels >= self.pos_th
-        pos_acc = res[pos_idx].sum()
-        pos_len = labels[pos_idx].shape[0]
-
-        self.sum_metric += pos_acc
-        self.num_inst += pos_len
 
 
 class PR(mx.metric.EvalMetric):
@@ -141,32 +58,6 @@ class RR(mx.metric.EvalMetric):
         self.num_inst += length
 
 
-class NegACC(mx.metric.EvalMetric):
-    def __init__(self, neg_th):
-        '''
-            评价模型在正样本和负样本上正确率
-        :param pos_th: iou >= pos_th 认为是正样本
-        '''
-        super(NegACC, self).__init__('NegAcc')
-        self.neg_th = neg_th
-
-    def update(self, labels, preds):
-        '''
-        :param labels:
-        :param preds:
-        :return:
-        '''
-        labels = labels[0].asnumpy()[0, :]
-        scores = preds[0].asnumpy()
-        res = scores.argmax(1)
-        pos_scores = scores[:, 1]
-        neg_idx = labels < self.neg_th
-        neg_err_acc = res[neg_idx].sum()
-        neg_len = labels[neg_idx].shape[0]
-        self.sum_metric += neg_len - neg_err_acc
-        self.num_inst += neg_len
-
-
 class TrackTopKACC(mx.metric.EvalMetric):
     def __init__(self, topK=5, th=0.6):
         '''
@@ -188,83 +79,19 @@ class TrackTopKACC(mx.metric.EvalMetric):
         self.num_inst += self.topK
 
 
-class TrackScoreACC(mx.metric.EvalMetric):
-    def __init__(self, score=0.9, th=0.6):
-        '''
-            评价模型输出概率的大于score的样本对应label大于th的比率
-        :param topK:
-        '''
-        super(TrackScoreACC, self).__init__('TrackScoreAcc')
-        self.score = score
-        self.th = th
+class SMLoss(mx.metric.EvalMetric):
+    def __init__(self):
+        super(SMLoss, self).__init__('SMLoss')
 
     def update(self, labels, preds):
-        labels = labels[0].asnumpy()[0, :]
-        scores = preds[0].asnumpy()
-        pos_scores = scores[:, 1]
-        idx = pos_scores > self.score
-        acc = np.sum(labels[idx] > self.th)
-        self.sum_metric += acc
-        self.num_inst += labels[idx].shape[0]
-
-
-# class MDNetLoss(mx.metric.EvalMetric):
-#     def __init__(self):
-#         super(MDNetLoss, self).__init__('MDNetLoss')
-#         self.pred, self.label = ['score'], ['label']
-#
-#     def update(self, labels, preds):
-#         label = labels[0].reshape((-1,)).as_in_context(config.ctx)
-#         pred = preds[0].as_in_context(config.ctx)
-#         loss = mx.ndarray.softmax_cross_entropy(pred, label).asnumpy()
-#         if loss > 7000:
-#             print pred.asnumpy()
-#             exit(0)
-#         self.sum_metric += loss
-#         self.num_inst += label.shape[0]
-
-
-class WeightedIOUACC(mx.metric.EvalMetric):
-    def __init__(self, weigth_factor=30, iou_th=0.1):
-        super(WeightedIOUACC, self).__init__('weighted iou acc_' + str(iou_th))
-        self.weigth_factor = weigth_factor
-        self.iou_th = iou_th
-
-    def update(self, labels, preds):
-        label = labels[0].asnumpy().reshape((-1,))
-        weight = label * label * self.weigth_factor + 1.
-        pred = preds[0].asnumpy()
-        smooth_l1 = pred / weight
-        abs_subs = (smooth_l1 * 2) ** 0.5
-
-        acc = np.sum(abs_subs < self.iou_th)
-        self.sum_metric += acc * 100
-        self.num_inst += len(label)
-
-
-class MDNetIOUACC(mx.metric.EvalMetric):
-    def __init__(self, acc_th=0.1):
-        super(MDNetIOUACC, self).__init__('MDNetIOUACC_' + str(acc_th))
-        self.acc_th = acc_th * acc_th / 2.
-
-    def update(self, labels, preds):
-        label = labels[0].asnumpy().reshape((-1,))
-        pred = preds[0].asnumpy()
-        acc = np.sum(pred < self.acc_th)
-        self.sum_metric += acc * 100
-        self.num_inst += len(label)
-
-
-# class MDNetIOULoss(mx.metric.EvalMetric):
-#     def __init__(self):
-#         super(MDNetIOULoss, self).__init__('MDNetIOULoss')
-#
-#     def update(self, labels, preds):
-#         label = labels[0].reshape((-1,)).as_in_context(config.ctx)
-#         pred = preds[0].as_in_context(config.ctx)
-#         loss = mx.ndarray.smooth_l1(pred - label, scalar=1).asnumpy().sum()
-#         self.sum_metric += pred.sum().asnumpy() * 1000
-#         self.num_inst += len(label)
+        labels = labels[0].as_in_context(mx.gpu(0))[0,:]
+        pred = preds[0]
+        loss = mx.ndarray.softmax_cross_entropy(pred, labels).asnumpy()[0]
+        if loss > 7000:
+            print pred.asnumpy()
+            exit(0)
+        self.sum_metric += loss
+        self.num_inst += labels.shape[0]
 
 
 def get_mdnet_conv123_params(prefix='', mat_path='saved/conv123.mat'):
@@ -377,31 +204,3 @@ def init_model(args):
         model.init_params()
 
     return model, all_params
-
-
-def get_MD_params(seq_name, arg_params, all_params):
-    branch_params = all_params.get(seq_name)
-    if branch_params is None:
-        print 'branch_params is None'
-        return arg_params
-
-    shared_params_names = ['conv1_weight', 'conv1_bias', 'conv2_weight', 'conv2_bias', 'conv3_weight', 'conv3_bias']
-    shared_params = {}
-    for name in shared_params_names:
-        shared_params[name] = arg_params[name]
-
-    branch_params.update(shared_params)
-    return branch_params
-
-
-def save_all_params(all_params, k):
-    import os
-    os.system('mkdir params/' + str(k))
-    for key, value in all_params.items():
-        mx.ndarray.save(os.path.join('params', str(k), key), value)
-
-
-def load_all_params(fname):
-    k = int(fname)
-    all_params = mx.ndarray.load(fname)
-    return all_params, all_params.get(all_params.keys()[-1])

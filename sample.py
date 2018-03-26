@@ -4,10 +4,10 @@ import random
 from time import time
 import numpy as np
 import util
-from setting import const, config
+from setting import const
 
 
-def get_train_samples(patch_gt, pos_number=48, neg_number=96):
+def get_train_samples(patch_gt, pos_number=32, neg_number=96):
     '''
     :param patch_gt:
     :param pos_number:
@@ -15,14 +15,14 @@ def get_train_samples(patch_gt, pos_number=48, neg_number=96):
     :return:
     '''
     label_feat = util.img2feat(util.xywh2x1y1x2y2(patch_gt))[0, :]
-    feat_bboxes = get_train_feat_bboxes(label_feat, strides=[1, 1, 1, 1])
+    feat_bboxes = get_train_feat_bboxes(label_feat, strides=[2, 2, 1, 1])
     patch_bboxes = util.feat2img(feat_bboxes[:, 1:])
     rat = util.overlap_ratio(patch_gt, patch_bboxes)
     # pos
-    pos_samples = feat_bboxes[rat > config.train_pos_th, :]
+    pos_samples = feat_bboxes[rat > const.train_pos_th, :]
     pos_select_index = rand_sample(np.arange(0, pos_samples.shape[0]), pos_number)
     # neg
-    neg_samples = feat_bboxes[rat < config.train_neg_th, :]
+    neg_samples = feat_bboxes[rat < const.train_neg_th, :]
     neg_select_index = rand_sample(np.arange(0, neg_samples.shape[0]), neg_number)
 
     a, b = np.vstack((pos_samples[pos_select_index], neg_samples[neg_select_index])), \
@@ -50,14 +50,15 @@ def get_train_feat_bboxes(labal_feat_bbox,
     feat_boxes = list()
 
     DX1 = 10
-    for dx1 in np.arange(max(-l_x1, -DX1), DX1 + 1, stride_x1):
+    for dx1 in np.arange(max(-l_x1, -DX1), min(feat_w - l_x1, DX1 + 1), stride_x1):
         DY1 = DX1 - abs(dx1)
-        for dy1 in np.arange(max(-l_y1, -DY1), DY1 + 1, stride_y1):
+        for dy1 in np.arange(max(-l_y1, -DY1), min(feat_h - l_y1, DY1 + 1), stride_y1):
             DX2 = DY1 - abs(dy1)
-            for dx2 in np.arange(-DX2, min(feat_w - l_x2, DX2 + 1), stride_x2):
+            x1, y1 = l_x1 + dx1, l_y1 + dy1
+            for dx2 in np.arange(max(x1 - l_x2 + 1, -DX2), min(feat_w - l_x2, DX2 + 1), stride_x2):
                 DY2 = DX2 - dx2
-                for dy2 in np.arange(-DY2, min(feat_h - l_y2, DY2 + 1), stride_y2):
-                    feat_boxes.append([0, l_x1 + dx1, l_y1 + dy1, l_x2 + dx2, l_y2 + dy2])
+                for dy2 in np.arange(max(y1 - l_y2 + 1, -DY2), min(feat_h - l_y2, DY2 + 1), stride_y2):
+                    feat_boxes.append([0, x1, y1, l_x2 + dx2, l_y2 + dy2])
 
     return np.array(feat_boxes)
 
@@ -73,14 +74,15 @@ def get_update_feat_bboxes(labal_feat_bbox,
     feat_boxes = list()
 
     DX1 = 10
-    for dx1 in np.arange(max(-l_x1, -DX1), DX1 + 1, stride_x1):
+    for dx1 in np.arange(max(-l_x1, -DX1), min(feat_w - l_x1, DX1 + 1), stride_x1):
         DY1 = DX1 - abs(dx1)
-        for dy1 in np.arange(max(-l_y1, -DY1), DY1 + 1, stride_y1):
+        for dy1 in np.arange(max(-l_y1, -DY1), min(feat_h - l_y1, DY1 + 1), stride_y1):
             DX2 = DY1 - abs(dy1)
-            for dx2 in np.arange(-DX2, min(feat_w - l_x2, DX2 + 1), stride_x2):
+            x1, y1 = l_x1 + dx1, l_y1 + dy1
+            for dx2 in np.arange(max(x1 - l_x2 + 1, -DX2), min(feat_w - l_x2, DX2 + 1), stride_x2):
                 DY2 = DX2 - dx2
-                for dy2 in np.arange(-DY2, min(feat_h - l_y2, DY2 + 1), stride_y2):
-                    feat_boxes.append([0, l_x1 + dx1, l_y1 + dy1, l_x2 + dx2, l_y2 + dy2])
+                for dy2 in np.arange(max(y1 - l_y2 + 1, -DY2), min(feat_h - l_y2, DY2 + 1), stride_y2):
+                    feat_boxes.append([0, x1, y1, l_x2 + dx2, l_y2 + dy2])
     # print 'Time for get update feat bboxes:%.6f' % (time() - T)
     return np.array(feat_boxes)
 
@@ -92,10 +94,10 @@ def get_update_samples(patch_gt, pos_number=16, neg_number=32):
     patch_bboxes = util.feat2img(feat_bboxes[:, 1:])
     rat = util.overlap_ratio(patch_gt, patch_bboxes)
     # pos
-    pos_samples = feat_bboxes[rat > config.update_pos_th, :]
+    pos_samples = feat_bboxes[rat > const.update_pos_th, :]
     pos_select_index = rand_sample(np.arange(0, pos_samples.shape[0]), pos_number)
     # neg
-    neg_samples = feat_bboxes[rat < config.update_neg_th, :]
+    neg_samples = feat_bboxes[rat < const.update_neg_th, :]
     neg_select_index = rand_sample(np.arange(0, neg_samples.shape[0]), neg_number)
 
     a, b = np.vstack((pos_samples[pos_select_index], neg_samples[neg_select_index])), \
@@ -114,14 +116,15 @@ def get_predict_feat_bboxes(strides=[2, 2, 2, 2], ideal_feat_bbox=const.ideal_fe
     feat_boxes = list()
 
     DX1 = 8
-    for dx1 in np.arange(max(-l_x1, -DX1), DX1 + 1, stride_x1):
+    for dx1 in np.arange(max(-l_x1, -DX1), min(feat_w - l_x1, DX1 + 1), stride_x1):
         DY1 = DX1 - abs(dx1)
-        for dy1 in np.arange(max(-l_y1, -DY1), DY1 + 1, stride_y1):
+        for dy1 in np.arange(max(-l_y1, -DY1), min(feat_h - l_y1, DY1 + 1), stride_y1):
             DX2 = DY1 - abs(dy1)
-            for dx2 in np.arange(-DX2, min(feat_w - l_x2, DX2 + 1), stride_x2):
+            x1, y1 = l_x1 + dx1, l_y1 + dy1
+            for dx2 in np.arange(max(x1 - l_x2 + 1, -DX2), min(feat_w - l_x2, DX2 + 1), stride_x2):
                 DY2 = DX2 - dx2
-                for dy2 in np.arange(-DY2, min(feat_h - l_y2, DY2 + 1), stride_y2):
-                    feat_boxes.append([0, l_x1 + dx1, l_y1 + dy1, l_x2 + dx2, l_y2 + dy2])
+                for dy2 in np.arange(max(y1 - l_y2 + 1, -DY2), min(feat_h - l_y2, DY2 + 1), stride_y2):
+                    feat_boxes.append([0, x1, y1, l_x2 + dx2, l_y2 + dy2])
     # print 'Time for get predict feat bboxes:%.6f' % (time() - T)
     return np.array(feat_boxes)
 

@@ -4,13 +4,14 @@ import Queue
 import mxnet as mx
 import argparse
 import numpy as np
-
+import copy
 import time
 
 import datahelper
 import util
 import extend
-from setting import config
+from nm_suppression import NMSuppression
+from setting import const
 import matplotlib.pyplot as plt
 from matplotlib import patches
 import logging
@@ -37,10 +38,13 @@ def debug_track_seq(args, model, img_paths, gts):
 
     model.fit(train_data=train_iter, eval_data=eval_iter, optimizer='sgd',
               eval_metric=mx.metric.CompositeEvalMetric(
-                  [extend.PR(0.5), extend.RR(0.5), extend.TrackTopKACC(10, 0.6)]),
+                  [extend.SMLoss(), extend.PR(0.5), extend.RR(0.5), extend.TrackTopKACC(10, 0.6)]),
               optimizer_params={'learning_rate': args.lr_offline,
                                 'wd': args.wd,
                                 'momentum': args.momentum,
+                                'lr_scheduler': mx.lr_scheduler.FactorScheduler(step=args.lr_step,
+                                                                                factor=args.lr_factor,
+                                                                                stop_factor_lr=args.lr_stop)
                                 # 'clip_gradient': 5,
                                 },
               begin_epoch=0, num_epoch=args.num_epoch_for_offline)
@@ -108,16 +112,13 @@ def get_update_data(frame_len=20):
     '''
     frame_len = min(frame_len, update_data_queue.qsize())
     img_patches, feat_bboxes, labels = [], [], []
-    for i in range(1, frame_len + 1):
-        a, b, c = update_data_queue.queue[-i]
+
+    for i in range(1, frame_len + 5):
+        a, b, c = update_data_queue.queue[-(i % frame_len)]
         img_patches += a
         feat_bboxes += b
         labels += c
-    for i in range(1, 5 + 1):
-        a, b, c = update_data_queue.queue[-i]
-        img_patches += a
-        feat_bboxes += b
-        labels += c
+
     return img_patches, feat_bboxes, labels
 
 
@@ -157,7 +158,10 @@ def online_update(args, model, data_len=20):
     :param num_epoch:
     :return:
     '''
+    T = time.time()
     update_iter = datahelper.get_iter(get_update_data(data_len))
+    T2 = time.time()
+
     model.fit(train_data=update_iter, optimizer='sgd',
               eval_metric=mx.metric.CompositeEvalMetric(
                   [extend.PR(0.5), extend.RR(0.5), extend.TrackTopKACC(10, 0.6)]),
@@ -167,11 +171,11 @@ def online_update(args, model, data_len=20):
                                 # 'clip_gradient': 5,
                                 },
               begin_epoch=0, num_epoch=args.num_epoch_for_online)
+    # logging.getLogger().info('@CHEN->get update iter:%.4f,fit:%.4f' % (T2 - T, time.time() - T2))
     return model
 
 
 def track(model, img, pre_region, gt):
-    # pridict 1
     pred_data, restore_info = datahelper.get_predict_data(img, pre_region)
     pred_iter = datahelper.get_iter(pred_data)
     [img_patch], [feat_bboxes], [l] = pred_data
@@ -189,71 +193,8 @@ def track(model, img, pre_region, gt):
     top_patch_bboxes = util.feat2img(top_feat_bboxes)
 
     top_img_bboxes = util.restore_img_bbox(top_patch_bboxes, restore_info)
-    opt_img_bbox1 = np.mean(top_img_bboxes, 0)
-    opt_score1 = top_scores.mean()
-
-    # pridict 2
-    pred_data, restore_info = datahelper.get_predict_data(img, util.central_bbox(pre_region, 1.3, 1.3))
-    pred_iter = datahelper.get_iter(pred_data)
-    [img_patch], [feat_bboxes], [l] = pred_data
-    res = model.predict(pred_iter).asnumpy()
-    pos_score = res[:, 1]
-
-    patch_bboxes = util.feat2img(feat_bboxes[:, 1:])
-    img_bboxes = util.restore_img_bbox(patch_bboxes, restore_info)
-    labels = util.overlap_ratio(gt, img_bboxes)
-    # 按照输出概率的最大topK个的bbox来平均出结果
-    topK = 5
-    top_idx = pos_score.argsort()[-topK::]
-    top_scores = pos_score[top_idx]
-    top_feat_bboxes = feat_bboxes[top_idx, 1:]
-    top_patch_bboxes = util.feat2img(top_feat_bboxes)
-
-    top_img_bboxes = util.restore_img_bbox(top_patch_bboxes, restore_info)
-    opt_img_bbox2 = np.mean(top_img_bboxes, 0)
-    opt_score2 = top_scores.mean()
-
-    # pridict 3
-    pred_data, restore_info = datahelper.get_predict_data(img, util.central_bbox(pre_region, 0.8, 0.8))
-    pred_iter = datahelper.get_iter(pred_data)
-    [img_patch], [feat_bboxes], [l] = pred_data
-    res = model.predict(pred_iter).asnumpy()
-    pos_score = res[:, 1]
-
-    patch_bboxes = util.feat2img(feat_bboxes[:, 1:])
-    img_bboxes = util.restore_img_bbox(patch_bboxes, restore_info)
-    labels = util.overlap_ratio(gt, img_bboxes)
-    # 按照输出概率的最大topK个的bbox来平均出结果
-    topK = 5
-    top_idx = pos_score.argsort()[-topK::]
-    top_scores = pos_score[top_idx]
-    top_feat_bboxes = feat_bboxes[top_idx, 1:]
-    top_patch_bboxes = util.feat2img(top_feat_bboxes)
-
-    top_img_bboxes = util.restore_img_bbox(top_patch_bboxes, restore_info)
-    opt_img_bbox3 = np.mean(top_img_bboxes, 0)
-    opt_score3 = top_scores.mean()
-
-    # pridict 4
-    pred_data, restore_info = datahelper.get_predict_data(img, util.central_bbox(pre_region, 0.7, 0.7))
-    pred_iter = datahelper.get_iter(pred_data)
-    [img_patch], [feat_bboxes], [l] = pred_data
-    res = model.predict(pred_iter).asnumpy()
-    pos_score = res[:, 1]
-
-    patch_bboxes = util.feat2img(feat_bboxes[:, 1:])
-    img_bboxes = util.restore_img_bbox(patch_bboxes, restore_info)
-    labels = util.overlap_ratio(gt, img_bboxes)
-    # 按照输出概率的最大topK个的bbox来平均出结果
-    topK = 5
-    top_idx = pos_score.argsort()[-topK::]
-    top_scores = pos_score[top_idx]
-    top_feat_bboxes = feat_bboxes[top_idx, 1:]
-    top_patch_bboxes = util.feat2img(top_feat_bboxes)
-
-    top_img_bboxes = util.restore_img_bbox(top_patch_bboxes, restore_info)
-    opt_img_bbox4 = np.mean(top_img_bboxes, 0)
-    opt_score4 = top_scores.mean()
+    opt_img_bbox = np.mean(top_img_bboxes, 0)
+    opt_score = top_scores.mean()
 
     def check_pred_data(i):
         feat_bbox = feat_bboxes[i, 1:].reshape(1, 4)
@@ -286,27 +227,66 @@ def track(model, img, pre_region, gt):
                                        linewidth=1, edgecolor='yellow', facecolor='none'))
         fig.show()
 
-    def check_PR_RR_TopK():
+    def check_all_metric(th=const.train_pos_th):
         # PR RR
-        output_pos_idx = pos_score > 0.5
-        hit = np.sum(labels[output_pos_idx] > 0.5)
+        output_pos_idx = pos_score > th
+        hit = np.sum(labels[output_pos_idx] > th)
         PR_len = 1. * np.sum(output_pos_idx)
-        RR_len = 1. * np.sum(labels > 0.5)
+        RR_len = 1. * np.sum(labels > th)
         # TopK
         topK_idx = pos_score.argsort()[-5::]
-        hit2 = np.sum(labels[topK_idx] > 0.5)
+        hit2 = np.sum(labels[topK_idx] > th)
+        # Loss
+        tl = copy.deepcopy(labels)
+        tl[tl > const.train_pos_th] = 1
+        tl[tl < const.train_neg_th] = 0
 
-        logging.getLogger().info('PR:%.2f,RR:%.2f,TopK:%.2f,IOU:%.2f' % (
-            hit / PR_len, hit / RR_len, hit2 / 5., util.overlap_ratio(gt, opt_img_bbox)))
+        loss = mx.ndarray.softmax_cross_entropy(mx.ndarray.array(res), mx.ndarray.array(tl)).asnumpy()[0]
+        logging.getLogger().info('TH_%.1f =>Loss: %6.2f, PR:%.2f, RR:%.2f, TopK:%.2f, IOU:%.2f' % (
+            th, loss / labels.shape[0], hit / PR_len, hit / RR_len, hit2 / 5., util.overlap_ratio(gt, opt_img_bbox)))
 
-    # show_tracking()
-    # check_PR_RR_TopK()
-    return opt_img_bbox1, opt_score1
+    def check_train_metric(th=const.train_pos_th):
+        # PR RR
+        idx = (labels > const.train_pos_th) | (labels < const.train_neg_th)
+        import copy
+        tl = copy.deepcopy(labels[idx])
+        ps = pos_score[idx]
+        rs = res[idx, :]
+
+        output_pos_idx = ps > th
+        hit = np.sum(tl[output_pos_idx] > th)
+        PR_len = 1. * np.sum(output_pos_idx)
+        RR_len = 1. * np.sum(tl > th)
+        # TopK
+        topK_idx = ps.argsort()[-5::]
+        hit2 = np.sum(tl[topK_idx] > th)
+        # Loss
+        tl[tl > const.train_pos_th] = 1
+        tl[tl < const.train_neg_th] = 0
+
+        loss = mx.ndarray.softmax_cross_entropy(mx.ndarray.array(rs), mx.ndarray.array(tl)).asnumpy()[0]
+        logging.getLogger().info('Check Train =>Loss: %6.2f, PR:%.2f, RR:%.2f, TopK:%.2f, IOU:%.2f' % (
+            loss / tl.shape[0], hit / PR_len, hit / RR_len, hit2 / 5., util.overlap_ratio(gt, opt_img_bbox)))
+
+        # show_tracking()
+
+    def nms():
+        t = time.time()
+        bbox, idx = NMSuppression(bbs=top_img_bboxes, probs=np.array(top_scores), overlapThreshold=0.5).fast_suppress()
+        logging.getLogger().info('@CHEN->get:%.4f' % (time.time() - t))
+        return idx
+
+    # check_all_metric(0.5)
+    # check_all_metric(0.7)
+    # check_train_metric()
+    return opt_img_bbox, opt_score
+
+
+# track(model,plt.imread(const.img_paths[0]),const.gts[0],const.gts[0])
 
 
 def debug_seq():
     args = parse_args()
-    config.ctx = mx.gpu(args.gpu)
 
     vot = datahelper.VOTHelper(args.VOT_path)
     img_paths, gts = vot.get_seq('bolt2')
@@ -315,8 +295,8 @@ def debug_seq():
     img_paths, gts = img_paths[first_idx:], gts[first_idx:]
 
     # for debug and check
-    config.gts = gts
-    config.img_paths = img_paths
+    const.gts = gts
+    const.img_paths = img_paths
 
     model, all_params = extend.init_model(args)
 
@@ -330,20 +310,21 @@ def parse_args():
     parser.add_argument('--gpu', help='GPU device to train with', default=0, type=int)
     parser.add_argument('--num_epoch_for_offline', default=5, type=int)
     parser.add_argument('--num_epoch_for_online', default=1, type=int)
+
     parser.add_argument('--fixed_conv', help='these params of [ conv_i <= ? ] will be fixed', default=3, type=int)
     parser.add_argument('--saved_fname', default='conv123fc4fc5', type=str)
-
     parser.add_argument('--OTB_path', help='OTB folder', default='/media/chen/datasets/OTB', type=str)
     parser.add_argument('--VOT_path', help='VOT folder', default='/media/chen/datasets/VOT2015', type=str)
-    parser.add_argument('--lr_step', default=222 * 15, help='every 121 num for one epoch', type=int)
-    parser.add_argument('--lr_factor', default=0.5, help='20 times will be around 0.1', type=float)
-    parser.add_argument('--lr_stop', default=5e-8, type=float)
+    parser.add_argument('--ROOT_path', help='cmd folder', default='/home/chen/mx-mdnet', type=str)
 
-    parser.add_argument('--wd', default=1e0, help='weight decay', type=float)
+    parser.add_argument('--lr_step', default=307 * 1, help='every x num for y epoch', type=int)
+    parser.add_argument('--lr_factor', default=0.8, help='20 times will be around 0.1', type=float)
+    parser.add_argument('--lr_stop', default=2e-5, type=float)
+
+    parser.add_argument('--wd', default=0, help='weight decay', type=float)
     parser.add_argument('--momentum', default=0.9, type=float)
     parser.add_argument('--lr_offline', default=2e-5, help='base learning rate', type=float)
     parser.add_argument('--lr_online', default=1e-5, help='base learning rate', type=float)
-    parser.add_argument('--ROOT_path', help='cmd folder', default='/home/chen/mx-mdnet', type=str)
 
     args = parser.parse_args()
     return args
