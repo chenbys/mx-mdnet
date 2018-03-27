@@ -22,5 +22,6 @@ INFO:root:Epoch[4] Validation-RR=0.605833
 INFO:root:Epoch[4] Validation-TrackTopKAcc=0.982222
 也就是说，训练集上很好，预测集不好。训练集与预测集是否一致？ 
 但是其中预测集包含0.5到0.7的样本，可能会扰乱PR,RR,Loss
+ball1序列，说明预测集与训练集确实有些不一致，但是在pre_region=gt的情况下，topK还是比较准确的
 
 glove的frame8，pre_region=gt时，topK精准，但是probs不高：0.4,0.5左右；其他pre_region的准度不高但probs较低；说明overfitting?

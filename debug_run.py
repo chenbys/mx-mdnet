@@ -56,51 +56,18 @@ def debug_track_seq(args, model, img_paths, gts):
     length = len(img_paths)
     for cur in range(1, length):
         img = plt.imread(img_paths[cur])
+        img_H, img_W, c = np.shape(img)
         T = time.time()
         # track
         pre_region = region
         pre_regions = []
         for dx, dy, ws, hs in [[0, 0, 1, 1],
-                               [0.5, 0.5, 2, 2],
-                               [-0.5, -0.5, 0.5, 0.5],
-                               [0, 0, 2, 2],
+                               [-0.5, -0.5, 2, 2],
+                               [0, 0, 1.5, 1.5],
                                [0, 0, 0.5, 0.5]]:
-            pre_regions.append(util.central_bbox(pre_region, dx, dy, ws, hs))
+            pre_regions.append(util.central_bbox(pre_region, dx, dy, ws, hs, img_W, img_H))
 
         region, prob = multi_track(model, img, pre_regions=pre_regions, gt=gts[cur])
-
-        # twice tracking
-        if prob > 0.7:
-            add_update_data(img, region)
-
-            if cur % 10 == 0:
-                logging.getLogger().info('@CHEN->long term update')
-                model = online_update(args, model, 50)
-        else:
-            logging.getLogger().info('@CHEN->Short term update and Twice tracking')
-            model = online_update(args, model, 10)
-            pre_region = res[cur - 1]
-            # 二次检测时，检查上上次的pre_region，并搜索更大的区域
-            pre_regions = [res[max(0, cur - 2)]]
-            for dx in [-0.5, 0, 0.5]:
-                for dy in [-0.5, 0, 0.5]:
-                    for ws in [0.5, 1, 2]:
-                        for hs in [0.5, 1, 2]:
-                            pre_regions.append(util.central_bbox(pre_region, dx, dy, ws, hs))
-
-            region, prob = multi_track(model, img, pre_regions=pre_regions, gt=gts[cur])
-
-            if prob > 0.7:
-                add_update_data(img, region)
-
-        # report
-        res.append(region)
-        probs.append(prob)
-        iou = util.overlap_ratio(gts[cur], region)
-        ious.append(iou)
-        logging.getLogger().info(
-            '@CHEN-> IOU : [ %.2f ] !!!  prob: %.2f for tracking on frame %d, cost %4.4f' \
-            % (iou, prob, cur, time.time() - T))
 
         def show_tracking():
             gt = gts[cur]
@@ -116,7 +83,41 @@ def debug_track_seq(args, model, img_paths, gts):
                                            linewidth=1, edgecolor='yellow', facecolor='none'))
             fig.show()
 
-        a = 1
+        # twice tracking
+        if prob > 0.5:
+            add_update_data(img, region)
+
+            if cur % 10 == 0:
+                logging.getLogger().info('@CHEN->long term update')
+                model = online_update(args, model, 50)
+        else:
+            logging.getLogger().info('@CHEN->Short term update and Twice tracking')
+            model = online_update(args, model, 10)
+            pre_region = res[cur - 1]
+            # 二次检测时，检查上上次的pre_region，并搜索更大的区域
+            pre_regions = [res[max(0, cur - 2)]]
+            for dx in [-0.5, 0, 0.5]:
+                for dy in [-0.5, 0, 0.5]:
+                    for ws in [0.5, 1, 2]:
+                        for hs in [0.5, 1, 2]:
+                            pre_regions.append(util.central_bbox(pre_region, dx, dy, ws, hs, img_W, img_H))
+
+            region, prob = multi_track(model, img, pre_regions=pre_regions, gt=gts[cur])
+
+            if prob > 0.5:
+                add_update_data(img, region)
+
+        # report
+        res.append(region)
+        probs.append(prob)
+        iou = util.overlap_ratio(gts[cur], region)
+        ious.append(iou)
+        logging.getLogger().info(
+            '@CHEN-> IOU : [ %.2f ] !!!  prob: %.2f for tracking on frame %d, cost %4.4f' \
+            % (iou, prob, cur, time.time() - T))
+
+        next_frame = 1
+
     return res, probs, ious
 
 
@@ -347,9 +348,9 @@ def debug_seq():
     args = parse_args()
 
     vot = datahelper.VOTHelper(args.VOT_path)
-    img_paths, gts = vot.get_seq('girl')
+    img_paths, gts = vot.get_seq('bmx')
 
-    first_idx = 0  # f_idx=50 in bolt2, frame 189开始bbox变大, 虽然它自己不知道（probs>0.6），但可以通过long term update扭转回来
+    first_idx = 0
     img_paths, gts = img_paths[first_idx:], gts[first_idx:]
 
     # for debug and check

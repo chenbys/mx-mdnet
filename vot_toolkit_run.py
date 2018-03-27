@@ -4,6 +4,8 @@ import logging
 import sys
 from time import time
 import matplotlib.pyplot as plt
+import numpy as np
+import util
 import vot
 import mxnet as mx
 import extend
@@ -30,10 +32,8 @@ try:
     train_iter = datahelper.get_iter(datahelper.get_train_data(img, region))
     model.fit(train_data=train_iter, optimizer='sgd',
               eval_metric=mx.metric.CompositeEvalMetric(
-                  [extend.PR(0.5), extend.RR(0.5), extend.TrackTopKACC(10, 0.6)]),
-              optimizer_params={'learning_rate': args.lr_offline,
-                                'wd': args.wd,
-                                'momentum': args.momentum},
+                  [extend.SMLoss(), extend.PR(0.5), extend.RR(0.5), extend.TrackTopKACC(10, 0.6)]),
+              optimizer_params={'learning_rate': args.lr_offline, 'wd': args.wd, 'momentum': args.momentum},
               begin_epoch=0, num_epoch=args.num_epoch_for_offline)
 
     run.add_update_data(img, region)
@@ -44,48 +44,57 @@ try:
         imagefile = handle.frame()
         if not imagefile:
             break
-        TT = time()
         img = plt.imread(imagefile)
-        logging.getLogger().info('@CHEN-> time for imread:%.6f' % (time() - TT))
-
+        img_H, img_W, c = np.shape(img)
         cur += 1
 
         # 初步检测结果
-        T1 = time()
-        region, prob = run.track(model, img, pre_region=region)
-        T2 = time()
+        pre_region = region
+        pre_regions = []
+        for dx, dy, ws, hs in [[0, 0, 1, 1],
+                               [-0.5, -0.5, 2, 2],
+                               [0, 0, 1.5, 1.5],
+                               [0, 0, 0.5, 0.5]]:
+            pre_regions.append(util.central_bbox(pre_region, dx, dy, ws, hs, img_W, img_H))
 
-        # prepare online update data
-        if prob > 0.6:
-            T3 = time()
+        region, prob = run.multi_track(model, img, pre_regions=pre_regions)
+        # twice tracking
+        if prob > 0.5:
             run.add_update_data(img, region)
-            T4 = time()
-            logging.getLogger().info('@CHEN->track:%8.6f, add_update_data:%8.6f\n' % (T2 - T1, T4 - T3))
 
-        # online update
-        if prob < 0.6:
-            # short term update
-            logging.getLogger().info('@CHEN->Short term update')
-            model = run.online_update(args, model, 20)
-            # cur = cur - 1
-        elif cur % 10 == 0:
-            # long term update
-            logging.getLogger().info('@CHEN->Long term update')
-            model = run.online_update(args, model, 100)
+            if cur % 10 == 0:
+                logging.getLogger().info('@CHEN->long term update')
+                model = run.online_update(args, model, 100)
+        else:
+            logging.getLogger().info('@CHEN->Short term update and Twice tracking')
+            model = run.online_update(args, model, 30)
+            pre_region = regions[cur - 1]
+            # 二次检测时，检查上上次的pre_region，并搜索更大的区域
+            pre_regions = [regions[max(0, cur - 2)]]
+            for dx in [-1, 0, 1]:
+                for dy in [-1, 0, 1]:
+                    for ws in [0.5, 1, 2]:
+                        for hs in [0.5, 1, 2]:
+                            pre_regions.append(util.central_bbox(pre_region, dx, dy, ws, hs, img_W, img_H))
 
-        # 汇报检测结果
+            region, prob = run.multi_track(model, img, pre_regions=pre_regions)
+
+            if prob > 0.5:
+                run.add_update_data(img, region)
+
+        # report result
         logging.getLogger().info('\n')
         logging.getLogger().info('@CHEN->Curf:%d, prob:%5.2f\n' % (cur, prob))
         logging.getLogger().info('^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^')
         regions.append(region)
         probs.append(prob)
 
-        # W,H 最小值为10pix
-        handle.report(vot.Rectangle(region[0], region[1], max(10, region[2]), max(10, region[3])))
+        handle.report(vot.Rectangle(region[0], region[1], region[2], region[3]))
 
 except Exception as e:
+    print '\n=============PRINT EXC=============\n'
     traceback.print_exc()
-    print '\n=============CHEN=============\n'
+    print '\n=============FORMAT EXC=============\n'
     print traceback.format_exc()
     print '\n=============CHEN=============\n'
     raise e
