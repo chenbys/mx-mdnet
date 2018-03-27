@@ -6,12 +6,12 @@ import copy
 from setting import const
 
 
-def central_bbox(region, w_f=2, h_f=2):
+def central_bbox(region, dx=0, dy=0, w_f=2, h_f=2):
     x, y, w, h = region
     W = w_f * w
     H = h_f * h
-    X = x + w / 2. - W / 2.
-    Y = y + h / 2. - H / 2.
+    X = x + w / 2. - W / 2. + dx * w
+    Y = y + h / 2. - H / 2. + dy * h
 
     return [X, Y, W, H]
 

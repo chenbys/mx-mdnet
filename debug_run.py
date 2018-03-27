@@ -29,20 +29,15 @@ def debug_track_seq(args, model, img_paths, gts):
     :param gts: 用来调试的每帧的gt，本应只传gts[0]
     :return:
     '''
-    print 'train offine on frame 0'
     train_img_path, train_gt = img_paths[0], gts[0]
-    t = time.time()
     img = plt.imread(train_img_path)
     train_iter = datahelper.get_iter(datahelper.get_train_data(img, train_gt))
     eval_iter = datahelper.get_iter(datahelper.get_train_data(plt.imread(img_paths[5]), gts[5]))
-    print('time cost for getting one train iter :%f' % (time.time() - t))
 
     model.fit(train_data=train_iter, eval_data=eval_iter, optimizer='sgd',
               eval_metric=mx.metric.CompositeEvalMetric(
                   [extend.SMLoss(), extend.PR(0.5), extend.RR(0.5), extend.TrackTopKACC(10, 0.6)]),
-              optimizer_params={'learning_rate': args.lr_offline,
-                                'wd': args.wd,
-                                'momentum': args.momentum,
+              optimizer_params={'learning_rate': args.lr_offline, 'wd': args.wd, 'momentum': args.momentum,
                                 'lr_scheduler': mx.lr_scheduler.FactorScheduler(step=args.lr_step,
                                                                                 factor=args.lr_factor,
                                                                                 stop_factor_lr=args.lr_stop)
@@ -53,8 +48,8 @@ def debug_track_seq(args, model, img_paths, gts):
     # res, scores 是保存每一帧的结果位置和给出的是目标的概率的list，包括用来训练的首帧
     res, probs = [gts[0]], [1]
     region = gts[0]
-
     ious = []
+
     # prepare online update data
     add_update_data(img, gts[0])
 
@@ -63,50 +58,72 @@ def debug_track_seq(args, model, img_paths, gts):
         img = plt.imread(img_paths[cur])
         T = time.time()
         # track
-        region, prob = multi_track(model, img, pre_region=region, gt=gts[cur])
+        pre_region = region
+        pre_regions = []
+        for dx, dy, ws, hs in [[0, 0, 1, 1],
+                               [0.5, 0.5, 2, 2],
+                               [-0.5, -0.5, 0.5, 0.5],
+                               [0, 0, 2, 2],
+                               [0, 0, 0.5, 0.5]]:
+            pre_regions.append(util.central_bbox(pre_region, dx, dy, ws, hs))
 
-        res.append(region)
-        probs.append(prob)
+        region, prob = multi_track(model, img, pre_regions=pre_regions, gt=gts[cur])
 
-        iou = util.overlap_ratio(gts[cur], region)
-        ious.append(iou)
+        # twice tracking
+        if prob > 0.7:
+            add_update_data(img, region)
+
+            if cur % 10 == 0:
+                logging.getLogger().info('@CHEN->long term update')
+                model = online_update(args, model, 50)
+        else:
+            logging.getLogger().info('@CHEN->Short term update and Twice tracking')
+            model = online_update(args, model, 10)
+            pre_region = res[cur - 1]
+            # 二次检测时，检查上上次的pre_region，并搜索更大的区域
+            pre_regions = [res[max(0, cur - 2)]]
+            for dx in [-0.5, 0, 0.5]:
+                for dy in [-0.5, 0, 0.5]:
+                    for ws in [0.5, 1, 2]:
+                        for hs in [0.5, 1, 2]:
+                            pre_regions.append(util.central_bbox(pre_region, dx, dy, ws, hs))
+
+            region, prob = multi_track(model, img, pre_regions=pre_regions, gt=gts[cur])
+
+            if prob > 0.7:
+                add_update_data(img, region)
 
         # report
-        # show
+        res.append(region)
+        probs.append(prob)
+        iou = util.overlap_ratio(gts[cur], region)
+        ious.append(iou)
+        logging.getLogger().info(
+            '@CHEN-> IOU : [ %.2f ] !!!  prob: %.2f for tracking on frame %d, cost %4.4f' \
+            % (iou, prob, cur, time.time() - T))
+
         def show_tracking():
             gt = gts[cur]
+            pre_region = res[cur - 1]
             fig = plt.figure()
             ax = fig.add_subplot(111)
             ax.imshow(img)
             ax.add_patch(patches.Rectangle((region[0], region[1]), region[2], region[3],
-                                           linewidth=4, edgecolor='red', facecolor='none'))
+                                           linewidth=3, edgecolor='red', facecolor='none'))
             ax.add_patch(patches.Rectangle((gt[0], gt[1]), gt[2], gt[3],
                                            linewidth=1, edgecolor='blue', facecolor='none'))
+            ax.add_patch(patches.Rectangle((pre_region[0], pre_region[1]), pre_region[2], pre_region[3],
+                                           linewidth=1, edgecolor='yellow', facecolor='none'))
             fig.show()
 
-        # prepare online update data
-        if prob > 0.6:
-            add_update_data(img, res[cur])
-        # online update
-        if prob < 0.6:
-            # short term update
-            logging.getLogger().info('@CHEN->short term update')
-            model = online_update(args, model, 20)
-            # region, prob = track(model, img, pre_region=region, gt=gts[cur])
-            # a = 1
-            # cur = cur - 1
-        elif cur % 10 == 0:
-            # long term update
-            logging.getLogger().info('@CHEN->long term update')
-            model = online_update(args, model, 100)
-        logging.getLogger().info(
-            '@CHEN-> IOU : [ %.2f ] !!!  prob: %.2f for tracking on frame %d, cost %4.4f' \
-            % (iou, prob, cur, time.time() - T))
+        a = 1
     return res, probs, ious
 
 
 def check_track(model, i, plotc=False, showc=False, checkc=False):
-    track(model, plt.imread(const.img_paths[i]), const.gts[i], const.gts[i], plotc=plotc, showc=showc, checkc=checkc)
+    bboxes, probs = track(model, plt.imread(const.img_paths[i]), const.gts[i], const.gts[i],
+                          plotc=plotc, showc=showc, checkc=checkc)
+    return probs
 
 
 def get_update_data(frame_len=20):
@@ -135,10 +152,11 @@ def add_update_data(img, gt):
     :param gt:
     :return:
     '''
+    update_data = datahelper.get_update_data(img, gt)
     if update_data_queue.full():
         update_data_queue.get()
-
-    update_data = datahelper.get_update_data(img, gt)
+    if update_data_queue.empty():
+        update_data_queue.put(update_data)
     update_data_queue.put(update_data)
 
 
@@ -177,12 +195,7 @@ def online_update(args, model, data_len=20):
     return model
 
 
-def multi_track(model, img, pre_region, gt, topK=5):
-    pre_regions = []
-    for ws in [0.5, 1, 1.5, 2]:
-        for hs in [0.5, 1, 1.5, 2]:
-            pre_regions.append(util.central_bbox(pre_region, ws, hs))
-
+def multi_track(model, img, pre_regions, gt, topK=5):
     A, B = [], []
     for pr in pre_regions:
         t = time.time()
@@ -208,8 +221,6 @@ def multi_track(model, img, pre_region, gt, topK=5):
                                        linewidth=4, edgecolor='red', facecolor='none'))
         ax.add_patch(patches.Rectangle((gt[0], gt[1]), gt[2], gt[3],
                                        linewidth=1, edgecolor='blue', facecolor='none'))
-        ax.add_patch(patches.Rectangle((pre_region[0], pre_region[1]), pre_region[2], pre_region[3],
-                                       linewidth=1, edgecolor='yellow', facecolor='none'))
         fig.show()
 
     return opt_img_bbox, opt_score
@@ -336,9 +347,9 @@ def debug_seq():
     args = parse_args()
 
     vot = datahelper.VOTHelper(args.VOT_path)
-    img_paths, gts = vot.get_seq('bolt2')
+    img_paths, gts = vot.get_seq('girl')
 
-    first_idx = 50  # f_idx=50 in bolt2, frame 189开始bbox变大, 虽然它自己不知道（probs>0.6），但可以通过long term update扭转回来
+    first_idx = 0  # f_idx=50 in bolt2, frame 189开始bbox变大, 虽然它自己不知道（probs>0.6），但可以通过long term update扭转回来
     img_paths, gts = img_paths[first_idx:], gts[first_idx:]
 
     # for debug and check

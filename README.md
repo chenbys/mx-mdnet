@@ -6,7 +6,8 @@ hard minibatch mining
 抽样不使用img_pad
 不update老旧的负样本
 多pre_region进行track
-
+上上次pre_region进行track
+twice track
 
 
 track(model, plt.imread(config.img_paths[0]), config.gts[0], config.gts[0])
@@ -22,5 +23,4 @@ INFO:root:Epoch[4] Validation-TrackTopKAcc=0.982222
 也就是说，训练集上很好，预测集不好。训练集与预测集是否一致？ 
 但是其中预测集包含0.5到0.7的样本，可能会扰乱PR,RR,Loss
 
-
-glove 这个序列说明 搜索范围不足够大，多尺度pre_region更好
+glove的frame8，pre_region=gt时，topK精准，但是probs不高：0.4,0.5左右；其他pre_region的准度不高但probs较低；说明overfitting?
