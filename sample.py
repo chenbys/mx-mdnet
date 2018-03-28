@@ -106,7 +106,8 @@ def get_update_samples(patch_gt, pos_number=16, neg_number=32):
     return a, b
 
 
-def get_predict_feat_bboxes(strides=[2, 2, 2, 2], ideal_feat_bbox=const.ideal_feat_bbox, feat_size=const.feat_size):
+def get_predict_feat_bboxes(strides=[2, 2, 2, 2], ideal_feat_bbox=const.pred_ideal_feat_bbox,
+                            feat_size=const.pred_feat_size):
     # return: bbox on feature map, in format of (0,x1,y1,x2,y2)
 
     stride_x1, stride_y1, stride_x2, stride_y2 = strides
@@ -115,7 +116,7 @@ def get_predict_feat_bboxes(strides=[2, 2, 2, 2], ideal_feat_bbox=const.ideal_fe
 
     feat_boxes = list()
 
-    DX1 = 8
+    DX1 = 12
     for dx1 in np.arange(max(-l_x1, -DX1), min(feat_w - l_x1, DX1 + 1), stride_x1):
         DY1 = DX1 - abs(dx1)
         for dy1 in np.arange(max(-l_y1, -DY1), min(feat_h - l_y1, DY1 + 1), stride_y1):

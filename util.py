@@ -6,6 +6,56 @@ import copy
 from setting import const
 
 
+def get_img_patch(img, region):
+    '''
+        X,Y,W,H是原图上的bbox，用来resize到patch_W,patch_H大小的
+
+    :param img:
+    :param region:
+    :return: img_patch.shape = patch_H,patch_W
+    '''
+    img_H, img_W, c = np.shape(img)
+    x, y, w, h = region
+    W, H = int(const.pred_patch_W / 107. * w), int(const.pred_patch_H / 107. * h)
+    W, H = min(img_W, W), min(img_H, H)
+    patch_W, patch_H = int(W * 107. / w), int(H * 107. / h)
+    X, Y = int(max(0, min(img_W - W, x + w / 2. - W / 2.))), int(max(0, min(img_H - H, y + h / 2. - H / 2.)))
+    img_patch = img[Y:Y + H, X:X + W, :]
+    img_patch_ = imresize(img_patch, [patch_H, patch_W])
+    return img_patch_, [X, Y, W, H, patch_W, patch_H]
+
+
+def transform_bbox(gt, restore_info):
+    x, y, w, h = gt
+    X, Y, W, H, patch_W, patch_H = restore_info
+    w_, h_ = w * patch_W / W, h * patch_H / H
+    x_, y_ = (x - X) * patch_W / W, (y - Y) * patch_H / H
+    return x_, y_, w_, h_
+
+
+def restore_bboxes(patch_bboxes, restore_info):
+    '''
+        X, Y, W, H, patch_W, patch_H = resotre_info
+
+        X,Y,W,H是原图上的bbox，用来resize到patch_W,patch_H大小的
+
+    :param patch_img_bbox:
+    :param resotre_info:
+    :return:
+    '''
+    x_ = patch_bboxes[:, 0]
+    y_ = patch_bboxes[:, 1]
+    w_ = patch_bboxes[:, 2]
+    h_ = patch_bboxes[:, 3]
+
+    X, Y, W, H, patch_W, patch_H = restore_info
+    w, h = w_ / patch_W * W, h_ / patch_H * H
+    x, y = x_ / patch_W * W, y_ / patch_H * H
+    x, y = x + X, y + Y
+    img_bboxes = np.vstack((x, y, w, h)).transpose()
+    return img_bboxes
+
+
 def central_bbox(region, dx=0, dy=0, w_f=2, h_f=2):
     x, y, w, h = region
     W = w_f * w
@@ -16,29 +66,29 @@ def central_bbox(region, dx=0, dy=0, w_f=2, h_f=2):
     return [X, Y, W, H]
 
 
-def restore_img_bbox(patch_bboxes, restore_info):
-    '''
-        将patch上的bbox，恢复到原图上的bbox
-    :param opt_patch_bbox: x,y,w,h
-    :param restore_info: (img_W, img_H, X, Y, W, H)，其中img_WH是原图的size，XYWH是原图上的patch_bbox
-    :return: (x,y,w,h) 原图上的bbox
-    '''
-
-    px = patch_bboxes[:, 0]
-    py = patch_bboxes[:, 1]
-    pw = patch_bboxes[:, 2]
-    ph = patch_bboxes[:, 3]
-
-    img_W, img_H, X, Y, W, H = restore_info
-    px, py = W / 219. * px + X - img_W, H / 219. * py + Y - img_H
-    pw, ph = W / 219. * pw, H / 219. * ph
-    px = np.max((np.zeros_like(px), px), axis=0)
-    py = np.max((np.zeros_like(py), py), axis=0)
-    pw = np.min((img_W - px, pw), axis=0)
-    ph = np.min((img_H - py, ph), axis=0)
-
-    img_bboxes = np.vstack((px, py, pw, ph)).transpose()
-    return img_bboxes
+# def restore_img_bbox(patch_bboxes, restore_info):
+#     '''
+#         将patch上的bbox，恢复到原图上的bbox
+#     :param opt_patch_bbox: x,y,w,h
+#     :param restore_info: (img_W, img_H, X, Y, W, H)，其中img_WH是原图的size，XYWH是原图上的patch_bbox
+#     :return: (x,y,w,h) 原图上的bbox
+#     '''
+#
+#     px = patch_bboxes[:, 0]
+#     py = patch_bboxes[:, 1]
+#     pw = patch_bboxes[:, 2]
+#     ph = patch_bboxes[:, 3]
+#
+#     img_W, img_H, X, Y, W, H = restore_info
+#     px, py = W / const.pred_patch_W * px + X - img_W, H / const.pred_patch_H * py + Y - img_H
+#     pw, ph = W / const.pred_patch_W * pw, H / const.pred_patch_H * ph
+#     px = np.max((np.zeros_like(px), px), axis=0)
+#     py = np.max((np.zeros_like(py), py), axis=0)
+#     pw = np.min((img_W - px, pw), axis=0)
+#     ph = np.min((img_H - py, ph), axis=0)
+#
+#     img_bboxes = np.vstack((px, py, pw, ph)).transpose()
+#     return img_bboxes
 
 
 def crop_img(img, bbox):
@@ -73,10 +123,10 @@ def img2feat(bbox):
     :return: feat_bbox: in format of N*(x1,y1,x2,y2)
     '''
     bbox = np.array(copy.deepcopy(bbox))
-    bbox[:, 0] = np.floor(bbox[:, 0] / const.stride)
-    bbox[:, 1] = np.floor(bbox[:, 1] / const.stride)
-    bbox[:, 2] = np.floor((bbox[:, 2] - const.recf) / const.stride) + 1
-    bbox[:, 3] = np.floor((bbox[:, 3] - const.recf) / const.stride) + 1
+    bbox[:, 0] = np.round(bbox[:, 0] / const.stride)
+    bbox[:, 1] = np.round(bbox[:, 1] / const.stride)
+    bbox[:, 2] = np.round((bbox[:, 2] - const.recf) / const.stride)
+    bbox[:, 3] = np.round((bbox[:, 3] - const.recf) / const.stride)
 
     assert np.min(bbox[:, 0] <= bbox[:, 2]), 'W of img_bbox must greater than 43'
     assert np.min(bbox[:, 1] <= bbox[:, 3]), 'H of img_bbox must greater than 43'
