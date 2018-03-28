@@ -1,9 +1,12 @@
+# -*-coding:utf- 8-*-
+
 import numpy as np
 from matplotlib import patches
 
 import util
 import matplotlib.pyplot as plt
 import datahelper
+from setting import const
 
 
 def check_val_data():
@@ -134,5 +137,77 @@ def test_train_iter():
     return
 
 
+def test_imresize():
+    from scipy.misc import imresize
+    import kit
+    img_path = '/media/chen/datasets/OTB/Liquor/img/0001.jpg'
+    img = plt.imread(img_path)
+    img = img[150:, 250:, :]
+    img_H, img_W, c = np.shape(img)
+    region = [256 - 250, 152 - 150, 73, 210]
+
+    def get_patch(img, region):
+        x, y, w, h = region
+        W, H = const.pred_patch_W / 107. * w, const.pred_patch_H / 107. * h
+        W, H = min(img_W, W), min(img_H, H)
+        patch_W, patch_H = W * 107. / w, H * 107. / h
+        X, Y = max(0, min(img_W - W, x + w / 2. - W / 2.)), max(0, min(img_H - H, y + h / 2. - H / 2.))
+        img_patch = img[int(Y):int(Y + H), int(X):int(X + W), :]
+        img_patch_ = imresize(img_patch, [int(patch_H), int(patch_W)])
+        return img_patch_, [X, Y, W, H, patch_W, patch_H]
+
+    def restore_img(patch_bboxes, resotre_info):
+        '''
+            X, Y, W, H, patch_W, patch_H = resotre_info
+
+            X,Y,W,H是原图上的bbox，用来resize到patch_W,patch_H大小的
+
+        :param patch_img_bbox:
+        :param resotre_info:
+        :return:
+        '''
+        x_ = patch_bboxes[:, 0]
+        y_ = patch_bboxes[:, 1]
+        w_ = patch_bboxes[:, 2]
+        h_ = patch_bboxes[:, 3]
+
+        X, Y, W, H, patch_W, patch_H = resotre_info
+        w, h = w_ / patch_W * W, h_ / patch_H * H
+        x, y = x_ / patch_W * W, y_ / patch_H * H
+        x, y = x + X, y + Y
+        img_bboxes = np.vstack((x, y, w, h)).transpose()
+
+        return img_bboxes
+
+    img_path, restore_info = get_patch(img, region)
+    b = restore_img(np.array([[10, 10, 107, 107], [10, 10, 100, 100]]), restore_info)
+    return
+
+
 if __name__ == '__main__':
-    check_val_data()
+    datahelper.get_predict_data(plt.imread('/media/chen/datasets/OTB/Liquor/img/0001.jpg'), [256, 152, 73, 210])
+
+'''
+    # N time for 1 batch
+    t1 = time.time()
+    for i in range(200):
+        res = model.predict(pred_iter).asnumpy()
+    t2 = time.time()
+
+    # 1 time for N batch
+    [img_patch], [feat_bboxes], [l] = pred_data
+    a, b, c = [], [], []
+    for i in range(200):
+        a.append(img_patch)
+        b.append(feat_bboxes)
+        c.append(l)
+
+    pred_iter2 = datahelper.get_iter((a, b, c))
+    t3 = time.time()
+    res2 = model.predict(pred_iter2).asnumpy()
+    t4 = time.time()
+    print t2 - t1
+    print t4 - t3
+
+    # source
+'''

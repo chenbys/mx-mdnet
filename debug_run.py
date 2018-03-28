@@ -40,7 +40,7 @@ def debug_track_seq(args, model, img_paths, gts):
               optimizer_params={'learning_rate': args.lr_offline, 'wd': args.wd, 'momentum': args.momentum,
                                 'lr_scheduler': mx.lr_scheduler.FactorScheduler(step=args.lr_step,
                                                                                 factor=args.lr_factor,
-                                                                                stop_factor_lr=args.lr_stop)
+                                                                                stop_factor_lr=args.lr_stop),
                                 # 'clip_gradient': 5,
                                 },
               begin_epoch=0, num_epoch=args.num_epoch_for_offline)
@@ -62,8 +62,7 @@ def debug_track_seq(args, model, img_paths, gts):
         pre_region = region
         pre_regions = []
         for dx, dy, ws, hs in [[0, 0, 1, 1],
-                               [-0.5, -0.5, 2, 2],
-                               [0, 0, 1.5, 1.5],
+                               [0, 0, 2, 2],
                                [0, 0, 0.5, 0.5]]:
             pre_regions.append(util.central_bbox(pre_region, dx, dy, ws, hs, img_W, img_H))
 
@@ -95,16 +94,16 @@ def debug_track_seq(args, model, img_paths, gts):
             model = online_update(args, model, 10)
             pre_region = res[cur - 1]
             # 二次检测时，检查上上次的pre_region，并搜索更大的区域
-            pre_regions = [res[max(0, cur - 2)]]
-            for dx in [-0.5, 0, 0.5]:
-                for dy in [-0.5, 0, 0.5]:
-                    for ws in [0.5, 1, 2]:
-                        for hs in [0.5, 1, 2]:
+            pre_regions = res[-7:]
+            for dx in [0]:
+                for dy in [0]:
+                    for ws in [0.5, 0.7, 1, 1.5, 2]:
+                        for hs in [0.5, 0.7, 1, 1.5, 2]:
                             pre_regions.append(util.central_bbox(pre_region, dx, dy, ws, hs, img_W, img_H))
 
             region, prob = multi_track(model, img, pre_regions=pre_regions, gt=gts[cur])
 
-            if prob > 0.5:
+            if prob > 0.6:
                 add_update_data(img, region)
 
         # report
@@ -235,21 +234,21 @@ def track(model, img, pre_region, gt, topK=5, plotc=False, showc=False, checkc=F
     pos_score = res[:, 1]
 
     patch_bboxes = util.feat2img(feat_bboxes[:, 1:])
-    img_bboxes = util.restore_img_bbox(patch_bboxes, restore_info)
+    img_bboxes = util.restore_bboxes(patch_bboxes, restore_info)
     labels = util.overlap_ratio(gt, img_bboxes)
     top_idx = pos_score.argsort()[-topK::]
     top_scores = pos_score[top_idx]
     top_feat_bboxes = feat_bboxes[top_idx, 1:]
     top_patch_bboxes = util.feat2img(top_feat_bboxes)
 
-    top_img_bboxes = util.restore_img_bbox(top_patch_bboxes, restore_info)
+    top_img_bboxes = util.restore_bboxes(top_patch_bboxes, restore_info)
     opt_img_bbox = np.mean(top_img_bboxes, 0)
     opt_score = top_scores.mean()
 
     def check_pred_data(i):
         feat_bbox = feat_bboxes[i, 1:].reshape(1, 4)
         patch_bbox = util.feat2img(feat_bbox)
-        img_bbox = util.restore_img_bbox(patch_bbox, restore_info).reshape(4, )
+        img_bbox = util.restore_bboxes(patch_bbox, restore_info).reshape(4, )
 
         fig = plt.figure()
         ax = fig.add_subplot(111)
@@ -348,7 +347,7 @@ def debug_seq():
     args = parse_args()
 
     vot = datahelper.VOTHelper(args.VOT_path)
-    img_paths, gts = vot.get_seq('bmx')
+    img_paths, gts = vot.get_seq('bag')
 
     first_idx = 0
     img_paths, gts = img_paths[first_idx:], gts[first_idx:]

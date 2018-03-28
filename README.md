@@ -5,10 +5,9 @@ hard minibatch mining
 
 抽样不使用img_pad
 不update老旧的负样本
-多pre_region进行track
-上上次pre_region进行track
-twice track
 
+multi-tracking 用一个pred_iter
+pre_region三倍w,h
 
 track(model, plt.imread(config.img_paths[0]), config.gts[0], config.gts[0])
 INFO:root:PR:0.88,RR:0.17,TopK:1.00,IOU:0.64

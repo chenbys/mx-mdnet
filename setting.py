@@ -10,6 +10,13 @@ const.feat_W = 23.
 const.feat_H = 23.
 const.feat_size = [23., 23.]
 
+const.pred_patch_W = 331.
+const.pred_patch_H = 331.
+const.pred_feat_W = 37.
+const.pred_feat_H = 37.
+const.pred_feat_size = [37., 37.]
+const.pred_ideal_feat_bbox = [14, 14, 22, 22]
+
 const.HWN2NHW = (2, 0, 1)
 const.NHW2HWN = (1, 2, 0)
 const.long_term = 100

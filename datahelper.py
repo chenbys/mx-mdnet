@@ -5,7 +5,10 @@ import mxnet as mx
 import sample
 import os
 from scipy.misc import imresize
+
+import util
 from setting import const
+import matplotlib.pyplot as plt
 
 
 def get_train_data(img, region):
@@ -117,21 +120,20 @@ def get_predict_data(img, pre_region):
     :return: pred_data and restore_info,
     restore_info include the XYWH of img_patch respect to
     '''
-    feat_bbox = sample.get_predict_feat_bboxes()
-    x, y, w, h = pre_region
-    img_H, img_W, c = np.shape(img)
-    img_pad = np.concatenate((img, img, img), 0)
-    img_pad = np.concatenate((img_pad, img_pad, img_pad), 1)
-    W, H = const.patch_W / 107. * w, const.patch_H / 107. * h
-    X, Y = img_W + x + w / 2. - W / 2., img_H + y + h / 2. - H / 2.
-
-    img_patch = img_pad[int(Y):int(Y + H), int(X):int(X + W), :]
-    img_patch = imresize(img_patch, [219, 219])
+    img_patch, restore_info = util.get_img_patch(img, pre_region)
     img_patch = img_patch.transpose(const.HWN2NHW)
+
+    X, Y, W, H, patch_W, patch_H = restore_info
+    patch_feat_bbox = util.img2feat(util.xywh2x1y1x2y2(np.array([[0, 0, patch_W, patch_H]])))
+    t = util.transform_bbox(pre_region, restore_info)
+    ideal_feat_bbox = util.img2feat(util.xywh2x1y1x2y2(np.array([t])))[0, :]
+    feat_bbox = sample.get_predict_feat_bboxes(strides=[3, 3, 3, 3], ideal_feat_bbox=ideal_feat_bbox,
+                                               feat_size=patch_feat_bbox[0, 2:] + 1)
+
     # label的值应该不影响predict的输出
     label = np.ones((feat_bbox.shape[0],))
 
-    return ([img_patch], [feat_bbox], [label]), (img_W, img_H, X, Y, W, H)
+    return ([img_patch], [feat_bbox], [label]), restore_info
 
 
 def get_iter(data):
@@ -294,7 +296,7 @@ class OTBHelper(object):
             path = self.path + seq_name + '/img'
             img_paths = os.listdir(path)
             length = len(img_paths)
-            size = np.shape(cv2.imread(self.path + seq_name + '/img/' + img_paths[0]))
+            size = np.shape(plt.imread(self.path + seq_name + '/img/' + img_paths[0]))
             info[seq_name] = list([length, size])
         return info
 
