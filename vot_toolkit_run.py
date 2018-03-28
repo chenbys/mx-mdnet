@@ -52,8 +52,8 @@ try:
         pre_region = region
         pre_regions = []
         for dx, dy, ws, hs in [[0, 0, 1, 1],
-                               [-0.5, -0.5, 2, 2],
                                [0, 0, 1.5, 1.5],
+                               [0, 0, 2, 2],
                                [0, 0, 0.5, 0.5]]:
             pre_regions.append(util.central_bbox(pre_region, dx, dy, ws, hs, img_W, img_H))
 
@@ -70,11 +70,11 @@ try:
             model = run.online_update(args, model, 30)
             pre_region = regions[cur - 1]
             # 二次检测时，检查上上次的pre_region，并搜索更大的区域
-            pre_regions = [regions[max(0, cur - 2)]]
-            for dx in [-1, 0, 1]:
-                for dy in [-1, 0, 1]:
-                    for ws in [0.5, 1, 2]:
-                        for hs in [0.5, 1, 2]:
+            pre_regions = regions[-7:]
+            for dx in [0]:
+                for dy in [0]:
+                    for ws in [0.5, 0.7, 1, 1.5, 2]:
+                        for hs in [0.5, 0.7, 1, 1.5, 2]:
                             pre_regions.append(util.central_bbox(pre_region, dx, dy, ws, hs, img_W, img_H))
 
             region, prob = run.multi_track(model, img, pre_regions=pre_regions)

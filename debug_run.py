@@ -88,10 +88,10 @@ def debug_track_seq(args, model, img_paths, gts):
 
             if cur % 10 == 0:
                 logging.getLogger().info('@CHEN->long term update')
-                model = online_update(args, model, 50)
+                model = online_update(args, model, 100)
         else:
             logging.getLogger().info('@CHEN->Short term update and Twice tracking')
-            model = online_update(args, model, 10)
+            model = online_update(args, model, 30)
             pre_region = res[cur - 1]
             # 二次检测时，检查上上次的pre_region，并搜索更大的区域
             pre_regions = res[-7:]
@@ -103,7 +103,7 @@ def debug_track_seq(args, model, img_paths, gts):
 
             region, prob = multi_track(model, img, pre_regions=pre_regions, gt=gts[cur])
 
-            if prob > 0.6:
+            if prob > 0.5:
                 add_update_data(img, region)
 
         # report

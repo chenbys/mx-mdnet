@@ -113,10 +113,7 @@ def track(model, img, pre_region, topK=5):
     top_scores = pos_score[top_idx]
     top_feat_bboxes = feat_bboxes[top_idx, 1:]
     top_patch_bboxes = util.feat2img(top_feat_bboxes)
-    top_img_bboxes = util.restore_img_bbox(top_patch_bboxes, restore_info)
-
-    opt_img_bbox = np.mean(top_img_bboxes, 0)
-    opt_score = top_scores.mean()
+    top_img_bboxes = util.restore_bboxes(top_patch_bboxes, restore_info)
 
     return top_img_bboxes, top_scores
 
