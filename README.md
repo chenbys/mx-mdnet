@@ -3,33 +3,16 @@
 hard minibatch mining
 不同层用不同学习率
 
-抽样不使用img_pad
+
+抽样不使用img_pad,一个batch含1个img_patch，各个batch的img_patch的尺寸不用，该如何设置？
+如果不同的话，new mx.io.NDArrayIter会出错
+
+
 不update老旧的负样本
 
 
 os.environ['MXNET_CUDNN_AUTOTUNE_DEFAULT'] = 0
 
-
-multi-tracking 用一个pred_iter
-pre_region三倍w,h
-
-track(model, plt.imread(config.img_paths[0]), config.gts[0], config.gts[0])
-INFO:root:PR:0.88,RR:0.17,TopK:1.00,IOU:0.64
-
-INFO:root:Epoch[4] Train-PR=0.902847
-INFO:root:Epoch[4] Train-RR=0.907361
-INFO:root:Epoch[4] Train-TrackTopKAcc=0.991556
-INFO:root:Epoch[4] Time cost=1.037
-INFO:root:Epoch[4] Validation-PR=0.963978
-INFO:root:Epoch[4] Validation-RR=0.605833
-INFO:root:Epoch[4] Validation-TrackTopKAcc=0.982222
-也就是说，训练集上很好，预测集不好。训练集与预测集是否一致？ 
-但是其中预测集包含0.5到0.7的样本，可能会扰乱PR,RR,Loss
-ball1序列，说明预测集与训练集确实有些不一致，但是在pre_region=gt的情况下，topK还是比较准确的
-
-bolt1序列，bbox一开始有点宽，然后逐渐变得宽，此时如果pre_region=gt的topK能检测出来窄的bbox，不过分数较低0.8多。
-pre_region=pre_region的topK检测出来的bbox很宽分数有0.9多。
-1.更相信以前的样本
 
 
 INFO:root:Epoch[0] Time cost=1.052
