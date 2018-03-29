@@ -135,12 +135,15 @@ def get_update_data(frame_len=20):
     frame_len = min(frame_len, update_data_queue.qsize())
     img_patches, feat_bboxes, labels = [], [], []
 
-    for i in range(1, frame_len):
+    if update_data_queue.qsize() > 20:
+        step = 2
+    else:
+        step = 1
+    for i in range(1, frame_len + 1, step):
         a, b, c = update_data_queue.queue[-(i % frame_len)]
         img_patches += a
         feat_bboxes += b
         labels += c
-
     return img_patches, feat_bboxes, labels
 
 
