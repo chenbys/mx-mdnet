@@ -30,17 +30,12 @@ def get_train_data(img, region):
     x, y, w, h = region
     X, Y, W, H = x - w / 2., y - h / 2., 2 * w, 2 * h
     patches = list()
-    for scale_w in np.arange(0.5, 2.1, 0.1):
-        for scale_h in np.arange(0.5, 2.1, 0.1):
-            W_, H_ = W * scale_w, H * scale_h
-            X_, Y_ = x + w / 2. - W_ / 2., y + h / 2. - H_ / 2.
-            patches.append([int(X_), int(Y_), int(W_), int(H_)])
 
-    for scale_w in np.arange(0.8, 1.11, 0.05):
-        for scale_h in np.arange(0.8, 1.11, 0.05):
-            W_, H_ = W * scale_w, H * scale_h
-            X_, Y_ = x + w / 2. - W_ / 2., y + h / 2. - H_ / 2.
-            patches.append([int(X_), int(Y_), int(W_), int(H_)])
+    for scale_w, scale_h in zip([0.8, 1, 1.4, 1, 2, 2, 1.5, 1.8, 1, 2, 1.2],
+                                [0.8, 1, 1.4, 1, 2, 1.5, 2, 1.8, 2, 1.2, 2]):
+        W_, H_ = W * scale_w, H * scale_h
+        X_, Y_ = x + w / 2. - W_ / 2., y + h / 2. - H_ / 2.
+        patches.append([int(X_), int(Y_), int(W_), int(H_)])
 
     #
     W_, H_ = const.patch_W / 107. * w, const.patch_H / 107. * h
@@ -84,11 +79,11 @@ def get_update_data(img, gt):
     x, y, w, h = gt
     X, Y, W, H = x - w / 2., y - h / 2., 2 * w, 2 * h
     patches = list()
-    for scale_w in [0.8, 1, 1.4]:
-        for scale_h in [0.8, 1, 1.4]:
-            W_, H_ = W * scale_w, H * scale_h
-            X_, Y_ = x + w / 2. - W_ / 2., y + h / 2. - H_ / 2.
-            patches.append([int(X_), int(Y_), int(W_), int(H_)])
+    for scale_w, scale_h in zip([0.8, 1, 1.4, 1, 2, 1.7, 1, 2],
+                                [0.8, 1, 1.4, 1, 2, 1.7, 2, 1.8]):
+        W_, H_ = W * scale_w, H * scale_h
+        X_, Y_ = x + w / 2. - W_ / 2., y + h / 2. - H_ / 2.
+        patches.append([int(X_), int(Y_), int(W_), int(H_)])
 
     image_patches = list()
     feat_bboxes = list()
@@ -104,7 +99,7 @@ def get_update_data(img, gt):
         # get region
         patch_gt = np.array([[const.patch_W * (x - X) / W, const.patch_H * (y - Y) / H,
                               const.patch_W * w / W, const.patch_H * h / H]])
-        feat_bbox, label = sample.get_update_samples(patch_gt, 32, 96)
+        feat_bbox, label = sample.get_update_samples(patch_gt, 30, 120)
 
         image_patches.append(img_patch)
         feat_bboxes.append(feat_bbox)
@@ -127,7 +122,7 @@ def get_predict_data(img, pre_region):
     patch_feat_bbox = util.img2feat(util.xywh2x1y1x2y2(np.array([[0, 0, patch_W, patch_H]])))
     t = util.transform_bbox(pre_region, restore_info)
     ideal_feat_bbox = util.img2feat(util.xywh2x1y1x2y2(np.array([t])))[0, :]
-    feat_bbox = sample.get_predict_feat_bboxes(strides=[3, 3, 3, 3], ideal_feat_bbox=ideal_feat_bbox,
+    feat_bbox = sample.get_predict_feat_bboxes(ideal_feat_bbox=ideal_feat_bbox,
                                                feat_size=patch_feat_bbox[0, 2:] + 1)
 
     # label的值应该不影响predict的输出

@@ -71,7 +71,7 @@ def get_update_feat_bboxes(labal_feat_bbox,
     l_x1, l_y1, l_x2, l_y2 = labal_feat_bbox
     feat_w, feat_h = feat_size
 
-    feat_boxes = list()
+    feat_boxes = [[0, l_x1, l_y1, l_x2, l_y2]]
 
     DX1 = 10
     for dx1 in np.arange(max(-l_x1, -DX1), min(feat_w - l_x1, DX1 + 1), stride_x1):
@@ -95,6 +95,8 @@ def get_update_samples(patch_gt, pos_number=16, neg_number=32):
     rat = util.overlap_ratio(patch_gt, patch_bboxes)
     # pos
     pos_samples = feat_bboxes[rat > const.update_pos_th, :]
+    # if pos_samples.shape[0] <= 1:
+    # print 'err'
     pos_select_index = rand_sample(np.arange(0, pos_samples.shape[0]), pos_number)
     # neg
     neg_samples = feat_bboxes[rat < const.update_neg_th, :]
@@ -106,17 +108,17 @@ def get_update_samples(patch_gt, pos_number=16, neg_number=32):
     return a, b
 
 
-def get_predict_feat_bboxes(strides=[2, 2, 2, 2], ideal_feat_bbox=const.pred_ideal_feat_bbox,
+def get_predict_feat_bboxes(ideal_feat_bbox=const.pred_ideal_feat_bbox,
                             feat_size=const.pred_feat_size):
     # return: bbox on feature map, in format of (0,x1,y1,x2,y2)
 
-    stride_x1, stride_y1, stride_x2, stride_y2 = strides
     l_x1, l_y1, l_x2, l_y2 = ideal_feat_bbox
     feat_w, feat_h = feat_size
 
     feat_boxes = list()
 
-    DX1 = 12
+    DX1 = 13
+    stride_x1, stride_y1, stride_x2, stride_y2 = [4, 4, 4, 4]
     for dx1 in np.arange(max(-l_x1, -DX1), min(feat_w - l_x1, DX1 + 1), stride_x1):
         DY1 = DX1 - abs(dx1)
         for dy1 in np.arange(max(-l_y1, -DY1), min(feat_h - l_y1, DY1 + 1), stride_y1):
@@ -126,7 +128,18 @@ def get_predict_feat_bboxes(strides=[2, 2, 2, 2], ideal_feat_bbox=const.pred_ide
                 DY2 = DX2 - dx2
                 for dy2 in np.arange(max(y1 - l_y2 + 1, -DY2), min(feat_h - l_y2, DY2 + 1), stride_y2):
                     feat_boxes.append([0, x1, y1, l_x2 + dx2, l_y2 + dy2])
-    # print 'Time for get predict feat bboxes:%.6f' % (time() - T)
+
+    DX1 = 3
+    stride_x1, stride_y1, stride_x2, stride_y2 = [2, 2, 2, 2]
+    for dx1 in np.arange(max(-l_x1, -DX1), min(feat_w - l_x1, DX1 + 1), stride_x1):
+        DY1 = DX1 - abs(dx1)
+        for dy1 in np.arange(max(-l_y1, -DY1), min(feat_h - l_y1, DY1 + 1), stride_y1):
+            DX2 = DY1 - abs(dy1)
+            x1, y1 = l_x1 + dx1, l_y1 + dy1
+            for dx2 in np.arange(max(x1 - l_x2 + 1, -DX2), min(feat_w - l_x2, DX2 + 1), stride_x2):
+                DY2 = DX2 - dx2
+                for dy2 in np.arange(max(y1 - l_y2 + 1, -DY2), min(feat_h - l_y2, DY2 + 1), stride_y2):
+                    feat_boxes.append([0, x1, y1, l_x2 + dx2, l_y2 + dy2])
     return np.array(feat_boxes)
 
 

@@ -16,6 +16,7 @@ import matplotlib.pyplot as plt
 from matplotlib import patches
 import logging
 import kit
+import os
 
 update_data_queue = Queue.Queue(maxsize=100)
 
@@ -45,6 +46,7 @@ def debug_track_seq(args, model, img_paths, gts):
                                 },
               begin_epoch=0, num_epoch=args.num_epoch_for_offline)
 
+    os.environ['MXNET_CUDNN_AUTOTUNE_DEFAULT'] = '0'
     # res, scores 是保存每一帧的结果位置和给出的是目标的概率的list，包括用来训练的首帧
     res, probs = [gts[0]], [1]
     region = gts[0]
@@ -60,7 +62,7 @@ def debug_track_seq(args, model, img_paths, gts):
         T = time.time()
         # track
         pre_region = region
-        pre_regions = []
+        pre_regions = res[-15::3] + res[-3:]
         for dx, dy, ws, hs in [[0, 0, 1, 1],
                                [0, 0, 2, 2],
                                [0, 0, 0.5, 0.5]]:
@@ -90,8 +92,10 @@ def debug_track_seq(args, model, img_paths, gts):
                 logging.getLogger().info('@CHEN->long term update')
                 model = online_update(args, model, 100)
         else:
-            logging.getLogger().info('@CHEN->Short term update and Twice tracking')
+            logging.getLogger().info('@CHEN->Twice tracking')
+            logging.getLogger().info('@CHEN->Short term update')
             model = online_update(args, model, 30)
+
             pre_region = res[cur - 1]
             # 二次检测时，检查上上次的pre_region，并搜索更大的区域
             pre_regions = res[-7:]
@@ -114,14 +118,27 @@ def debug_track_seq(args, model, img_paths, gts):
         logging.getLogger().info(
             '@CHEN-> IOU : [ %.2f ] !!!  prob: %.2f for tracking on frame %d, cost %4.4f' \
             % (iou, prob, cur, time.time() - T))
-
-        next_frame = 1
+        if iou < 0.4:
+            next_frame = 1
 
     return res, probs, ious
 
 
-def check_track(model, i, plotc=False, showc=False, checkc=False):
-    bboxes, probs = track(model, plt.imread(const.img_paths[i]), const.gts[i], const.gts[i],
+def check_track(model, i, flag=0, pr=None):
+    if pr == None:
+        pr = const.gts[i]
+
+    plotc = 0
+    showc = 0
+    checkc = 0
+    if flag == 1:
+        plotc = 1
+    if flag == 2:
+        showc = 1
+    if flag == 3:
+        checkc = 1
+
+    bboxes, probs = track(model, plt.imread(const.img_paths[i]), pr, const.gts[i],
                           plotc=plotc, showc=showc, checkc=checkc)
     return probs
 
@@ -185,16 +202,36 @@ def online_update(args, model, data_len=20):
     :return:
     '''
     update_iter = datahelper.get_iter(get_update_data(data_len))
+    logging.getLogger().info('@CHEN->update %3d.' % update_iter.num_data)
 
-    model.fit(train_data=update_iter, optimizer='sgd',
-              eval_metric=mx.metric.CompositeEvalMetric(
-                  [extend.SMLoss(), extend.PR(0.5), extend.RR(0.5), extend.TrackTopKACC(10, 0.6)]),
-              optimizer_params={'learning_rate': args.lr_offline,
-                                'wd': args.wd,
-                                'momentum': args.momentum,
-                                # 'clip_gradient': 5,
-                                },
-              begin_epoch=0, num_epoch=args.num_epoch_for_online)
+    for epoch in range(0, args.num_epoch_for_online):
+        nbatch = 0
+        data_iter = iter(update_iter)
+        end_of_batch = False
+        next_data_batch = next(data_iter)
+        while not end_of_batch:
+            data_batch = next_data_batch
+            model.forward_backward(data_batch)
+            model.update()
+            try:
+                next_data_batch = next(data_iter)
+                model.prepare(next_data_batch)
+            except StopIteration:
+                end_of_batch = True
+
+            nbatch += 1
+
+        update_iter.reset()
+
+    # model.fit(train_data=update_iter, optimizer='sgd',
+    #           eval_metric=mx.metric.CompositeEvalMetric(
+    #               [extend.SMLoss(), extend.PR(0.5), extend.RR(0.5), extend.TrackTopKACC(10, 0.6)]),
+    #           optimizer_params={'learning_rate': args.lr_online,
+    #                             'wd': args.wd,
+    #                             'momentum': args.momentum,
+    #                             # 'clip_gradient': 5,
+    #                             },
+    #           begin_epoch=0, num_epoch=args.num_epoch_for_online)
     return model
 
 
@@ -350,7 +387,7 @@ def debug_seq():
     args = parse_args()
 
     vot = datahelper.VOTHelper(args.VOT_path)
-    img_paths, gts = vot.get_seq('bag')
+    img_paths, gts = vot.get_seq('bolt1')
 
     first_idx = 0
     img_paths, gts = img_paths[first_idx:], gts[first_idx:]
@@ -380,12 +417,12 @@ def parse_args():
 
     parser.add_argument('--lr_step', default=307 * 2, help='every x num for y epoch', type=int)
     parser.add_argument('--lr_factor', default=0.8, help='20 times will be around 0.1', type=float)
-    parser.add_argument('--lr_stop', default=1e-5, type=float)
+    parser.add_argument('--lr_stop', default=6e-6, type=float)
 
-    parser.add_argument('--wd', default=5e0, help='weight decay', type=float)
+    parser.add_argument('--wd', default=3e0, help='weight decay', type=float)
     parser.add_argument('--momentum', default=0.9, type=float)
     parser.add_argument('--lr_offline', default=2e-5, help='base learning rate', type=float)
-    parser.add_argument('--lr_online', default=1e-5, help='base learning rate', type=float)
+    parser.add_argument('--lr_online', default=6e-6, help='base learning rate', type=float)
 
     args = parser.parse_args()
     return args
