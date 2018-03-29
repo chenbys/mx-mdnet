@@ -6,6 +6,7 @@ import copy
 from setting import const
 
 
+
 def central_bbox(region, dx, dy, w_f, h_f, img_W, img_H):
     x, y, w, h = region
     W = min(img_W, w_f * w)
@@ -18,10 +19,17 @@ def central_bbox(region, dx, dy, w_f, h_f, img_W, img_H):
 
 def get_img_patch(img, region):
     '''
+        传入原图和region，
+        将一个不超过原图的
+            [const.pred_patch_W,H]的
+            以region为中心的bbox
+            的部分缩放，
+            使得region为[107,107]
+
         X,Y,W,H是原图上的bbox，用来resize到patch_W,patch_H大小的
 
-    :param img:
-    :param region:
+    :param img: 原图
+    :param region: gt
     :return: img_patch.shape = patch_H,patch_W
     '''
     img_H, img_W, c = np.shape(img)
@@ -64,31 +72,6 @@ def restore_bboxes(patch_bboxes, restore_info):
     x, y = x + X, y + Y
     img_bboxes = np.vstack((x, y, w, h)).transpose()
     return img_bboxes
-
-
-# def restore_img_bbox(patch_bboxes, restore_info):
-#     '''
-#         将patch上的bbox，恢复到原图上的bbox
-#     :param opt_patch_bbox: x,y,w,h
-#     :param restore_info: (img_W, img_H, X, Y, W, H)，其中img_WH是原图的size，XYWH是原图上的patch_bbox
-#     :return: (x,y,w,h) 原图上的bbox
-#     '''
-#
-#     px = patch_bboxes[:, 0]
-#     py = patch_bboxes[:, 1]
-#     pw = patch_bboxes[:, 2]
-#     ph = patch_bboxes[:, 3]
-#
-#     img_W, img_H, X, Y, W, H = restore_info
-#     px, py = W / const.pred_patch_W * px + X - img_W, H / const.pred_patch_H * py + Y - img_H
-#     pw, ph = W / const.pred_patch_W * pw, H / const.pred_patch_H * ph
-#     px = np.max((np.zeros_like(px), px), axis=0)
-#     py = np.max((np.zeros_like(py), py), axis=0)
-#     pw = np.min((img_W - px, pw), axis=0)
-#     ph = np.min((img_H - py, ph), axis=0)
-#
-#     img_bboxes = np.vstack((px, py, pw, ph)).transpose()
-#     return img_bboxes
 
 
 def crop_img(img, bbox):
@@ -164,8 +147,8 @@ def overlap_ratio(rect1, rect2):
     - rect: 1d array of [x,y,w,h] or
             2d array of N x [x,y,w,h]
     '''
-    rect1 = np.array(rect1)
-    rect2 = np.array(rect2)
+    rect1 = np.array(rect1,dtype='float32')
+    rect2 = np.array(rect2,dtype='float32')
     if rect1.ndim == 1:
         rect1 = rect1[None, :]
     if rect2.ndim == 1:

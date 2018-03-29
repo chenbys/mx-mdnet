@@ -429,4 +429,5 @@ def parse_args():
 
 
 if __name__ == '__main__':
+    datahelper.get_train_data(plt.imread('/media/chen/datasets/OTB/Liquor/img/0001.jpg'), [256, 152, 73, 210])
     debug_seq()
