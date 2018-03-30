@@ -137,6 +137,19 @@ def get_iter(data):
                              batch_size=1, data_name=('image_patch', 'feat_bbox',), label_name=('label',))
 
 
+def get_data_batches(data):
+    # iter = get_iter(data)
+    # d = iter.next()
+    image_patches, feat_bboxes, labels = data
+    length = len(labels)
+    data_batches = []
+    for i in range(length):
+        x, y, z = mx.nd.array([image_patches[i]]), mx.nd.array([feat_bboxes[i]]), mx.nd.array([labels[i]])
+        data_batches.append(mx.io.DataBatch([x, y], [z]))
+
+    return data_batches
+
+
 class OTBHelper(object):
     def __init__(self, path='/Users/chenjunjie/workspace/OTB/'):
         self.home_path = path
