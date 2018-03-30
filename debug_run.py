@@ -50,17 +50,6 @@ def debug_track_seq(args, model, img_paths, gts):
             model.update()
         logging.info('epoch%d, cost:%.4f' % (epoch, time.time() - t))
 
-    # model.fit(train_data=train_iter, eval_data=eval_iter, optimizer='sgd',
-    #           eval_metric=mx.metric.CompositeEvalMetric(
-    #               [extend.SMLoss(), extend.PR(0.5), extend.RR(0.5), extend.TrackTopKACC(10, 0.6)]),
-    #           optimizer_params={'learning_rate': args.lr_offline, 'wd': args.wd, 'momentum': args.momentum,
-    #                             'lr_scheduler': mx.lr_scheduler.FactorScheduler(step=args.lr_step,
-    #                                                                             factor=args.lr_factor,
-    #                                                                             stop_factor_lr=args.lr_stop),
-    #                             # 'clip_gradient': 5,
-    #                             },
-    #           begin_epoch=0, num_epoch=args.num_epoch_for_offline)
-
     os.environ['MXNET_CUDNN_AUTOTUNE_DEFAULT'] = '0'
     # res, scores 是保存每一帧的结果位置和给出的是目标的概率的list，包括用来训练的首帧
     res, probs = [gts[0]], [1]

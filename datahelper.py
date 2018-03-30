@@ -87,6 +87,61 @@ def get_update_data(img, gt):
     :param gt:
     :return:
     '''
+
+    pos_sample_num, neg_sample_num = 16, 64
+    img_H, img_W, c = np.shape(img)
+
+    A = list()
+    B = list()
+    C = list()
+    # 伪造一些不准确的pre_region
+    pre_regions = []
+    for dx in [-1, 0, 1]:
+        for dy in [-1, 0, 1]:
+            for ws in [0.5, 0.7, 1, 1.5, 2]:
+                for hs in [0.5, 0.7, 1, 1.5, 2]:
+                    pre_regions.append(util.central_bbox(gt, dx, dy, ws, hs, img_W, img_H))
+
+    for pr in pre_regions:
+        img_patch, restore_info = util.get_img_patch(img, pr)
+        X, Y, W, H, patch_W, patch_H = restore_info
+        patch_feat_bbox = util.img2feat(util.xywh2x1y1x2y2(np.array([[0, 0, patch_W, patch_H]])))
+        label_patch_bbox = util.transform_bbox(gt, restore_info)
+
+        if util.bbox_contain([X, Y, W, H], gt):
+            # 抽样区域包括gt,可以采集正样本
+            ideal_feat_bbox = util.img2feat(util.xywh2x1y1x2y2(np.array([label_patch_bbox])))[0, :]
+            all_feat_bboxes = sample.get_train_feat_bboxes(ideal_feat_bbox=ideal_feat_bbox,
+                                                           feat_size=patch_feat_bbox[0, 2:] + 1)
+        else:
+            # 抽样区域不完全包括gt，很可能无法采集到正样本
+            all_feat_bboxes = sample.get_neg_feat_bboxes(feat_size=patch_feat_bbox[0, 2:] + 1)
+
+        # 还原到patch上，以便获得label
+        patch_bboxes = util.feat2img(all_feat_bboxes[:, 1:])
+        rat = util.overlap_ratio(label_patch_bbox, patch_bboxes)
+
+        # pos
+        pos_samples = all_feat_bboxes[rat > const.train_pos_th, :]
+        if len(pos_samples) > pos_sample_num / 3.:
+            pos_select_index = sample.rand_sample(np.arange(0, pos_samples.shape[0]), pos_sample_num)
+            neg_samples = all_feat_bboxes[rat < const.train_neg_th, :]
+            neg_select_index = sample.rand_sample(np.arange(0, neg_samples.shape[0]), neg_sample_num)
+            feat_bboxes, labels = np.vstack((pos_samples[pos_select_index], neg_samples[neg_select_index])), \
+                                  np.hstack((np.ones((pos_sample_num,)), np.zeros((neg_sample_num,))))
+        else:
+            # 没采集到足够的正样本
+            neg_samples = all_feat_bboxes[rat < const.train_neg_th, :]
+            neg_select_index = sample.rand_sample(np.arange(0, neg_samples.shape[0]), pos_sample_num + neg_sample_num)
+            feat_bboxes, labels = neg_samples[neg_select_index], np.zeros((pos_sample_num + neg_sample_num,))
+
+        img_patch = img_patch.transpose(const.HWN2NHW)
+        A.append(img_patch)
+        B.append(feat_bboxes)
+        C.append(labels)
+
+    return A, B, C
+
     img_H, img_W, c = np.shape(img)
     img_pad = np.concatenate((img, img, img), 0)
     img_pad = np.concatenate((img_pad, img_pad, img_pad), 1)
