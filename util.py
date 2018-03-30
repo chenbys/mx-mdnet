@@ -6,6 +6,11 @@ import copy
 from setting import const
 
 
+def bbox_contain(B, b):
+    X, Y, W, H = B
+    x, y, w, h = b
+    return (X <= x) & (Y <= y) & ((X + W) >= (x + w)) & ((Y + H) >= (y + h))
+
 
 def central_bbox(region, dx, dy, w_f, h_f, img_W, img_H):
     x, y, w, h = region
@@ -147,8 +152,8 @@ def overlap_ratio(rect1, rect2):
     - rect: 1d array of [x,y,w,h] or
             2d array of N x [x,y,w,h]
     '''
-    rect1 = np.array(rect1,dtype='float32')
-    rect2 = np.array(rect2,dtype='float32')
+    rect1 = np.array(rect1, dtype='float32')
+    rect2 = np.array(rect2, dtype='float32')
     if rect1.ndim == 1:
         rect1 = rect1[None, :]
     if rect2.ndim == 1:

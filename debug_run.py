@@ -32,19 +32,34 @@ def debug_track_seq(args, model, img_paths, gts):
     '''
     train_img_path, train_gt = img_paths[0], gts[0]
     img = plt.imread(train_img_path)
-    train_iter = datahelper.get_iter(datahelper.get_train_data(img, train_gt))
-    eval_iter = datahelper.get_iter(datahelper.get_train_data(plt.imread(img_paths[5]), gts[5]))
 
-    model.fit(train_data=train_iter, eval_data=eval_iter, optimizer='sgd',
-              eval_metric=mx.metric.CompositeEvalMetric(
-                  [extend.SMLoss(), extend.PR(0.5), extend.RR(0.5), extend.TrackTopKACC(10, 0.6)]),
-              optimizer_params={'learning_rate': args.lr_offline, 'wd': args.wd, 'momentum': args.momentum,
-                                'lr_scheduler': mx.lr_scheduler.FactorScheduler(step=args.lr_step,
-                                                                                factor=args.lr_factor,
-                                                                                stop_factor_lr=args.lr_stop),
-                                # 'clip_gradient': 5,
-                                },
-              begin_epoch=0, num_epoch=args.num_epoch_for_offline)
+    model.init_optimizer(kvstore='local', optimizer='sgd',
+                         optimizer_params={'learning_rate': args.lr_offline, 'wd': args.wd, 'momentum': args.momentum,
+                                           'lr_scheduler': mx.lr_scheduler.FactorScheduler(step=args.lr_step,
+                                                                                           factor=args.lr_factor,
+                                                                                           stop_factor_lr=args.lr_stop),
+                                           # 'clip_gradient': 5,
+                                           })
+
+    data_batches = datahelper.get_data_batches(datahelper.get_train_data(img, train_gt))
+
+    for epoch in range(0, args.num_epoch_for_offline):
+        t = time.time()
+        for data_batch in data_batches:
+            model.forward_backward(data_batch)
+            model.update()
+        logging.info('epoch%d, cost:%.4f' % (epoch, time.time() - t))
+
+    # model.fit(train_data=train_iter, eval_data=eval_iter, optimizer='sgd',
+    #           eval_metric=mx.metric.CompositeEvalMetric(
+    #               [extend.SMLoss(), extend.PR(0.5), extend.RR(0.5), extend.TrackTopKACC(10, 0.6)]),
+    #           optimizer_params={'learning_rate': args.lr_offline, 'wd': args.wd, 'momentum': args.momentum,
+    #                             'lr_scheduler': mx.lr_scheduler.FactorScheduler(step=args.lr_step,
+    #                                                                             factor=args.lr_factor,
+    #                                                                             stop_factor_lr=args.lr_stop),
+    #                             # 'clip_gradient': 5,
+    #                             },
+    #           begin_epoch=0, num_epoch=args.num_epoch_for_offline)
 
     os.environ['MXNET_CUDNN_AUTOTUNE_DEFAULT'] = '0'
     # res, scores 是保存每一帧的结果位置和给出的是目标的概率的list，包括用来训练的首帧
@@ -388,6 +403,7 @@ def debug_seq():
 
     vot = datahelper.VOTHelper(args.VOT_path)
     img_paths, gts = vot.get_seq('bolt1')
+    print 'load seq over'
 
     first_idx = 0
     img_paths, gts = img_paths[first_idx:], gts[first_idx:]
@@ -429,5 +445,6 @@ def parse_args():
 
 
 if __name__ == '__main__':
-    datahelper.get_train_data(plt.imread('/media/chen/datasets/OTB/Liquor/img/0001.jpg'), [256, 152, 73, 210])
+    # a=datahelper.get_iter(
+    #     datahelper.get_train_data(plt.imread('/media/chen/datasets/OTB/Liquor/img/0001.jpg'), [256, 152, 73, 210]))
     debug_seq()

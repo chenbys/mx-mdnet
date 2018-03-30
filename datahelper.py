@@ -11,6 +11,7 @@ from setting import const
 import matplotlib.pyplot as plt
 import kit
 
+
 def get_train_data(img, region):
     '''
         source mdnet : 30 batch, each 32 pos 96 neg
@@ -23,6 +24,7 @@ def get_train_data(img, region):
     :param stride_h:
     :return:
     '''
+    pos_sample_num, neg_sample_num = 32, 96
     img_H, img_W, c = np.shape(img)
 
     A = list()
@@ -30,8 +32,8 @@ def get_train_data(img, region):
     C = list()
     # 伪造一些不准确的pre_region
     pre_regions = []
-    for dx in [0]:
-        for dy in [0]:
+    for dx in [-1, 0, 1]:
+        for dy in [-1, 0, 1]:
             for ws in [0.5, 0.7, 1, 1.5, 2]:
                 for hs in [0.5, 0.7, 1, 1.5, 2]:
                     pre_regions.append(util.central_bbox(region, dx, dy, ws, hs, img_W, img_H))
@@ -39,28 +41,35 @@ def get_train_data(img, region):
     for pr in pre_regions:
         img_patch, restore_info = util.get_img_patch(img, pr)
         X, Y, W, H, patch_W, patch_H = restore_info
-
-        # 抽取候选样本
-        label_patch_bbox = util.transform_bbox(region, restore_info)
-        ideal_feat_bbox = util.img2feat(util.xywh2x1y1x2y2(np.array([label_patch_bbox])))[0, :]
         patch_feat_bbox = util.img2feat(util.xywh2x1y1x2y2(np.array([[0, 0, patch_W, patch_H]])))
-        all_feat_bboxes = sample.get_train_feat_bboxes(ideal_feat_bbox=ideal_feat_bbox,
-                                                       feat_size=patch_feat_bbox[0, 2:] + 1)
+        label_patch_bbox = util.transform_bbox(region, restore_info)
+
+        if util.bbox_contain([X, Y, W, H], region):
+            # 抽样区域包括gt,可以采集正样本
+            ideal_feat_bbox = util.img2feat(util.xywh2x1y1x2y2(np.array([label_patch_bbox])))[0, :]
+            all_feat_bboxes = sample.get_train_feat_bboxes(ideal_feat_bbox=ideal_feat_bbox,
+                                                           feat_size=patch_feat_bbox[0, 2:] + 1)
+        else:
+            # 抽样区域不完全包括gt，很可能无法采集到正样本
+            all_feat_bboxes = sample.get_neg_feat_bboxes(feat_size=patch_feat_bbox[0, 2:] + 1)
+
         # 还原到patch上，以便获得label
         patch_bboxes = util.feat2img(all_feat_bboxes[:, 1:])
         rat = util.overlap_ratio(label_patch_bbox, patch_bboxes)
 
         # pos
         pos_samples = all_feat_bboxes[rat > const.train_pos_th, :]
-        if pos_samples.shape[0] <= 1:
-            a = 1
-        pos_select_index = sample.rand_sample(np.arange(0, pos_samples.shape[0]), 32)
-        # neg
-        neg_samples = all_feat_bboxes[rat < const.train_neg_th, :]
-        neg_select_index = sample.rand_sample(np.arange(0, neg_samples.shape[0]), 96)
-
-        feat_bboxes, labels = np.vstack((pos_samples[pos_select_index], neg_samples[neg_select_index])), \
-                              np.hstack((np.ones((32,)), np.zeros((96,))))
+        if len(pos_samples) > pos_sample_num / 3.:
+            pos_select_index = sample.rand_sample(np.arange(0, pos_samples.shape[0]), pos_sample_num)
+            neg_samples = all_feat_bboxes[rat < const.train_neg_th, :]
+            neg_select_index = sample.rand_sample(np.arange(0, neg_samples.shape[0]), neg_sample_num)
+            feat_bboxes, labels = np.vstack((pos_samples[pos_select_index], neg_samples[neg_select_index])), \
+                                  np.hstack((np.ones((pos_sample_num,)), np.zeros((neg_sample_num,))))
+        else:
+            # 没采集到足够的正样本
+            neg_samples = all_feat_bboxes[rat < const.train_neg_th, :]
+            neg_select_index = sample.rand_sample(np.arange(0, neg_samples.shape[0]), pos_sample_num + neg_sample_num)
+            feat_bboxes, labels = neg_samples[neg_select_index], np.zeros((pos_sample_num + neg_sample_num,))
 
         img_patch = img_patch.transpose(const.HWN2NHW)
         A.append(img_patch)
@@ -68,42 +77,6 @@ def get_train_data(img, region):
         C.append(labels)
 
     return A, B, C
-    # img_pad = np.concatenate((img, img, img), 0)
-    # img_pad = np.concatenate((img_pad, img_pad, img_pad), 1)
-    #
-    # x, y, w, h = region
-    # X, Y, W, H = x - w / 2., y - h / 2., 2 * w, 2 * h
-    # patches = list()
-    #
-    # for scale_w, scale_h in zip([0.8, 1, 1.4, 1, 2, 2, 1.5, 1.8, 1, 2, 1.2],
-    #                             [0.8, 1, 1.4, 1, 2, 1.5, 2, 1.8, 2, 1.2, 2]):
-    #     W_, H_ = W * scale_w, H * scale_h
-    #     X_, Y_ = x + w / 2. - W_ / 2., y + h / 2. - H_ / 2.
-    #     patches.append([int(X_), int(Y_), int(W_), int(H_)])
-    #
-    # #
-    # W_, H_ = const.patch_W / 107. * w, const.patch_H / 107. * h
-    # X_, Y_ = x + w / 2. - W_ / 2., y + h / 2. - H_ / 2.
-    # patches.append([int(X_), int(Y_), int(W_), int(H_)])
-    # patches.append([int(X_), int(Y_), int(W_), int(H_)])
-    # patches.append([int(X_), int(Y_), int(W_), int(H_)])
-    #
-    # image_patches = list()
-    # feat_bboxes = list()
-    # labels = list()
-    # for patch in patches:
-    #     X, Y, W, H = patch
-    #     img_patch = imresize(img_pad[int(Y + img_H):int(Y + img_H + H), int(X + img_W):int(X + img_W + W), :],
-    #                          [int(const.patch_H), int(const.patch_W)])
-    #     img_patch = img_patch.transpose(const.HWN2NHW)
-    #
-    #     # get region
-    #     patch_gt = np.array([[const.patch_W * (x - X) / W, const.patch_H * (y - Y) / H,
-    #                           const.patch_W * w / W, const.patch_H * h / H]])
-    #     feat_bbox, label = sample.get_train_samples(patch_gt)
-    #     image_patches.append(img_patch)
-    #     feat_bboxes.append(feat_bbox)
-    #     labels.append(label)
 
 
 def get_update_data(img, gt):
@@ -177,6 +150,17 @@ def get_iter(data):
     image_patches, feat_bboxes, labels = data
     return mx.io.NDArrayIter({'image_patch': image_patches, 'feat_bbox': feat_bboxes}, {'label': labels},
                              batch_size=1, data_name=('image_patch', 'feat_bbox',), label_name=('label',))
+
+
+def get_data_batches(data):
+    image_patches, feat_bboxes, labels = data
+    length = len(labels)
+    data_batches = []
+    for i in range(length):
+        x, y, z = mx.nd.array([image_patches[i]]), mx.nd.array([feat_bboxes[i]]), mx.nd.array([labels[i]])
+        data_batches.append(mx.io.DataBatch([y, x], [z]))
+
+    return data_batches
 
 
 class OTBHelper(object):

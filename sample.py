@@ -30,6 +30,23 @@ def get_train_samples(patch_gt, pos_number=32, neg_number=96):
     return a, b
 
 
+def get_neg_feat_bboxes(feat_size=const.pred_feat_size):
+    # return: bbox on feature map, in format of (0,x1,y1,x2,y2)
+
+    feat_w, feat_h = feat_size
+    w, h = 8, 8
+    stride_x1, stride_y1, stride_x2, stride_y2 = [3, 3, 1, 1]
+
+    feat_bboxes = []
+    for x1 in (0, feat_w - w, stride_x1):
+        for y1 in (0, feat_h - h, stride_y1):
+            for x2 in (x1 + 6, min(x1 + 11, feat_w - 1), stride_x2):
+                for y2 in (y1 + 6, min(y1 + 11, feat_h - 1), stride_y2):
+                    feat_bboxes.append([0, x1, y1, x2, y2])
+
+    return np.array(feat_bboxes)
+
+
 def get_train_feat_bboxes(ideal_feat_bbox=const.pred_ideal_feat_bbox,
                           feat_size=const.pred_feat_size):
     # return: bbox on feature map, in format of (0,x1,y1,x2,y2)
@@ -37,7 +54,7 @@ def get_train_feat_bboxes(ideal_feat_bbox=const.pred_ideal_feat_bbox,
     l_x1, l_y1, l_x2, l_y2 = ideal_feat_bbox
     feat_w, feat_h = feat_size
 
-    feat_boxes = list()
+    feat_boxes = [[0, l_x1, l_y1, l_x2, l_y2]]
 
     DX1 = 13
     stride_x1, stride_y1, stride_x2, stride_y2 = [3, 3, 3, 3]

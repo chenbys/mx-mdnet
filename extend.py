@@ -84,7 +84,7 @@ class SMLoss(mx.metric.EvalMetric):
         super(SMLoss, self).__init__('SMLoss')
 
     def update(self, labels, preds):
-        labels = labels[0].as_in_context(mx.gpu(0))[0,:]
+        labels = labels[0].as_in_context(mx.gpu(0))[0, :]
         pred = preds[0]
         loss = mx.ndarray.softmax_cross_entropy(pred, labels).asnumpy()[0]
         if loss > 7000:
@@ -167,19 +167,21 @@ def get_mdnet_conv123fc4fc5_params(prefix='', mat_path='saved/mdnet_otb-vot15_in
 
 
 def init_model(args):
-    import datahelper
-
     sym = csym.get_mdnet()
     fixed_param_names = []
     for i in range(1, args.fixed_conv + 1):
         fixed_param_names.append('conv' + str(i) + '_weight')
         fixed_param_names.append('conv' + str(i) + '_bias')
-    model = mx.mod.Module(symbol=sym, context=mx.gpu(0), data_names=('image_patch', 'feat_bbox',),
+    model = mx.mod.Module(symbol=sym, context=mx.gpu(0), data_names=('feat_bbox', 'image_patch'),
                           label_names=('label',),
                           fixed_param_names=fixed_param_names)
-    sample_iter = datahelper.get_iter(
-        datahelper.get_train_data(plt.imread(args.ROOT_path + '/saved/mx-mdnet_01CE.jpg'), [112, 112, 107, 107]))
-    model.bind(sample_iter.provide_data, sample_iter.provide_label)
+    print 'new mod over'
+
+    # sample_iter = datahelper.get_iter(
+    #     datahelper.get_train_data(plt.imread(args.ROOT_path + '/saved/mx-mdnet_01CE.jpg'), [112, 112, 107, 107]))
+    model.bind([mx.io.DataDesc('feat_bbox', (1, 128, 5)), mx.io.DataDesc('image_patch', (1, 3, 219, 219))],
+               [mx.io.DataDesc('label', (1, 128))])
+    print 'bind over'
     all_params = {}
     if args.saved_fname == 'conv123':
         print '@CHEN->load params from conv123'
@@ -195,12 +197,8 @@ def init_model(args):
             conv123fc4fc5[k] = mx.ndarray.array(conv123fc4fc5.get(k))
         model.init_params(arg_params=conv123fc4fc5, allow_missing=True, force_init=False, allow_extra=True)
 
-    elif args.saved_fname is not None:
-        print '@CHEN->load all params from:' + args.saved_fname
-        all_params, arg_params = load_all_params(args.saved_fname)
-        model.set_params(arg_params, None)
     else:
         print '@CHEN->init params.'
         model.init_params()
-
+    print 'init params over'
     return model, all_params
