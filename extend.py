@@ -1,5 +1,7 @@
 # -*-coding:utf- 8-*-
+from time import time
 
+import logging
 import mxnet as mx
 import numpy as np
 import matplotlib.pyplot as plt
@@ -175,13 +177,12 @@ def init_model(args):
     model = mx.mod.Module(symbol=sym, context=mx.gpu(0), data_names=('feat_bbox', 'image_patch'),
                           label_names=('label',),
                           fixed_param_names=fixed_param_names)
-    print 'new mod over'
-
-    # sample_iter = datahelper.get_iter(
-    #     datahelper.get_train_data(plt.imread(args.ROOT_path + '/saved/mx-mdnet_01CE.jpg'), [112, 112, 107, 107]))
+    t = time()
     model.bind([mx.io.DataDesc('feat_bbox', (1, 128, 5)), mx.io.DataDesc('image_patch', (1, 3, 219, 219))],
                [mx.io.DataDesc('label', (1, 128))])
-    print 'bind over'
+    print('| mod.bind, cost:%.6f' % (time() - t))
+
+    t = time()
     all_params = {}
     if args.saved_fname == 'conv123':
         print '@CHEN->load params from conv123'
@@ -200,5 +201,5 @@ def init_model(args):
     else:
         print '@CHEN->init params.'
         model.init_params()
-    print 'init params over'
+    print('| init params, cost:%.6f' % (time() - t))
     return model, all_params

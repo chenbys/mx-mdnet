@@ -96,11 +96,9 @@ def get_update_data(img, gt):
     C = list()
     # 伪造一些不准确的pre_region
     pre_regions = []
-    for dx in [-1, 0, 1]:
-        for dy in [-1, 0, 1]:
-            for ws in [0.5, 0.7, 1, 1.5, 2]:
-                for hs in [0.5, 0.7, 1, 1.5, 2]:
-                    pre_regions.append(util.central_bbox(gt, dx, dy, ws, hs, img_W, img_H))
+    for dx, dy in zip([-0.5, 0, 0.5], [-0.5, 0, 0.5]):
+        for ws, hs in zip([0.5, 0.7, 1, 1.5, 2], [0.5, 0.7, 1, 1.5, 2]):
+            pre_regions.append(util.central_bbox(gt, dx, dy, ws, hs, img_W, img_H))
 
     for pr in pre_regions:
         img_patch, restore_info = util.get_img_patch(img, pr)
@@ -141,40 +139,6 @@ def get_update_data(img, gt):
         C.append(labels)
 
     return A, B, C
-
-    img_H, img_W, c = np.shape(img)
-    img_pad = np.concatenate((img, img, img), 0)
-    img_pad = np.concatenate((img_pad, img_pad, img_pad), 1)
-
-    x, y, w, h = gt
-    X, Y, W, H = x - w / 2., y - h / 2., 2 * w, 2 * h
-    patches = list()
-    for scale_w, scale_h in zip([0.8, 1, 1.4, 1, 2, 1.7, 1, 2],
-                                [0.8, 1, 1.4, 1, 2, 1.7, 2, 1.8]):
-        W_, H_ = W * scale_w, H * scale_h
-        X_, Y_ = x + w / 2. - W_ / 2., y + h / 2. - H_ / 2.
-        patches.append([int(X_), int(Y_), int(W_), int(H_)])
-
-    image_patches = list()
-    feat_bboxes = list()
-    labels = list()
-    for patch in patches:
-        # crop image as train_data
-        X, Y, W, H = patch
-        img_patch = imresize(img_pad[int(Y + img_H):int(Y + img_H + H), int(X + img_W):int(X + img_W + W), :],
-                             [int(const.patch_H), int(const.patch_W)])
-        # ISSUE: change HWC to CHW
-        img_patch = img_patch.transpose(const.HWN2NHW)
-
-        # get region
-        patch_gt = np.array([[const.patch_W * (x - X) / W, const.patch_H * (y - Y) / H,
-                              const.patch_W * w / W, const.patch_H * h / H]])
-        feat_bbox, label = sample.get_update_samples(patch_gt, 30, 120)
-
-        image_patches.append(img_patch)
-        feat_bboxes.append(feat_bbox)
-        labels.append(label)
-    return image_patches, feat_bboxes, labels
 
 
 def get_predict_data(img, pre_region):
