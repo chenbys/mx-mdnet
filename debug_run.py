@@ -104,11 +104,11 @@ def debug_track_seq(args, model, img_paths, gts):
             add_update_data(img, region)
 
             if cur % 10 == 0:
-                logging.getLogger().info('@CHEN->long term update')
+                logging.info('@CHEN->long term update')
                 model = online_update(args, model, 100)
         else:
-            logging.getLogger().info('@CHEN->Twice tracking')
-            logging.getLogger().info('@CHEN->Short term update')
+            logging.info('@CHEN->Twice tracking')
+            logging.info('@CHEN->Short term update')
             model = online_update(args, model, 30)
 
             pre_region = res[cur - 1]
@@ -130,7 +130,7 @@ def debug_track_seq(args, model, img_paths, gts):
         probs.append(prob)
         iou = util.overlap_ratio(gts[cur], region)
         ious.append(iou)
-        logging.getLogger().info(
+        logging.info(
             '@CHEN-> IOU : [ %.2f ] !!!  prob: %.2f for tracking on frame %d, cost %4.4f' \
             % (iou, prob, cur, time.time() - T))
         if iou < 0.4:
@@ -445,6 +445,6 @@ def parse_args():
 
 
 if __name__ == '__main__':
-    # a=datahelper.get_iter(
+    # a=datahelper.get_data_batches(
     #     datahelper.get_train_data(plt.imread('/media/chen/datasets/OTB/Liquor/img/0001.jpg'), [256, 152, 73, 210]))
     debug_seq()

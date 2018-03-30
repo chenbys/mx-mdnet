@@ -35,13 +35,13 @@ def get_neg_feat_bboxes(feat_size=const.pred_feat_size):
 
     feat_w, feat_h = feat_size
     w, h = 8, 8
-    stride_x1, stride_y1, stride_x2, stride_y2 = [3, 3, 1, 1]
+    stride_x1, stride_y1, stride_x2, stride_y2 = [4, 4, 2, 2]
 
     feat_bboxes = []
-    for x1 in (0, feat_w - w, stride_x1):
-        for y1 in (0, feat_h - h, stride_y1):
-            for x2 in (x1 + 6, min(x1 + 11, feat_w - 1), stride_x2):
-                for y2 in (y1 + 6, min(y1 + 11, feat_h - 1), stride_y2):
+    for x1 in range(0, feat_w - w, stride_x1):
+        for y1 in range(0, feat_h - h, stride_y1):
+            for x2 in range(x1 + 6, min(x1 + 11, feat_w - 1), stride_x2):
+                for y2 in range(y1 + 6, min(y1 + 11, feat_h - 1), stride_y2):
                     feat_bboxes.append([0, x1, y1, x2, y2])
 
     return np.array(feat_bboxes)
