@@ -44,19 +44,20 @@ def get_train_data(img, region):
         patch_feat_bbox = util.img2feat(util.xywh2x1y1x2y2(np.array([[0, 0, patch_W, patch_H]])))
         label_patch_bbox = util.transform_bbox(region, restore_info)
 
-        if util.bbox_contain([X, Y, W, H], region):
-            # 抽样区域包括gt,可以采集正样本
-            ideal_feat_bbox = util.img2feat(util.xywh2x1y1x2y2(np.array([label_patch_bbox])))[0, :]
-            all_feat_bboxes = sample.get_train_feat_bboxes(ideal_feat_bbox=ideal_feat_bbox,
-                                                           feat_size=patch_feat_bbox[0, 2:] + 1)
-        else:
-            # 抽样区域不完全包括gt，很可能无法采集到正样本
-            all_feat_bboxes = sample.get_neg_feat_bboxes(feat_size=patch_feat_bbox[0, 2:] + 1)
-
+        # if util.bbox_contain([X, Y, W, H], region):
+        # 抽样区域包括gt,可以采集正样本
+        ideal_feat_bbox = util.img2feat(util.xywh2x1y1x2y2(np.array([label_patch_bbox])))[0, :]
+        pos_feat_bboxes = sample.get_pos_feat_bboxes(ideal_feat_bbox=ideal_feat_bbox,
+                                                     feat_size=patch_feat_bbox[0, 2:] + 1)
+        neg_feat_bboxes = sample.get_neg_feat_bboxes(ideal_feat_bbox=ideal_feat_bbox,
+                                                     feat_size=patch_feat_bbox[0, 2:] + 1)
+        all_feat_bboxes = np.array(pos_feat_bboxes + neg_feat_bboxes)
         # 还原到patch上，以便获得label
         patch_bboxes = util.feat2img(all_feat_bboxes[:, 1:])
         rat = util.overlap_ratio(label_patch_bbox, patch_bboxes)
 
+        # else:
+        # 抽样区域不完全包括gt，很可能无法采集到正样本
         # pos
         pos_samples = all_feat_bboxes[rat > const.train_pos_th, :]
         if len(pos_samples) > pos_sample_num / 3.:
@@ -68,6 +69,8 @@ def get_train_data(img, region):
         else:
             # 没采集到足够的正样本
             neg_samples = all_feat_bboxes[rat < const.train_neg_th, :]
+            if len(neg_samples) < 10:
+                a = 1
             neg_select_index = sample.rand_sample(np.arange(0, neg_samples.shape[0]), pos_sample_num + neg_sample_num)
             feat_bboxes, labels = neg_samples[neg_select_index], np.zeros((pos_sample_num + neg_sample_num,))
 
@@ -83,12 +86,13 @@ def get_update_data(img, gt):
     '''
         原版mdnet每一帧采50 pos 200 neg
         返回该帧构造出的 9 个img_patch, each 16 pos 32 neg
+        采集负样本就不太需要缩放。
     :param img_patch:
     :param gt:
     :return:
     '''
 
-    pos_sample_num, neg_sample_num = 16, 64
+    pos_sample_num, neg_sample_num = 32, 96
     img_H, img_W, c = np.shape(img)
 
     A = list()
@@ -96,8 +100,10 @@ def get_update_data(img, gt):
     C = list()
     # 伪造一些不准确的pre_region
     pre_regions = []
-    for dx, dy in zip([-0.5, 0, 0.5], [-0.5, 0, 0.5]):
-        for ws, hs in zip([0.5, 0.7, 1, 1.5, 2], [0.5, 0.7, 1, 1.5, 2]):
+    for dx, dy in zip([-0.5, 0, 0.5, 1, 0, -1, 0],
+                      [-0.5, 0, 0.5, 0, 1, 0, -1]):
+        for ws, hs in zip([0.5, 1, 2],
+                          [0.5, 1, 2]):
             pre_regions.append(util.central_bbox(gt, dx, dy, ws, hs, img_W, img_H))
 
     for pr in pre_regions:
@@ -106,19 +112,20 @@ def get_update_data(img, gt):
         patch_feat_bbox = util.img2feat(util.xywh2x1y1x2y2(np.array([[0, 0, patch_W, patch_H]])))
         label_patch_bbox = util.transform_bbox(gt, restore_info)
 
-        if util.bbox_contain([X, Y, W, H], gt):
-            # 抽样区域包括gt,可以采集正样本
-            ideal_feat_bbox = util.img2feat(util.xywh2x1y1x2y2(np.array([label_patch_bbox])))[0, :]
-            all_feat_bboxes = sample.get_train_feat_bboxes(ideal_feat_bbox=ideal_feat_bbox,
-                                                           feat_size=patch_feat_bbox[0, 2:] + 1)
-        else:
-            # 抽样区域不完全包括gt，很可能无法采集到正样本
-            all_feat_bboxes = sample.get_neg_feat_bboxes(feat_size=patch_feat_bbox[0, 2:] + 1)
-
+        # if util.bbox_contain([X, Y, W, H], region):
+        # 抽样区域包括gt,可以采集正样本
+        ideal_feat_bbox = util.img2feat(util.xywh2x1y1x2y2(np.array([label_patch_bbox])))[0, :]
+        pos_feat_bboxes = sample.get_pos_feat_bboxes(ideal_feat_bbox=ideal_feat_bbox,
+                                                     feat_size=patch_feat_bbox[0, 2:] + 1)
+        neg_feat_bboxes = sample.get_neg_feat_bboxes(ideal_feat_bbox=ideal_feat_bbox,
+                                                     feat_size=patch_feat_bbox[0, 2:] + 1)
+        all_feat_bboxes = np.array(pos_feat_bboxes + neg_feat_bboxes)
         # 还原到patch上，以便获得label
         patch_bboxes = util.feat2img(all_feat_bboxes[:, 1:])
         rat = util.overlap_ratio(label_patch_bbox, patch_bboxes)
 
+        # else:
+        # 抽样区域不完全包括gt，很可能无法采集到正样本
         # pos
         pos_samples = all_feat_bboxes[rat > const.train_pos_th, :]
         if len(pos_samples) > pos_sample_num / 3.:
@@ -130,6 +137,8 @@ def get_update_data(img, gt):
         else:
             # 没采集到足够的正样本
             neg_samples = all_feat_bboxes[rat < const.train_neg_th, :]
+            if len(neg_samples) < 10:
+                a = 1
             neg_select_index = sample.rand_sample(np.arange(0, neg_samples.shape[0]), pos_sample_num + neg_sample_num)
             feat_bboxes, labels = neg_samples[neg_select_index], np.zeros((pos_sample_num + neg_sample_num,))
 
@@ -137,6 +146,8 @@ def get_update_data(img, gt):
         A.append(img_patch)
         B.append(feat_bboxes)
         C.append(labels)
+
+    return A, B, C
 
     return A, B, C
 

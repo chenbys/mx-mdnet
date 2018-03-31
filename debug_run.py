@@ -36,8 +36,7 @@ def debug_track_seq(args, model, img_paths, gts):
                          optimizer_params={'learning_rate': args.lr_offline, 'wd': args.wd, 'momentum': args.momentum,
                                            'lr_scheduler': mx.lr_scheduler.FactorScheduler(step=args.lr_step,
                                                                                            factor=args.lr_factor,
-                                                                                           stop_factor_lr=args.lr_stop),
-                                           })
+                                                                                           stop_factor_lr=args.lr_stop), })
 
     data_batches = datahelper.get_data_batches(datahelper.get_train_data(img, train_gt))
     logging.info('@CHEN->update %3d.' % len(data_batches))
@@ -64,7 +63,7 @@ def debug_track_seq(args, model, img_paths, gts):
         T = time.time()
         # track
         pre_region = region
-        pre_regions = res[-15::3] + res[-3:]
+        pre_regions = util.replace_wh(region, res[-15:-3:3] + res[-3:])
         for dx, dy, ws, hs in [[0, 0, 1, 1],
                                [0, 0, 2, 2],
                                [0, 0, 0.5, 0.5]]:
@@ -72,7 +71,8 @@ def debug_track_seq(args, model, img_paths, gts):
 
         t = time.time()
         region, prob = multi_track(model, img, pre_regions=pre_regions, gt=gts[cur])
-        logging.info('| cost:%.6f, multi track for %d regions, ' % (time.time() - t, len(pre_regions)))
+
+        # logging.info('| cost:%.6f, multi track for %d regions, ' % (time.time() - t, len(pre_regions)))
 
         def show_tracking():
             gt = gts[cur]
@@ -102,16 +102,17 @@ def debug_track_seq(args, model, img_paths, gts):
 
             pre_region = res[cur - 1]
             # 二次检测时，检查上上次的pre_region，并搜索更大的区域
-            pre_regions = res[-7:]
-            for dx in [0]:
-                for dy in [0]:
-                    for ws in [0.5, 0.7, 1, 1.5, 2]:
-                        for hs in [0.5, 0.7, 1, 1.5, 2]:
-                            pre_regions.append(util.central_bbox(pre_region, dx, dy, ws, hs, img_W, img_H))
+            pre_regions = util.replace_wh(region, res[-7:])
+
+            for dx, dy in zip([-0.5, 0, 0.5, 1, 0],
+                              [-0.5, 0, 0.5, 0, 1]):
+                for ws, hs in zip([0.5, 1, 2],
+                                  [0.5, 1, 2]):
+                    pre_regions.append(util.central_bbox(pre_region, dx, dy, ws, hs, img_W, img_H))
 
             region, prob = multi_track(model, img, pre_regions=pre_regions, gt=gts[cur])
 
-            if prob > 0.5:
+            if prob > 0.7:
                 add_update_data(img, region)
 
         # report
@@ -160,7 +161,7 @@ def get_update_data(frame_len=20):
         step = 2
     else:
         step = 1
-    for i in range(1, frame_len + 1, step):
+    for i in range(1, frame_len + 2, step):
         a, b, c = update_data_queue.queue[-(i % frame_len)]
         img_patches += a
         feat_bboxes += b
@@ -176,17 +177,17 @@ def add_update_data(img, gt):
     :param gt:
     :return:
     '''
-    t = time.time()
+    # t = time.time()
     update_data = datahelper.get_update_data(img, gt)
     if update_data_queue.full():
         update_data_queue.get()
     if update_data_queue.empty():
         update_data_queue.put(update_data)
     update_data_queue.put(update_data)
-    logging.info('| add update data, cost:%.6f' % (time.time() - t))
+    # logging.info('| add update data, cost:%.6f' % (time.time() - t))
 
 
-def online_update(args, model, data_len=20):
+def online_update(args, model, data_len):
     '''
         pos sample 只用短期的，因为老旧的负样本是无关的。（如果速度允许的话，为了省事，都更新应该影响不大吧。）
         mdnet：long term len 100F, short term len 20F（感觉短期有点太长了吧，可能大多变化都在几帧之内完成）
@@ -209,14 +210,11 @@ def online_update(args, model, data_len=20):
     '''
     t = time.time()
     data_batches = datahelper.get_data_batches(get_update_data(data_len))
-    logging.info('@CHEN->update %3d.' % len(data_batches))
     for epoch in range(0, args.num_epoch_for_online):
-        t = time.time()
         for data_batch in data_batches:
             model.forward_backward(data_batch)
             model.update()
-        logging.info('| epoch %d, cost:%.4f' % (epoch, time.time() - t))
-    logging.info('| online update, cost:%.6f' % (time.time() - t))
+    logging.info('| online update, cost:%.6f, update batches: %d' % (time.time() - t, len(data_batches)))
     return model
 
 
@@ -371,7 +369,7 @@ def debug_seq():
     vot = datahelper.VOTHelper(args.VOT_path)
     img_paths, gts = vot.get_seq('bolt2')
 
-    first_idx = 0
+    first_idx = 30
     img_paths, gts = img_paths[first_idx:], gts[first_idx:]
 
     # for debug and check
@@ -396,20 +394,20 @@ def parse_args():
     parser.add_argument('--OTB_path', help='OTB folder', default='/media/chen/datasets/OTB', type=str)
     parser.add_argument('--VOT_path', help='VOT folder', default='/media/chen/datasets/VOT2015', type=str)
     parser.add_argument('--ROOT_path', help='cmd folder', default='/home/chen/mx-mdnet', type=str)
-
+    parser.add_argument('--lr_online', default=1e-6, help='base learning rate', type=float)
     parser.add_argument('--lr_step', default=307 * 2, help='every x num for y epoch', type=int)
     parser.add_argument('--lr_factor', default=0.8, help='20 times will be around 0.1', type=float)
-    parser.add_argument('--lr_stop', default=6e-6, type=float)
 
     parser.add_argument('--wd', default=1e0, help='weight decay', type=float)
     parser.add_argument('--momentum', default=0.9, type=float)
     parser.add_argument('--lr_offline', default=2e-5, help='base learning rate', type=float)
-    parser.add_argument('--lr_online', default=6e-6, help='base learning rate', type=float)
-
+    parser.add_argument('--lr_stop', default=6e-6, type=float)
     args = parser.parse_args()
     return args
 
 
 if __name__ == '__main__':
-    # a = datahelper.get_update_data(plt.imread('/media/chen/datasets/OTB/Liquor/img/0001.jpg'), [256, 152, 73, 210])
+    t = time.time()
+    a = datahelper.get_update_data(plt.imread('/media/chen/datasets/OTB/Liquor/img/0001.jpg'), [256, 152, 73, 210])
+    print time.time() - t
     debug_seq()

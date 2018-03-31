@@ -6,6 +6,20 @@ import copy
 from setting import const
 
 
+def replace_wh(xybbox, whbbox):
+    '''
+        将whbbox改变成：中心是xybbox的中心，长宽不变
+    :param xybbox:
+    :param whbbox:
+    :return:
+    '''
+    x, y, w, h = xybbox
+    whbbox = np.array(whbbox)
+    whbbox[:, 0] = x + w / 2. - whbbox[:, 2] / 2.
+    whbbox[:, 1] = y + h / 2. - whbbox[:, 3] / 2.
+    return whbbox.tolist()
+
+
 def bbox_contain(B, b):
     X, Y, W, H = B
     x, y, w, h = b
