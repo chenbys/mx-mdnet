@@ -69,8 +69,6 @@ def get_train_data(img, region):
         else:
             # 没采集到足够的正样本
             neg_samples = all_feat_bboxes[rat < const.train_neg_th, :]
-            if len(neg_samples) < 10:
-                a = 1
             neg_select_index = sample.rand_sample(np.arange(0, neg_samples.shape[0]), pos_sample_num + neg_sample_num)
             feat_bboxes, labels = neg_samples[neg_select_index], np.zeros((pos_sample_num + neg_sample_num,))
 
@@ -92,7 +90,7 @@ def get_update_data(img, gt):
     :return:
     '''
 
-    pos_sample_num, neg_sample_num = 32, 96
+    pos_sample_num, neg_sample_num = 32, 32
     img_H, img_W, c = np.shape(img)
 
     A = list()
@@ -102,8 +100,8 @@ def get_update_data(img, gt):
     pre_regions = []
     for dx, dy in zip([-0.5, 0, 0.5, 1, 0, -1, 0],
                       [-0.5, 0, 0.5, 0, 1, 0, -1]):
-        for ws, hs in zip([0.5, 1, 2],
-                          [0.5, 1, 2]):
+        for ws, hs in zip([0.7, 1, 1.5],
+                          [0.7, 1, 1.5]):
             pre_regions.append(util.central_bbox(gt, dx, dy, ws, hs, img_W, img_H))
 
     for pr in pre_regions:
@@ -127,7 +125,7 @@ def get_update_data(img, gt):
         # else:
         # 抽样区域不完全包括gt，很可能无法采集到正样本
         # pos
-        pos_samples = all_feat_bboxes[rat > const.train_pos_th, :]
+        pos_samples = all_feat_bboxes[rat > const.update_pos_th, :]
         if len(pos_samples) > pos_sample_num / 3.:
             pos_select_index = sample.rand_sample(np.arange(0, pos_samples.shape[0]), pos_sample_num)
             neg_samples = all_feat_bboxes[rat < const.train_neg_th, :]
@@ -136,9 +134,7 @@ def get_update_data(img, gt):
                                   np.hstack((np.ones((pos_sample_num,)), np.zeros((neg_sample_num,))))
         else:
             # 没采集到足够的正样本
-            neg_samples = all_feat_bboxes[rat < const.train_neg_th, :]
-            if len(neg_samples) < 10:
-                a = 1
+            neg_samples = all_feat_bboxes[rat < const.update_neg_th, :]
             neg_select_index = sample.rand_sample(np.arange(0, neg_samples.shape[0]), pos_sample_num + neg_sample_num)
             feat_bboxes, labels = neg_samples[neg_select_index], np.zeros((pos_sample_num + neg_sample_num,))
 
@@ -146,8 +142,6 @@ def get_update_data(img, gt):
         A.append(img_patch)
         B.append(feat_bboxes)
         C.append(labels)
-
-    return A, B, C
 
     return A, B, C
 

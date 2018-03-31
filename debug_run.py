@@ -63,12 +63,12 @@ def debug_track_seq(args, model, img_paths, gts):
         T = time.time()
         # track
         pre_region = region
-        pre_regions = util.replace_wh(region, res[-15:-3:3] + res[-3:])
+        pre_regions = []
         for dx, dy, ws, hs in [[0, 0, 1, 1],
                                [0, 0, 2, 2],
                                [0, 0, 0.5, 0.5]]:
             pre_regions.append(util.central_bbox(pre_region, dx, dy, ws, hs, img_W, img_H))
-
+        pre_regions += util.replace_wh(region, res[-15:-3:3] + res[-3:])
         t = time.time()
         region, prob = multi_track(model, img, pre_regions=pre_regions, gt=gts[cur])
 
@@ -88,13 +88,14 @@ def debug_track_seq(args, model, img_paths, gts):
                                            linewidth=1, edgecolor='yellow', facecolor='none'))
             fig.show()
 
+        # print util.overlap_ratio(region, gts[cur]), prob
         # twice tracking
         if prob > 0.5:
             add_update_data(img, region)
 
             if cur % 10 == 0:
                 logging.info('| long term update')
-                model = online_update(args, model, 100)
+                model = online_update(args, model, 50)
         else:
             logging.info('| short term update')
             model = online_update(args, model, 30)
@@ -106,13 +107,13 @@ def debug_track_seq(args, model, img_paths, gts):
 
             for dx, dy in zip([-0.5, 0, 0.5, 1, 0],
                               [-0.5, 0, 0.5, 0, 1]):
-                for ws, hs in zip([0.5, 1, 2],
-                                  [0.5, 1, 2]):
+                for ws, hs in zip([0.7, 1, 2],
+                                  [0.7, 1, 2]):
                     pre_regions.append(util.central_bbox(pre_region, dx, dy, ws, hs, img_W, img_H))
 
             region, prob = multi_track(model, img, pre_regions=pre_regions, gt=gts[cur])
 
-            if prob > 0.7:
+            if prob > 0.6:
                 add_update_data(img, region)
 
         # report
@@ -218,11 +219,29 @@ def online_update(args, model, data_len):
     return model
 
 
-def multi_track(model, img, pre_regions, gt, topK=5):
+def multi_track(model, img, pre_regions, gt, topK=3):
+    def show_tracking():
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+        ax.imshow(img)
+        ax.add_patch(patches.Rectangle((opt_img_bbox[0], opt_img_bbox[1]), opt_img_bbox[2], opt_img_bbox[3],
+                                       linewidth=4, edgecolor='red', facecolor='none'))
+        ax.add_patch(patches.Rectangle((gt[0], gt[1]), gt[2], gt[3],
+                                       linewidth=1, edgecolor='blue', facecolor='none'))
+        fig.show()
+
+    bboxes, probs = track(model, img, pre_regions[0], gt, topK=topK)
+    if np.mean(probs) > 0.7:
+        opt_img_bbox = np.mean(bboxes, 0)
+        opt_score = np.mean(probs)
+        logging.getLogger().info('once hit')
+        return opt_img_bbox, opt_score
+
     A, B = [], []
-    for pr in pre_regions:
+    for pr in pre_regions[1:]:
         # t = time.time()
         bboxes, probs = track(model, img, pr, gt, topK=topK)
+
         A.append(bboxes)
         B.append(probs)
         # logging.info('| %.6f， time for track' % (time.time() - t))
@@ -235,16 +254,6 @@ def multi_track(model, img, pre_regions, gt, topK=5):
         top_probs.append(B[x][y])
     opt_img_bbox = np.mean(top_bboxes, 0)
     opt_score = np.mean(top_probs)
-
-    def show_tracking():
-        fig = plt.figure()
-        ax = fig.add_subplot(111)
-        ax.imshow(img)
-        ax.add_patch(patches.Rectangle((opt_img_bbox[0], opt_img_bbox[1]), opt_img_bbox[2], opt_img_bbox[3],
-                                       linewidth=4, edgecolor='red', facecolor='none'))
-        ax.add_patch(patches.Rectangle((gt[0], gt[1]), gt[2], gt[3],
-                                       linewidth=1, edgecolor='blue', facecolor='none'))
-        fig.show()
 
     return opt_img_bbox, opt_score
 
@@ -386,7 +395,7 @@ def debug_seq():
 def parse_args():
     parser = argparse.ArgumentParser(description='Train MDNet network')
     parser.add_argument('--gpu', help='GPU device to train with', default=0, type=int)
-    parser.add_argument('--num_epoch_for_offline', default=5, type=int)
+    parser.add_argument('--num_epoch_for_offline', default=10, type=int)
     parser.add_argument('--num_epoch_for_online', default=1, type=int)
 
     parser.add_argument('--fixed_conv', help='these params of [ conv_i <= ? ] will be fixed', default=3, type=int)
@@ -395,13 +404,13 @@ def parse_args():
     parser.add_argument('--VOT_path', help='VOT folder', default='/media/chen/datasets/VOT2015', type=str)
     parser.add_argument('--ROOT_path', help='cmd folder', default='/home/chen/mx-mdnet', type=str)
     parser.add_argument('--lr_online', default=1e-6, help='base learning rate', type=float)
-    parser.add_argument('--lr_step', default=307 * 2, help='every x num for y epoch', type=int)
-    parser.add_argument('--lr_factor', default=0.8, help='20 times will be around 0.1', type=float)
+    parser.add_argument('--lr_step', default=9 * 25 * 5, help='every x num for y epoch', type=int)
+    parser.add_argument('--lr_factor', default=0.5, help='20 times will be around 0.1', type=float)
 
-    parser.add_argument('--wd', default=1e0, help='weight decay', type=float)
+    parser.add_argument('--wd', default=1e-2, help='weight decay', type=float)
     parser.add_argument('--momentum', default=0.9, type=float)
     parser.add_argument('--lr_offline', default=2e-5, help='base learning rate', type=float)
-    parser.add_argument('--lr_stop', default=6e-6, type=float)
+    parser.add_argument('--lr_stop', default=1e-5, type=float)
     args = parser.parse_args()
     return args
 
