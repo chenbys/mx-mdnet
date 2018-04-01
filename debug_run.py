@@ -113,7 +113,7 @@ def debug_track_seq(args, model, img_paths, gts):
 
             region, prob = multi_track(model, img, pre_regions=pre_regions, gt=gts[cur])
 
-            if prob > 0.6:
+            if prob > 0.7:
                 add_update_data(img, region)
 
         # report
@@ -376,9 +376,9 @@ def debug_seq():
     args = parse_args()
 
     vot = datahelper.VOTHelper(args.VOT_path)
-    img_paths, gts = vot.get_seq('bolt2')
+    img_paths, gts = vot.get_seq('ball1')
 
-    first_idx = 30
+    first_idx = 0
     img_paths, gts = img_paths[first_idx:], gts[first_idx:]
 
     # for debug and check
@@ -407,7 +407,7 @@ def parse_args():
     parser.add_argument('--lr_step', default=9 * 25 * 5, help='every x num for y epoch', type=int)
     parser.add_argument('--lr_factor', default=0.5, help='20 times will be around 0.1', type=float)
 
-    parser.add_argument('--wd', default=3e0, help='weight decay', type=float)
+    parser.add_argument('--wd', default=1e-2, help='weight decay', type=float)
     parser.add_argument('--momentum', default=0.9, type=float)
     parser.add_argument('--lr_offline', default=2e-5, help='base learning rate', type=float)
     parser.add_argument('--lr_stop', default=1e-5, type=float)

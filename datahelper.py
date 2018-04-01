@@ -90,7 +90,7 @@ def get_update_data(img, gt):
     :return:
     '''
 
-    pos_sample_num, neg_sample_num = 32, 32
+    pos_sample_num, neg_sample_num = 16, 64
     img_H, img_W, c = np.shape(img)
 
     A = list()

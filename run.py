@@ -24,7 +24,7 @@ def get_update_data(frame_len=20):
         step = 2
     else:
         step = 1
-    for i in range(1, frame_len + 1, step):
+    for i in range(1, frame_len + 2, step):
         a, b, c = update_data_queue.queue[-(i % frame_len)]
         img_patches += a
         feat_bboxes += b
@@ -69,12 +69,11 @@ def online_update(args, model, data_len=20):
     :param num_epoch:
     :return:
     '''
-    update_iter = datahelper.get_iter(get_update_data(data_len))
-    model.fit(train_data=update_iter, optimizer='sgd', begin_epoch=0, num_epoch=args.num_epoch_for_online,
-              eval_metric=mx.metric.CompositeEvalMetric(
-                  [extend.SMLoss(), extend.PR(0.7), extend.RR(0.7), extend.TrackTopKACC(10, 0.7)]),
-              optimizer_params={'learning_rate': args.lr_offline,
-                                'wd': args.wd, 'momentum': args.momentum})
+    data_batches = datahelper.get_data_batches(get_update_data(data_len))
+    for epoch in range(0, args.num_epoch_for_online):
+        for data_batch in data_batches:
+            model.forward_backward(data_batch)
+            model.update()
     return model
 
 
@@ -84,7 +83,7 @@ def multi_track(model, img, pre_regions, topK=5):
         bboxes, probs = track(model, img, pr, topK=topK)
         A.append(bboxes)
         B.append(probs)
-    idx = np.array(B).reshape(-1, ).argsort()[-10::]
+    idx = np.array(B).reshape(-1, ).argsort()[-15::]
     x_y_idx = [divmod(i, topK) for i in idx]
     top_bboxes = []
     top_probs = []
@@ -121,20 +120,21 @@ def track(model, img, pre_region, topK=5):
 def parse_args():
     parser = argparse.ArgumentParser(description='Train MDNet network')
     parser.add_argument('--gpu', help='GPU device to train with', default=0, type=int)
-    parser.add_argument('--num_epoch_for_offline', default=5, type=int)
+    parser.add_argument('--num_epoch_for_offline', default=10, type=int)
     parser.add_argument('--num_epoch_for_online', default=1, type=int)
+
     parser.add_argument('--fixed_conv', help='these params of [ conv_i <= ? ] will be fixed', default=3, type=int)
     parser.add_argument('--saved_fname', default='conv123fc4fc5', type=str)
-
+    parser.add_argument('--OTB_path', help='OTB folder', default='/media/chen/datasets/OTB', type=str)
+    parser.add_argument('--VOT_path', help='VOT folder', default='/media/chen/datasets/VOT2015', type=str)
     parser.add_argument('--ROOT_path', help='cmd folder', default='/home/chen/mx-mdnet', type=str)
-    parser.add_argument('--lr_step', default=307 * 2, help='every 121 num for one epoch', type=int)
-    parser.add_argument('--lr_factor', default=0.8, help='20 times will be around 0.1', type=float)
-    parser.add_argument('--lr_stop', default=1e-5, type=float)
+    parser.add_argument('--lr_online', default=1e-6, help='base learning rate', type=float)
+    parser.add_argument('--lr_step', default=9 * 25 * 5, help='every x num for y epoch', type=int)
+    parser.add_argument('--lr_factor', default=0.5, help='20 times will be around 0.1', type=float)
 
-    parser.add_argument('--wd', default=5e0, help='weight decay', type=float)
+    parser.add_argument('--wd', default=1e-2, help='weight decay', type=float)
     parser.add_argument('--momentum', default=0.9, type=float)
     parser.add_argument('--lr_offline', default=2e-5, help='base learning rate', type=float)
-    parser.add_argument('--lr_online', default=1e-5, help='base learning rate', type=float)
-
+    parser.add_argument('--lr_stop', default=1e-5, type=float)
     args = parser.parse_args()
     return args

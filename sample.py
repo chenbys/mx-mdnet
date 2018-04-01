@@ -18,7 +18,7 @@ def get_neg_feat_bboxes(ideal_feat_bbox=const.pred_ideal_feat_bbox, feat_size=co
     w, h = l_x2 - l_x1, l_y2 - l_y1
 
     feat_w, feat_h = feat_size
-    stride_x1, stride_y1, stride_x2, stride_y2 = [w / 2., h / 2., w, h]
+    stride_x1, stride_y1, stride_x2, stride_y2 = [feat_w / 6., feat_h / 6., feat_w / 6., feat_h / 6.]
     feat_bboxes = []
     for x1 in np.arange(0, feat_w - w, stride_x1):
         for y1 in np.arange(0, feat_h - h, stride_y1):
@@ -26,13 +26,11 @@ def get_neg_feat_bboxes(ideal_feat_bbox=const.pred_ideal_feat_bbox, feat_size=co
 
     # 也就是说，dx1至少要移动w/2,至多移动2w
     DX1 = w + h
-    stride_x1, stride_y1, stride_x2, stride_y2 = [w / 4., h / 4., w / 4., h / 4.]
+    stride_x1, stride_y1, stride_x2, stride_y2 = [max(w / 6., 1), max(h / 6., 1), max(w / 6., 1), max(h / 6., 1)]
     for dx1 in np.arange(max(-l_x1, -DX1), min(feat_w - l_x1, DX1 + 1), stride_x1):
-        if abs(dx1) < w / 2:
-            continue
         DY1 = DX1 - abs(dx1)
         for dy1 in np.arange(max(-l_y1, -DY1), min(feat_h - l_y1, DY1 + 1), stride_y1):
-            if abs(dy1) < h / 2:
+            if abs(dy1) + abs(dx1) < w / 2 + h / 2:
                 continue
             x1, y1 = l_x1 + dx1, l_y1 + dy1
             feat_bboxes.append([0, x1, y1, x1 + w, y1 + h])
