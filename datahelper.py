@@ -98,8 +98,8 @@ def get_update_data(img, gt):
     C = list()
     # 伪造一些不准确的pre_region
     pre_regions = []
-    for dx, dy in zip([-0.5, 0, 0.5, 1, 0, -1, 0],
-                      [-0.5, 0, 0.5, 0, 1, 0, -1]):
+    for dx, dy in zip([-0.5, 0, 0.5, 2, 0, -2, 0],
+                      [-0.5, 0, 0.5, 0, 2, 0, -2]):
         for ws, hs in zip([0.7, 1, 1.5],
                           [0.7, 1, 1.5]):
             pre_regions.append(util.central_bbox(gt, dx, dy, ws, hs, img_W, img_H))
@@ -128,7 +128,7 @@ def get_update_data(img, gt):
         pos_samples = all_feat_bboxes[rat > const.update_pos_th, :]
         if len(pos_samples) > pos_sample_num / 3.:
             pos_select_index = sample.rand_sample(np.arange(0, pos_samples.shape[0]), pos_sample_num)
-            neg_samples = all_feat_bboxes[rat < const.train_neg_th, :]
+            neg_samples = all_feat_bboxes[rat < const.update_neg_th, :]
             neg_select_index = sample.rand_sample(np.arange(0, neg_samples.shape[0]), neg_sample_num)
             feat_bboxes, labels = np.vstack((pos_samples[pos_select_index], neg_samples[neg_select_index])), \
                                   np.hstack((np.ones((pos_sample_num,)), np.zeros((neg_sample_num,))))
