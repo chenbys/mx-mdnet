@@ -10,6 +10,8 @@ hard minibatch mining
 
 不update老旧的负样本
 
+birds2 seq
+
 
 os.environ['MXNET_CUDNN_AUTOTUNE_DEFAULT'] = 0
 
@@ -47,7 +49,7 @@ multi tracking :100ms~200ms
 online update 300 : 0.9s
 online update 75:0.22s
 
-每次update后，第一次track就会慢很多？？？
+每次update后，第一次track就会慢很多？？？ 惰性计算？
 INFO:root:| long term update
 INFO:root:@CHEN->update 315.
 INFO:root:Update[3685]: now learning rate arrived at 6.00000e-06, will not change in the future

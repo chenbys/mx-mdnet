@@ -90,7 +90,7 @@ def get_update_data(img, gt):
     :return:
     '''
 
-    pos_sample_num, neg_sample_num = 16, 64
+    pos_sample_num, neg_sample_num = 32, 96
     img_H, img_W, c = np.shape(img)
 
     A = list()
@@ -98,11 +98,13 @@ def get_update_data(img, gt):
     C = list()
     # 伪造一些不准确的pre_region
     pre_regions = []
-    for dx, dy in zip([0, 2, 0, -2, 0],
-                      [0, 0, 0, 2, 0, -2]):
-        for ws, hs in zip([1],
-                          [1]):
-            pre_regions.append(util.central_bbox(gt, dx, dy, ws, hs, img_W, img_H))
+    pre_regions.append(util.central_bbox(gt, 0, 0, 1, 1, img_W, img_H))
+
+    pre_regions.append(util.central_bbox(gt, 2, 0, 1, 1, img_W, img_H))
+    pre_regions.append(util.central_bbox(gt, 0, 2, 1, 1, img_W, img_H))
+    pre_regions.append(util.central_bbox(gt, -2, 0, 1, 1, img_W, img_H))
+    pre_regions.append(util.central_bbox(gt, 0, -2, 1, 1, img_W, img_H))
+
     pre_regions.append(util.central_bbox(gt, 0, 0, 2, 2, img_W, img_H))
     pre_regions.append(util.central_bbox(gt, 0, 0, 2, 2, img_W, img_H))
     pre_regions.append(util.central_bbox(gt, 0, 0, 0.5, 0.5, img_W, img_H))

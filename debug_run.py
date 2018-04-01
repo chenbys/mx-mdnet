@@ -90,14 +90,15 @@ def debug_track_seq(args, model, img_paths, gts):
 
         # print util.overlap_ratio(region, gts[cur]), prob
         # twice tracking
-        if prob > 0.5:
+        if (prob > 0.5) & (prob > (probs[-1] - 0.1)):
+
             add_update_data(img, region)
 
             if cur % 10 == 0:
                 logging.info('| long term update')
                 model = online_update(args, model, 50)
         else:
-            logging.info('| short term update')
+            logging.info('| short term update for porb: %.2f' % prob)
             model = online_update(args, model, 30)
             logging.info('| twice tracking %d.jpg' % cur)
 
@@ -230,15 +231,15 @@ def multi_track(model, img, pre_regions, gt, topK=3):
                                        linewidth=1, edgecolor='blue', facecolor='none'))
         fig.show()
 
-    # bboxes, probs = track(model, img, pre_regions[0], gt, topK=topK)
-    # if np.mean(probs) > 0.7:
-    #     opt_img_bbox = np.mean(bboxes, 0)
-    #     opt_score = np.mean(probs)
-    #     logging.getLogger().info('once hit')
-    #     return opt_img_bbox, opt_score
+    bboxes, probs = track(model, img, pre_regions[0], gt, topK=topK)
+    if np.mean(probs) > 0.7:
+        opt_img_bbox = np.mean(bboxes, 0)
+        opt_score = np.mean(probs)
+        logging.getLogger().info('| once hit')
+        return opt_img_bbox, opt_score
 
     A, B = [], []
-    for pr in pre_regions:
+    for pr in pre_regions[1:]:
         # t = time.time()
         bboxes, probs = track(model, img, pr, gt, topK=topK)
 
@@ -376,7 +377,7 @@ def debug_seq():
     args = parse_args()
 
     vot = datahelper.VOTHelper(args.VOT_path)
-    img_paths, gts = vot.get_seq('blanket')
+    img_paths, gts = vot.get_seq('birds1')
 
     first_idx = 0
     img_paths, gts = img_paths[first_idx:], gts[first_idx:]
@@ -408,7 +409,7 @@ def parse_args():
     parser.add_argument('--lr_step', default=9 * 25 * 5, help='every x num for y epoch', type=int)
     parser.add_argument('--lr_factor', default=0.5, help='20 times will be around 0.1', type=float)
 
-    parser.add_argument('--wd', default=1e-2, help='weight decay', type=float)
+    parser.add_argument('--wd', default=1e0, help='weight decay', type=float)
     parser.add_argument('--momentum', default=0.9, type=float)
     parser.add_argument('--lr_offline', default=2e-5, help='base learning rate', type=float)
     parser.add_argument('--lr_stop', default=1e-5, type=float)
