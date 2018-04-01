@@ -34,8 +34,8 @@ def get_train_data(img, region):
     pre_regions = []
     for dx in [-1, 0, 1]:
         for dy in [-1, 0, 1]:
-            for ws in [0.5, 0.7, 1, 1.5, 2]:
-                for hs in [0.5, 0.7, 1, 1.5, 2]:
+            for ws in [0.5, 1, 2]:
+                for hs in [0.5, 1, 2]:
                     pre_regions.append(util.central_bbox(region, dx, dy, ws, hs, img_W, img_H))
 
     for pr in pre_regions:
@@ -98,11 +98,15 @@ def get_update_data(img, gt):
     C = list()
     # 伪造一些不准确的pre_region
     pre_regions = []
-    for dx, dy in zip([-0.5, 0, 0.5, 2, 0, -2, 0],
-                      [-0.5, 0, 0.5, 0, 2, 0, -2]):
-        for ws, hs in zip([0.7, 1, 1.5],
-                          [0.7, 1, 1.5]):
+    for dx, dy in zip([0, 2, 0, -2, 0],
+                      [0, 0, 0, 2, 0, -2]):
+        for ws, hs in zip([1],
+                          [1]):
             pre_regions.append(util.central_bbox(gt, dx, dy, ws, hs, img_W, img_H))
+    pre_regions.append(util.central_bbox(gt, 0, 0, 2, 2, img_W, img_H))
+    pre_regions.append(util.central_bbox(gt, 0, 0, 2, 2, img_W, img_H))
+    pre_regions.append(util.central_bbox(gt, 0, 0, 0.5, 0.5, img_W, img_H))
+    pre_regions.append(util.central_bbox(gt, 0, 0, 0.5, 0.5, img_W, img_H))
 
     for pr in pre_regions:
         img_patch, restore_info = util.get_img_patch(img, pr)
@@ -155,7 +159,6 @@ def get_predict_data(img, pre_region):
     restore_info include the XYWH of img_patch respect to
     '''
     img_patch, restore_info = util.get_img_patch(img, pre_region)
-    img_patch = img_patch.transpose(const.HWN2NHW)
 
     X, Y, W, H, patch_W, patch_H = restore_info
     patch_feat_bbox = util.img2feat(util.xywh2x1y1x2y2(np.array([[0, 0, patch_W, patch_H]])))
@@ -166,6 +169,7 @@ def get_predict_data(img, pre_region):
 
     # label的值应该不影响predict的输出
     label = np.ones((feat_bbox.shape[0],))
+    img_patch = img_patch.transpose(const.HWN2NHW)
 
     return ([img_patch], [feat_bbox], [label]), restore_info
 

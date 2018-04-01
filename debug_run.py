@@ -376,7 +376,7 @@ def debug_seq():
     args = parse_args()
 
     vot = datahelper.VOTHelper(args.VOT_path)
-    img_paths, gts = vot.get_seq('ball1')
+    img_paths, gts = vot.get_seq('blanket')
 
     first_idx = 0
     img_paths, gts = img_paths[first_idx:], gts[first_idx:]
@@ -385,6 +385,7 @@ def debug_seq():
     const.gts = gts
     const.img_paths = img_paths
 
+    # datahelper.get_predict_data(plt.imread(img_paths[12]), gts[11])
     model, all_params = extend.init_model(args)
 
     logging.getLogger().setLevel(logging.INFO)
