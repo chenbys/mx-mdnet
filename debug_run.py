@@ -1,6 +1,6 @@
 # -*-coding:utf- 8-*-
 import Queue
-
+from easydict import EasyDict as edict
 import mxnet as mx
 import argparse
 import numpy as np
@@ -19,6 +19,7 @@ import kit
 import os
 
 update_data_queue = Queue.Queue(maxsize=100)
+mc_logs = []
 
 
 def debug_track_seq(args, model, img_paths, gts):
@@ -30,31 +31,61 @@ def debug_track_seq(args, model, img_paths, gts):
     :param gts: 用来调试的每帧的gt，本应只传gts[0]
     :return:
     '''
+
+    def check_train(c, pr=None):
+        if pr == None:
+            pr = gts[c]
+        data_batches = datahelper.get_data_batches(datahelper.get_update_data(plt.imread(img_paths[c]), pr, c))
+        metric = mx.metric.CompositeEvalMetric()
+        metric.add([extend.PR(), extend.RR(), extend.TrackTopKACC(), extend.SMLoss()])
+        metric.reset()
+        for data_batch in data_batches:
+            model.forward(data_batch, is_train=False)
+            model.update_metric(metric, data_batch.label)
+        for name, val in metric.get_name_value():
+            logging.info('|--| check train %s=%f', name, val)
+
     train_img_path, train_gt = img_paths[0], gts[0]
     img = plt.imread(train_img_path)
-    model.init_optimizer(kvstore='local', optimizer='sgd',
-                         optimizer_params={'learning_rate': args.lr_offline, 'wd': args.wd, 'momentum': args.momentum,
-                                           'lr_scheduler': mx.lr_scheduler.FactorScheduler(step=args.lr_step,
-                                                                                           factor=args.lr_factor,
-                                                                                           stop_factor_lr=args.lr_stop), })
+
+    sgd = mx.optimizer.SGD(learning_rate=args.lr_offline, wd=args.wd, momentum=args.momentum)
+    sgd.set_lr_mult({'score_bias': 10, 'score_weight': 10})
+    model.init_optimizer(kvstore='local', optimizer=sgd, force_init=True)
 
     data_batches = datahelper.get_data_batches(datahelper.get_train_data(img, train_gt))
+    check_metric(model, data_batches)
     logging.info('@CHEN->update %3d.' % len(data_batches))
+    metric = mx.metric.CompositeEvalMetric()
+    metric.add([extend.PR(), extend.RR(), extend.TrackTopKACC(), extend.SMLoss()])
+    mc_log = []
     for epoch in range(0, args.num_epoch_for_offline):
         t = time.time()
+        metric.reset()
+        b = 0
         for data_batch in data_batches:
             model.forward_backward(data_batch)
             model.update()
+            model.update_metric(metric, data_batch.label)
+        mc_log.append({b: metric.get_name_value()})
+        for name, val in metric.get_name_value():
+            logging.info('|--| batch[%d] %s=%f', epoch, name, val)
+
         logging.info('| epoch %d, cost:%.4f' % (epoch, time.time() - t))
+    mc_logs.append(mc_log)
+
+    sgd = mx.optimizer.SGD(learning_rate=args.lr_online, wd=args.wd, momentum=args.momentum)
+    sgd.set_lr_mult({'score_bias': 10, 'score_weight': 10})
+    model.init_optimizer(kvstore='local', optimizer=sgd, force_init=True)
 
     os.environ['MXNET_CUDNN_AUTOTUNE_DEFAULT'] = '0'
     # res, scores 是保存每一帧的结果位置和给出的是目标的概率的list，包括用来训练的首帧
     res, probs = [gts[0]], [1]
     region = gts[0]
     ious = []
+    times = []
 
     # prepare online update data
-    add_update_data(img, gts[0])
+    add_update_data(img, gts[0], 0)
 
     length = len(img_paths)
     for cur in range(1, length):
@@ -64,13 +95,21 @@ def debug_track_seq(args, model, img_paths, gts):
         # track
         pre_region = region
         pre_regions = []
-        for dx, dy, ws, hs in [[0, 0, 1, 1],
-                               [0, 0, 2, 2],
-                               [0, 0, 0.5, 0.5]]:
+        for dx, dy, ws, hs in [
+            [0, 0, 1, 1],
+            [0, 0, 2, 2],
+            [0, 0, 0.5, 0.5],
+            # [0, 1, 1, 1],
+            # [1, 0, 1, 1],
+            # [-1, 0, 1, 1],
+            # [0, 1, 1, 1]
+        ]:
             pre_regions.append(util.central_bbox(pre_region, dx, dy, ws, hs, img_W, img_H))
-        pre_regions += util.replace_wh(region, res[-15:-3:3] + res[-3:])
+        pre_regions += util.replace_wh(region, res[-15:-3:5] + res[-3:-1])
         t = time.time()
         region, prob = multi_track(model, img, pre_regions=pre_regions, gt=gts[cur])
+
+        # region = np.mean([region] + res[-2:], 0)
 
         # logging.info('| cost:%.6f, multi track for %d regions, ' % (time.time() - t, len(pre_regions)))
 
@@ -92,46 +131,52 @@ def debug_track_seq(args, model, img_paths, gts):
         # twice tracking
         if (prob > 0.5) & (prob > (probs[-1] - 0.1)):
 
-            add_update_data(img, region)
+            add_update_data(img, region, cur)
 
             if cur % 10 == 0:
                 logging.info('| long term update')
-                model = online_update(args, model, 50)
+                model = online_update(args, model, 30)
         else:
             logging.info('| short term update for porb: %.2f' % prob)
-            model = online_update(args, model, 30)
+            model = online_update(args, model, 10)
             logging.info('| twice tracking %d.jpg' % cur)
 
             pre_region = res[cur - 1]
             # 二次检测时，检查上上次的pre_region，并搜索更大的区域
-            pre_regions = util.replace_wh(region, res[-7:])
+            pre_regions = util.replace_wh(region, res[-7:-1:3])
 
-            for dx, dy in zip([-0.5, 0, 0.5, 1, 0],
-                              [-0.5, 0, 0.5, 0, 1]):
-                for ws, hs in zip([0.7, 1, 2],
-                                  [0.7, 1, 2]):
-                    pre_regions.append(util.central_bbox(pre_region, dx, dy, ws, hs, img_W, img_H))
+            for ws, hs in zip([0.8, 1.5, 1],
+                              [0.8, 1.5, 1]):
+                pre_regions.append(util.central_bbox(pre_region, 0, 0, ws, hs, img_W, img_H))
+
+            # pre_regions.append(util.central_bbox(pre_region, 0, 2, 1, 1, img_W, img_H))
+            # pre_regions.append(util.central_bbox(pre_region, 2, 0, 1, 1, img_W, img_H))
+            # pre_regions.append(util.central_bbox(pre_region, -2, 0, 1, 1, img_W, img_H))
+            # pre_regions.append(util.central_bbox(pre_region, 0, -2, 1, 1, img_W, img_H))
 
             region, prob = multi_track(model, img, pre_regions=pre_regions, gt=gts[cur])
 
-            if prob > 0.7:
-                add_update_data(img, region)
+            if prob > 0.6:
+                add_update_data(img, region, cur)
 
         # report
         res.append(region)
         probs.append(prob)
         iou = util.overlap_ratio(gts[cur], region)
+        cost = time.time() - T
         ious.append(iou)
-        logging.info('@CHEN-> IOU : [ %.2f ] !!!  prob: %.2f for tracking on frame %d, cost %4.4f' \
-                     % (iou, prob, cur, time.time() - T))
+        times.append(cost)
+        logging.info('| IOU : [ %.2f ], prob:%.5f for tracking on frame %d, cost %4.4f' \
+                     % (iou, prob, cur, cost))
         logging.info('^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^')
-        if iou < 0.4:
+        if iou < 0.3:
             next_frame = 1
-
+        if iou == 0:
+            a = 1
     return res, probs, ious
 
 
-def check_track(model, i, flag=0, pr=None):
+def check_track(model, i, flag=0, pr=None, topK=3):
     if pr == None:
         pr = const.gts[i]
 
@@ -146,7 +191,7 @@ def check_track(model, i, flag=0, pr=None):
         checkc = 1
 
     bboxes, probs = track(model, plt.imread(const.img_paths[i]), pr, const.gts[i],
-                          plotc=plotc, showc=showc, checkc=checkc)
+                          plotc=plotc, showc=showc, checkc=checkc, topK=topK)
     return probs
 
 
@@ -171,7 +216,7 @@ def get_update_data(frame_len=20):
     return img_patches, feat_bboxes, labels
 
 
-def add_update_data(img, gt):
+def add_update_data(img, gt, cur):
     '''
         原版mdnet每一帧采50 pos 200 neg
         返回该帧构造出的 4 个img_patch, each 16 pos 32 neg
@@ -180,13 +225,24 @@ def add_update_data(img, gt):
     :return:
     '''
     # t = time.time()
-    update_data = datahelper.get_update_data(img, gt)
+    update_data = datahelper.get_update_data(img, gt, cur)
     if update_data_queue.full():
         update_data_queue.get()
     if update_data_queue.empty():
         update_data_queue.put(update_data)
     update_data_queue.put(update_data)
     # logging.info('| add update data, cost:%.6f' % (time.time() - t))
+
+
+def check_metric(model, data_batches):
+    metric = mx.metric.CompositeEvalMetric()
+    metric.add([extend.PR(), extend.RR(), extend.TrackTopKACC(), extend.SMLoss()])
+    metric.reset()
+    for data_batch in data_batches:
+        model.forward(data_batch, is_train=False)
+        model.update_metric(metric, data_batch.label)
+    for name, val in metric.get_name_value():
+        logging.info('|--| check metric %s=%f', name, val)
 
 
 def online_update(args, model, data_len):
@@ -211,12 +267,26 @@ def online_update(args, model, data_len):
     :return:
     '''
     t = time.time()
+    mc_log = []
     data_batches = datahelper.get_data_batches(get_update_data(data_len))
+    check_metric(model, data_batches)
+    metric = mx.metric.CompositeEvalMetric()
+    metric.add([extend.PR(), extend.RR(), extend.TrackTopKACC(), extend.SMLoss()])
     for epoch in range(0, args.num_epoch_for_online):
+        metric.reset()
+        t = time.time()
+        b = 0
         for data_batch in data_batches:
             model.forward_backward(data_batch)
             model.update()
+            b += 1
+            model.update_metric(metric, data_batch.label)
+        mc_log.append({b: metric.get_name_value()})
+        for name, val in metric.get_name_value():
+            logging.info('|--| batch[%d] %s=%f', epoch, name, val)
     logging.info('| online update, cost:%.6f, update batches: %d' % (time.time() - t, len(data_batches)))
+    check_metric(model, data_batches)
+    mc_logs.append(mc_log)
     return model
 
 
@@ -231,22 +301,24 @@ def multi_track(model, img, pre_regions, gt, topK=3):
                                        linewidth=1, edgecolor='blue', facecolor='none'))
         fig.show()
 
-    bboxes, probs = track(model, img, pre_regions[0], gt, topK=topK)
-    if np.mean(probs) > 0.7:
-        opt_img_bbox = np.mean(bboxes, 0)
-        opt_score = np.mean(probs)
-        logging.getLogger().info('| once hit')
-        return opt_img_bbox, opt_score
-
     A, B = [], []
-    for pr in pre_regions[1:]:
+
+    # bboxes, probs = track(model, img, pre_regions[0], gt, topK=1)
+    # A.append(bboxes)
+    # B.append(probs)
+    # if np.mean(probs) > 0.7:
+    #     opt_img_bbox = np.mean(bboxes, 0)
+    #     opt_score = np.mean(probs)
+    #     logging.getLogger().info('| once hit')
+    #     return opt_img_bbox, opt_score
+
+    for pr in pre_regions:
         # t = time.time()
         bboxes, probs = track(model, img, pr, gt, topK=topK)
-
         A.append(bboxes)
         B.append(probs)
         # logging.info('| %.6f， time for track' % (time.time() - t))
-    idx = np.array(B).reshape(-1, ).argsort()[-16::]
+    idx = np.array(B).reshape(-1, ).argsort()[-5::]
     x_y_idx = [divmod(i, topK) for i in idx]
     top_bboxes = []
     top_probs = []
@@ -259,7 +331,7 @@ def multi_track(model, img, pre_regions, gt, topK=3):
     return opt_img_bbox, opt_score
 
 
-def track(model, img, pre_region, gt, topK=5, plotc=False, showc=False, checkc=False):
+def track(model, img, pre_region, gt, topK=3, plotc=False, showc=False, checkc=False):
     pred_data, restore_info = datahelper.get_predict_data(img, pre_region)
     pred_iter = datahelper.get_iter(pred_data)
     [img_patch], [feat_bboxes], [l] = pred_data
@@ -377,7 +449,7 @@ def debug_seq():
     args = parse_args()
 
     vot = datahelper.VOTHelper(args.VOT_path)
-    img_paths, gts = vot.get_seq('birds1')
+    img_paths, gts = vot.get_seq('bolt1')
 
     first_idx = 0
     img_paths, gts = img_paths[first_idx:], gts[first_idx:]
@@ -405,20 +477,21 @@ def parse_args():
     parser.add_argument('--OTB_path', help='OTB folder', default='/media/chen/datasets/OTB', type=str)
     parser.add_argument('--VOT_path', help='VOT folder', default='/media/chen/datasets/VOT2015', type=str)
     parser.add_argument('--ROOT_path', help='cmd folder', default='/home/chen/mx-mdnet', type=str)
-    parser.add_argument('--lr_online', default=1e-6, help='base learning rate', type=float)
-    parser.add_argument('--lr_step', default=9 * 25 * 5, help='every x num for y epoch', type=int)
-    parser.add_argument('--lr_factor', default=0.5, help='20 times will be around 0.1', type=float)
 
     parser.add_argument('--wd', default=1e0, help='weight decay', type=float)
     parser.add_argument('--momentum', default=0.9, type=float)
-    parser.add_argument('--lr_offline', default=2e-5, help='base learning rate', type=float)
-    parser.add_argument('--lr_stop', default=1e-5, type=float)
+    parser.add_argument('--lr_offline', default=1e-5, help='base learning rate', type=float)
+    parser.add_argument('--lr_online', default=2e-5, help='base learning rate', type=float)
+
     args = parser.parse_args()
     return args
 
 
 if __name__ == '__main__':
     t = time.time()
-    a = datahelper.get_update_data(plt.imread('/media/chen/datasets/OTB/Liquor/img/0001.jpg'), [256, 152, 73, 210])
+    # a = datahelper.get_update_data(plt.imread('/media/chen/datasets/OTB/Liquor/img/0001.jpg'), [256, 152, 73, 210])
+    print time.time() - t
+    t = time.time()
+    a = datahelper.get_update_data(plt.imread('/media/chen/datasets/OTB/Liquor/img/0001.jpg'), [256, 152, 73, 210], 30)
     print time.time() - t
     debug_seq()

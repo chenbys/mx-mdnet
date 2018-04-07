@@ -18,8 +18,8 @@ def get_neg_feat_bboxes(ideal_feat_bbox=const.pred_ideal_feat_bbox, feat_size=co
     w, h = l_x2 - l_x1, l_y2 - l_y1
 
     feat_w, feat_h = feat_size
-    stride_x1, stride_y1, stride_x2, stride_y2 = [max(feat_w / 6., 1), max(feat_h / 6., 1), max(feat_w / 6., 1),
-                                                  max(feat_h / 6., 1)]
+    stride_x1, stride_y1, stride_x2, stride_y2 = [max(feat_w / 4., 1), max(feat_h / 4., 1), max(feat_w / 4., 1),
+                                                  max(feat_h / 4., 1)]
     feat_bboxes = []
     for x1 in np.arange(0, feat_w - w, stride_x1):
         for y1 in np.arange(0, feat_h - h, stride_y1):
@@ -47,7 +47,7 @@ def get_pos_feat_bboxes(ideal_feat_bbox=const.pred_ideal_feat_bbox,
     feat_boxes = []
 
     DX1 = (w + h) / 4.
-    stride_x1, stride_y1, stride_x2, stride_y2 = [w / 4., h / 4., w / 4., h / 4.]
+    stride_x1, stride_y1, stride_x2, stride_y2 = [w / 6., h / 6., w / 6., h / 6.]
     for dx1 in np.arange(max(-l_x1, -DX1), min(feat_w - l_x1, DX1 + 1), stride_x1):
         DY1 = DX1 - abs(dx1)
         for dy1 in np.arange(max(-l_y1, -DY1), min(feat_h - l_y1, DY1 + 1), stride_y1):
@@ -77,7 +77,7 @@ def get_predict_feat_bboxes(ideal_feat_bbox=const.pred_ideal_feat_bbox,
             feat_bboxes.append([0, x1, y1, x1 + w, y1 + h])
 
     DX1 = (w + h)
-    stride_x1, stride_y1, stride_x2, stride_y2 = [w / 3., h / 3., w / 2., h / 2.]
+    stride_x1, stride_y1, stride_x2, stride_y2 = [w / 3., h / 3., w / 1.5, h / 1.5]
     for dx1 in np.arange(max(-l_x1, -DX1), min(feat_w - l_x1, DX1 + 1), stride_x1):
         DY1 = DX1 - abs(dx1)
         for dy1 in np.arange(max(-l_y1, -DY1), min(feat_h - l_y1, DY1 + 1), stride_y1):

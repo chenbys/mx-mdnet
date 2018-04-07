@@ -24,7 +24,7 @@ def get_train_data(img, region):
     :param stride_h:
     :return:
     '''
-    pos_sample_num, neg_sample_num = 32, 96
+    pos_sample_num, neg_sample_num = 50, 200
     img_H, img_W, c = np.shape(img)
 
     A = list()
@@ -32,10 +32,10 @@ def get_train_data(img, region):
     C = list()
     # 伪造一些不准确的pre_region
     pre_regions = []
-    for dx in [-1, 0, 1]:
-        for dy in [-1, 0, 1]:
-            for ws in [0.5, 1, 2]:
-                for hs in [0.5, 1, 2]:
+    for dx in [-0.5, 0, 0.5]:
+        for dy in [-0.5, 0, 0.5]:
+            for ws in [0.5, 0.7, 1, 1.5]:
+                for hs in [0.7, 1, 1.2, 2]:
                     pre_regions.append(util.central_bbox(region, dx, dy, ws, hs, img_W, img_H))
 
     for pr in pre_regions:
@@ -80,7 +80,7 @@ def get_train_data(img, region):
     return A, B, C
 
 
-def get_update_data(img, gt):
+def get_update_data(img, gt, cur=0):
     '''
         原版mdnet每一帧采50 pos 200 neg
         返回该帧构造出的 9 个img_patch, each 16 pos 32 neg
@@ -90,7 +90,7 @@ def get_update_data(img, gt):
     :return:
     '''
 
-    pos_sample_num, neg_sample_num = 32, 96
+    pos_sample_num, neg_sample_num = 50, 200
     img_H, img_W, c = np.shape(img)
 
     A = list()
@@ -98,17 +98,20 @@ def get_update_data(img, gt):
     C = list()
     # 伪造一些不准确的pre_region
     pre_regions = []
-    pre_regions.append(util.central_bbox(gt, 0, 0, 1, 1, img_W, img_H))
 
-    pre_regions.append(util.central_bbox(gt, 2, 0, 1, 1, img_W, img_H))
-    pre_regions.append(util.central_bbox(gt, 0, 2, 1, 1, img_W, img_H))
-    pre_regions.append(util.central_bbox(gt, -2, 0, 1, 1, img_W, img_H))
-    pre_regions.append(util.central_bbox(gt, 0, -2, 1, 1, img_W, img_H))
+    if cur < 20:
+        for ws in [0.7, 1, 1.5, 2]:
+            for hs in [0.7, 1, 1.5, 2]:
+                pre_regions.append(util.central_bbox(gt, 0, 0, ws, hs, img_W, img_H))
+    else:
+        for ws, hs in zip([1, 1, 0.7, 1, 1.7],
+                          [0.7, 1.7, 0.7, 1, 1.7]):
+            pre_regions.append(util.central_bbox(gt, 0, 0, ws, hs, img_W, img_H))
 
-    pre_regions.append(util.central_bbox(gt, 0, 0, 2, 2, img_W, img_H))
-    pre_regions.append(util.central_bbox(gt, 0, 0, 2, 2, img_W, img_H))
-    pre_regions.append(util.central_bbox(gt, 0, 0, 0.5, 0.5, img_W, img_H))
-    pre_regions.append(util.central_bbox(gt, 0, 0, 0.5, 0.5, img_W, img_H))
+        pre_regions.append(util.central_bbox(gt, 1, 0, 1, 1, img_W, img_H))
+        pre_regions.append(util.central_bbox(gt, 0, 1, 1, 1, img_W, img_H))
+        pre_regions.append(util.central_bbox(gt, -1, 0, 1, 1, img_W, img_H))
+        pre_regions.append(util.central_bbox(gt, 0, -1, 1, 1, img_W, img_H))
 
     for pr in pre_regions:
         img_patch, restore_info = util.get_img_patch(img, pr)
@@ -132,7 +135,7 @@ def get_update_data(img, gt):
         # 抽样区域不完全包括gt，很可能无法采集到正样本
         # pos
         pos_samples = all_feat_bboxes[rat > const.update_pos_th, :]
-        if len(pos_samples) > pos_sample_num / 3.:
+        if len(pos_samples) > 5:
             pos_select_index = sample.rand_sample(np.arange(0, pos_samples.shape[0]), pos_sample_num)
             neg_samples = all_feat_bboxes[rat < const.update_neg_th, :]
             neg_select_index = sample.rand_sample(np.arange(0, neg_samples.shape[0]), neg_sample_num)

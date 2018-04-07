@@ -6,6 +6,10 @@ import copy
 from setting import const
 
 
+def subs(box1, box2):
+    return np.array(box1) + np.array(box2)
+
+
 def replace_wh(xybbox, whbbox):
     '''
         将whbbox改变成：中心是xybbox的中心，长宽不变
@@ -13,6 +17,8 @@ def replace_wh(xybbox, whbbox):
     :param whbbox:
     :return:
     '''
+    if whbbox == []:
+        return []
     x, y, w, h = xybbox
     whbbox = np.array(whbbox)
     whbbox[:, 0] = x + w / 2. - whbbox[:, 2] / 2.

@@ -9,6 +9,7 @@ import datahelper
 from setting import const
 
 
+
 def check_val_data():
     path = '/media/chen/datasets/OTB/Liquor/img/0001.jpg'
     region = [256, 152, 73, 210]
