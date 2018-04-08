@@ -90,7 +90,7 @@ def get_update_data(img, gt, cur=0):
     :return:
     '''
 
-    pos_sample_num, neg_sample_num = 50, 200
+    pos_sample_num, neg_sample_num = 32, 64
     img_H, img_W, c = np.shape(img)
 
     A = list()
@@ -108,7 +108,7 @@ def get_update_data(img, gt, cur=0):
                           [0.7, 1.7, 0.7, 1, 1.7]):
             pre_regions.append(util.central_bbox(gt, 0, 0, ws, hs, img_W, img_H))
 
-            # pre_regions.append(util.central_bbox(gt, 1, 0, 1, 1, img_W, img_H))
+            pre_regions.append(util.central_bbox(gt, 0, 0, 2, 2, img_W, img_H))
             # pre_regions.append(util.central_bbox(gt, 0, 1, 1, 1, img_W, img_H))
             # pre_regions.append(util.central_bbox(gt, -1, 0, 1, 1, img_W, img_H))
             # pre_regions.append(util.central_bbox(gt, 0, -1, 1, 1, img_W, img_H))

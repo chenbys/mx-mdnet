@@ -132,6 +132,8 @@ def debug_track_seq(args, model, img_paths, gts):
 
         # print util.overlap_ratio(region, gts[cur]), prob
         # twice tracking
+        if cur == 57:
+            a = 1
         if (prob > 0.6) & (prob > (probs[-1] - 0.1)):
 
             add_update_data(img, region, cur)
@@ -176,6 +178,7 @@ def debug_track_seq(args, model, img_paths, gts):
             a = 1
         if iou == 0:
             a = 1
+
     return res, probs, ious
 
 
