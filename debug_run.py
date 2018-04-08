@@ -55,20 +55,36 @@ def debug_track_seq(args, model, img_paths, gts):
     data_batches = datahelper.get_data_batches(datahelper.get_train_data(img, train_gt))
     check_metric(model, data_batches)
     logging.info('@CHEN->update %3d.' % len(data_batches))
-    metric = mx.metric.CompositeEvalMetric()
-    metric.add([extend.PR(), extend.RR(), extend.TrackTopKACC(), extend.SMLoss()])
+    epoch_mc = mx.metric.CompositeEvalMetric()
+    epoch_mc.add([extend.PR(), extend.RR(), extend.TrackTopKACC(), extend.SMLoss()])
+    batch_mc = extend.SMLoss()
     mc_log = []
     for epoch in range(0, args.num_epoch_for_offline):
         t = time.time()
-        metric.reset()
-        b = 0
-        for data_batch in data_batches:
-            model.forward_backward(data_batch)
-            model.update()
-            model.update_metric(metric, data_batch.label)
-        mc_log.append({b: metric.get_name_value()})
-        for name, val in metric.get_name_value():
-            logging.info('|--| batch[%d] %s=%f', epoch, name, val)
+        batch_idx = np.arange(0, len(data_batches))
+        epoch_mc.reset()
+        while True:
+            batch_mc_log = []
+
+            for idx in batch_idx:
+                batch_mc.reset()
+                data_batch = data_batches[idx]
+                model.forward_backward(data_batch)
+                model.update()
+                model.update_metric(batch_mc, data_batch.label)
+                model.update_metric(epoch_mc, data_batch.label)
+
+                batch_mc_log.append(batch_mc.get_name_value()[0][1])
+
+            # 找出最大loss的多更新
+            sorted_idx = np.argsort(batch_mc_log)
+            sel = len(batch_idx) - len(data_batches) / 5
+            if sel < len(data_batches) / 10:
+                break
+            batch_idx = batch_idx[sorted_idx[-sel:]]
+
+        for name, val in epoch_mc.get_name_value():
+            logging.info('|-- %s=%f', name, val)
 
         logging.info('| epoch %d, cost:%.4f' % (epoch, time.time() - t))
     mc_logs.append(mc_log)
@@ -100,12 +116,6 @@ def debug_track_seq(args, model, img_paths, gts):
         pre_regions = []
         for dx, dy, ws, hs in [
             [0, 0, 1, 1],
-            # [0, 0, 2, 2],
-            # [0, 0, 0.5, 0.5],
-            # [0, 1, 1, 1],
-            # [1, 0, 1, 1],
-            # [-1, 0, 1, 1],
-            # [0, 1, 1, 1]
         ]:
             pre_regions.append(util.central_bbox(pre_region, dx, dy, ws, hs, img_W, img_H))
         pre_regions += util.replace_wh(region, res[-5:-6] + res[-2:-1])
@@ -134,13 +144,17 @@ def debug_track_seq(args, model, img_paths, gts):
         # twice tracking
         if cur == 57:
             a = 1
-        if (prob > 0.6) & (prob > (probs[-1] - 0.1)):
+        if (prob > 0.6) & (prob > (probs[-1] - 0.2)):
 
             add_update_data(img, region, cur)
 
             if cur % 10 == 0:
+                if cur < 50:
+                    on_len = 50
+                else:
+                    on_len = 20
                 logging.info('| long term update')
-                model = online_update(args, model, 30)
+                model = online_update(args, model, on_len)
         else:
             logging.info('| short term update for porb: %.2f' % prob)
             model = online_update(args, model, 10)
@@ -153,11 +167,6 @@ def debug_track_seq(args, model, img_paths, gts):
             for ws, hs in zip([0.8, 1.5, 1],
                               [0.8, 1.5, 1]):
                 pre_regions.append(util.central_bbox(pre_region, 0, 0, ws, hs, img_W, img_H))
-
-            # pre_regions.append(util.central_bbox(pre_region, 0, 2, 1, 1, img_W, img_H))
-            # pre_regions.append(util.central_bbox(pre_region, 2, 0, 1, 1, img_W, img_H))
-            # pre_regions.append(util.central_bbox(pre_region, -2, 0, 1, 1, img_W, img_H))
-            # pre_regions.append(util.central_bbox(pre_region, 0, -2, 1, 1, img_W, img_H))
 
             region, prob = multi_track(model, img, pre_regions=pre_regions, gt=gts[cur])
 
@@ -174,7 +183,7 @@ def debug_track_seq(args, model, img_paths, gts):
         logging.info('| IOU : [ %.2f ], prob:%.5f for tracking on frame %d, cost %4.4f' \
                      % (iou, prob, cur, cost))
         logging.info('^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^')
-        if iou < 0.3:
+        if iou < 0.4:
             a = 1
         if iou == 0:
             a = 1
@@ -241,6 +250,8 @@ def add_update_data(img, gt, cur):
 
 
 def check_metric(model, data_batches):
+    if not const.check_mc:
+        return
     metric = mx.metric.CompositeEvalMetric()
     metric.add([extend.PR(), extend.RR(), extend.TrackTopKACC(), extend.SMLoss()])
     metric.reset()
@@ -273,26 +284,41 @@ def online_update(args, model, data_len):
     :return:
     '''
     t = time.time()
-    mc_log = []
     data_batches = datahelper.get_data_batches(get_update_data(data_len))
     check_metric(model, data_batches)
-    metric = mx.metric.CompositeEvalMetric()
-    metric.add([extend.PR(), extend.RR(), extend.TrackTopKACC(), extend.SMLoss()])
+    epoch_mc = mx.metric.CompositeEvalMetric()
+    epoch_mc.add([extend.PR(), extend.RR(), extend.TrackTopKACC(), extend.SMLoss()])
+    batch_mc = extend.SMLoss()
     for epoch in range(0, args.num_epoch_for_online):
-        metric.reset()
         t = time.time()
-        b = 0
-        for data_batch in data_batches:
-            model.forward_backward(data_batch)
-            model.update()
-            b += 1
-            model.update_metric(metric, data_batch.label)
-        mc_log.append({b: metric.get_name_value()})
-        for name, val in metric.get_name_value():
-            logging.info('|--| batch[%d] %s=%f', epoch, name, val)
-    logging.info('| online update, cost:%.6f, update batches: %d' % (time.time() - t, len(data_batches)))
+        batch_idx = np.arange(0, len(data_batches))
+        epoch_mc.reset()
+        while True:
+            batch_mc_log = []
+
+            for idx in batch_idx:
+                batch_mc.reset()
+                data_batch = data_batches[idx]
+                model.forward_backward(data_batch)
+                model.update()
+                model.update_metric(batch_mc, data_batch.label)
+                model.update_metric(epoch_mc, data_batch.label)
+
+                batch_mc_log.append(batch_mc.get_name_value()[0][1])
+
+            # 找出最大loss的多更新
+            sorted_idx = np.argsort(batch_mc_log)
+            sel = len(batch_idx) - len(data_batches) / 5
+            if sel < len(data_batches) / 10:
+                break
+            batch_idx = batch_idx[sorted_idx[-sel:]]
+
+        for name, val in epoch_mc.get_name_value():
+            logging.info('|-- %s=%f', name, val)
+
+        logging.info('| epoch %d, cost:%.4f' % (epoch, time.time() - t))
+
     check_metric(model, data_batches)
-    mc_logs.append(mc_log)
     return model
 
 
@@ -488,7 +514,7 @@ def parse_args():
 
     parser.add_argument('--wd', default=1e0, help='weight decay', type=float)
     parser.add_argument('--momentum', default=0.9, type=float)
-    parser.add_argument('--lr_offline', default=1e-5, help='base learning rate', type=float)
+    parser.add_argument('--lr_offline', default=6e-6, help='base learning rate', type=float)
     parser.add_argument('--lr_online', default=2e-5, help='base learning rate', type=float)
 
     args = parser.parse_args()
@@ -502,4 +528,5 @@ if __name__ == '__main__':
     t = time.time()
     a = datahelper.get_update_data(plt.imread('/media/chen/datasets/OTB/Liquor/img/0001.jpg'), [256, 152, 73, 210], 30)
     print time.time() - t
+    const.check_mc = True
     debug_seq()
