@@ -8,17 +8,29 @@ from setting import const
 
 def refine_bbox(bboxes, probs, pre_region):
     bboxes = np.array(bboxes)
+    probs = np.array(probs)
     pre_region = np.array(pre_region)
-    sel = len(probs) / 2
-    Ds = bboxes - pre_region
-    abDs = np.abs(Ds)
+
+    # 如果最高分过低，直接输出最高的
+    if probs.max() < 0.5:
+        return bboxes[probs.argmax(), :], probs.max()
+
+    sel = probs.shape[0] / 2 + 1
+
+    # 位移较小的idx集合
+    ds = bboxes - pre_region
+    abDs = np.abs(ds)
     mDs = abDs.mean(1)
-    sel_D = np.argsort(mDs)[:sel]
-    sel_Dp = sel_D[sel_D > sel]
-    if sel_Dp.shape[0] == 0:
-        return bboxes[sel_D, :]
-    else:
-        return bboxes[sel:, :]
+    sel_d = np.argsort(mDs)[:sel]
+
+    # 返回最高分且位移不大的
+    sel_p = np.argsort(-probs)[:sel]
+
+    for idx in sel_p:
+        if idx in sel_d:
+            return bboxes[idx, :], probs[idx]
+    # 如果是空集
+    return bboxes[probs.argmax(), :], probs.max()
 
 
 def subs(box1, box2):

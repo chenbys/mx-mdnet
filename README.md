@@ -15,6 +15,7 @@ birds2 seq
 os.environ['MXNET_CUDNN_AUTOTUNE_DEFAULT'] = 0
 bolt1 338f
     会跟到另一个人，虽然两者的分都很高0.99.
+    还不能做到类内识别，和MDNet不一样，应该是网络结构改变带来的影响
 剔除离群bbox!
 
 
