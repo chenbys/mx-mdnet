@@ -6,6 +6,21 @@ import copy
 from setting import const
 
 
+def refine_bbox(bboxes, probs, pre_region):
+    bboxes = np.array(bboxes)
+    pre_region = np.array(pre_region)
+    sel = len(probs) / 2
+    Ds = bboxes - pre_region
+    abDs = np.abs(Ds)
+    mDs = abDs.mean(1)
+    sel_D = np.argsort(mDs)[:sel]
+    sel_Dp = sel_D[sel_D > sel]
+    if sel_Dp.shape[0] == 0:
+        return bboxes[sel_D, :]
+    else:
+        return bboxes[sel:, :]
+
+
 def subs(box1, box2):
     return np.array(box1) + np.array(box2)
 

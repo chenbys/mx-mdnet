@@ -84,6 +84,9 @@ def debug_track_seq(args, model, img_paths, gts):
     ious = []
     times = []
 
+    def show_res(i):
+        kit.show_tracking(plt.imread(img_paths[i]), res[i])
+
     # prepare online update data
     add_update_data(img, gts[0], 0)
 
@@ -97,15 +100,15 @@ def debug_track_seq(args, model, img_paths, gts):
         pre_regions = []
         for dx, dy, ws, hs in [
             [0, 0, 1, 1],
-            [0, 0, 2, 2],
-            [0, 0, 0.5, 0.5],
+            # [0, 0, 2, 2],
+            # [0, 0, 0.5, 0.5],
             # [0, 1, 1, 1],
             # [1, 0, 1, 1],
             # [-1, 0, 1, 1],
             # [0, 1, 1, 1]
         ]:
             pre_regions.append(util.central_bbox(pre_region, dx, dy, ws, hs, img_W, img_H))
-        pre_regions += util.replace_wh(region, res[-15:-3:5] + res[-3:-1])
+        pre_regions += util.replace_wh(region, res[-5:-6] + res[-2:-1])
         t = time.time()
         region, prob = multi_track(model, img, pre_regions=pre_regions, gt=gts[cur])
 
@@ -129,7 +132,7 @@ def debug_track_seq(args, model, img_paths, gts):
 
         # print util.overlap_ratio(region, gts[cur]), prob
         # twice tracking
-        if (prob > 0.5) & (prob > (probs[-1] - 0.1)):
+        if (prob > 0.6) & (prob > (probs[-1] - 0.1)):
 
             add_update_data(img, region, cur)
 
@@ -143,7 +146,7 @@ def debug_track_seq(args, model, img_paths, gts):
 
             pre_region = res[cur - 1]
             # 二次检测时，检查上上次的pre_region，并搜索更大的区域
-            pre_regions = util.replace_wh(region, res[-7:-1:3])
+            pre_regions = util.replace_wh(region, res[-15:-1:3])
 
             for ws, hs in zip([0.8, 1.5, 1],
                               [0.8, 1.5, 1]):
@@ -170,7 +173,7 @@ def debug_track_seq(args, model, img_paths, gts):
                      % (iou, prob, cur, cost))
         logging.info('^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^')
         if iou < 0.3:
-            next_frame = 1
+            a = 1
         if iou == 0:
             a = 1
     return res, probs, ious
@@ -303,7 +306,7 @@ def multi_track(model, img, pre_regions, gt, topK=3):
 
     A, B = [], []
 
-    # bboxes, probs = track(model, img, pre_regions[0], gt, topK=1)
+    # bboxes, probs = track(model, img, pre_regions[0], gt, topK=3)
     # A.append(bboxes)
     # B.append(probs)
     # if np.mean(probs) > 0.7:
@@ -311,20 +314,22 @@ def multi_track(model, img, pre_regions, gt, topK=3):
     #     opt_score = np.mean(probs)
     #     logging.getLogger().info('| once hit')
     #     return opt_img_bbox, opt_score
-
+    single_track_topK = topK * 2
     for pr in pre_regions:
         # t = time.time()
-        bboxes, probs = track(model, img, pr, gt, topK=topK)
+        bboxes, probs = track(model, img, pr, gt, topK=single_track_topK)
         A.append(bboxes)
         B.append(probs)
         # logging.info('| %.6f， time for track' % (time.time() - t))
-    idx = np.array(B).reshape(-1, ).argsort()[-5::]
-    x_y_idx = [divmod(i, topK) for i in idx]
+    idx = np.array(B).reshape(-1, ).argsort()[-topK * len(pre_regions)::]
+    x_y_idx = [divmod(i, single_track_topK) for i in idx]
     top_bboxes = []
     top_probs = []
     for x, y in x_y_idx:
         top_bboxes.append(A[x][y, :])
         top_probs.append(B[x][y])
+
+    util.refine_bbox(top_bboxes, top_probs, pre_regions[0])
     opt_img_bbox = np.mean(top_bboxes, 0)
     opt_score = np.mean(top_probs)
 
@@ -449,7 +454,7 @@ def debug_seq():
     args = parse_args()
 
     vot = datahelper.VOTHelper(args.VOT_path)
-    img_paths, gts = vot.get_seq('bolt1')
+    img_paths, gts = vot.get_seq('bolt2')
 
     first_idx = 0
     img_paths, gts = img_paths[first_idx:], gts[first_idx:]

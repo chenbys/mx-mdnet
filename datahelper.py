@@ -32,8 +32,8 @@ def get_train_data(img, region):
     C = list()
     # 伪造一些不准确的pre_region
     pre_regions = []
-    for dx in [-0.5, 0, 0.5]:
-        for dy in [-0.5, 0, 0.5]:
+    for dx in [-1, 0, 1]:
+        for dy in [-1, 0, 1]:
             for ws in [0.5, 0.7, 1, 1.5]:
                 for hs in [0.7, 1, 1.2, 2]:
                     pre_regions.append(util.central_bbox(region, dx, dy, ws, hs, img_W, img_H))
@@ -99,7 +99,7 @@ def get_update_data(img, gt, cur=0):
     # 伪造一些不准确的pre_region
     pre_regions = []
 
-    if cur < 20:
+    if cur < 0:
         for ws in [0.7, 1, 1.5, 2]:
             for hs in [0.7, 1, 1.5, 2]:
                 pre_regions.append(util.central_bbox(gt, 0, 0, ws, hs, img_W, img_H))
@@ -108,10 +108,10 @@ def get_update_data(img, gt, cur=0):
                           [0.7, 1.7, 0.7, 1, 1.7]):
             pre_regions.append(util.central_bbox(gt, 0, 0, ws, hs, img_W, img_H))
 
-        pre_regions.append(util.central_bbox(gt, 1, 0, 1, 1, img_W, img_H))
-        pre_regions.append(util.central_bbox(gt, 0, 1, 1, 1, img_W, img_H))
-        pre_regions.append(util.central_bbox(gt, -1, 0, 1, 1, img_W, img_H))
-        pre_regions.append(util.central_bbox(gt, 0, -1, 1, 1, img_W, img_H))
+            # pre_regions.append(util.central_bbox(gt, 1, 0, 1, 1, img_W, img_H))
+            # pre_regions.append(util.central_bbox(gt, 0, 1, 1, 1, img_W, img_H))
+            # pre_regions.append(util.central_bbox(gt, -1, 0, 1, 1, img_W, img_H))
+            # pre_regions.append(util.central_bbox(gt, 0, -1, 1, 1, img_W, img_H))
 
     for pr in pre_regions:
         img_patch, restore_info = util.get_img_patch(img, pr)
