@@ -47,7 +47,7 @@ def debug_track_seq(args, model, img_paths, gts):
 
     train_img_path, train_gt = img_paths[0], gts[0]
     img = plt.imread(train_img_path)
-
+    const.img_H, const.img_W, c = img.shape
     sgd = mx.optimizer.SGD(learning_rate=args.lr_offline, wd=args.wd, momentum=args.momentum)
     sgd.set_lr_mult({'score_bias': 10, 'score_weight': 10})
     model.init_optimizer(kvstore='local', optimizer=sgd, force_init=True)
@@ -78,7 +78,7 @@ def debug_track_seq(args, model, img_paths, gts):
 
             # 找出最大loss的多更新
             sorted_idx = np.argsort(batch_mc_log)
-            sel = len(batch_idx) - len(data_batches) / 5
+            sel = len(batch_idx) * 3 / 4
             if sel < len(data_batches) / 10:
                 break
             batch_idx = batch_idx[sorted_idx[-sel:]]
@@ -86,7 +86,7 @@ def debug_track_seq(args, model, img_paths, gts):
         for name, val in epoch_mc.get_name_value():
             logging.info('|-- %s=%f', name, val)
 
-        logging.info('| epoch %d, cost:%.4f' % (epoch, time.time() - t))
+        logging.info('| epoch %d, cost:%.4f, batches: %d ' % (epoch, time.time() - t, len(data_batches)))
     mc_logs.append(mc_log)
 
     sgd = mx.optimizer.SGD(learning_rate=args.lr_online, wd=args.wd, momentum=args.momentum)
@@ -99,9 +99,11 @@ def debug_track_seq(args, model, img_paths, gts):
     region = gts[0]
     ious = []
     times = []
+    last_update = -5
+    bh = util.BboxHelper(region)
 
     def show_res(i):
-        kit.show_tracking(plt.imread(img_paths[i]), res[i])
+        kit.show_tracking(plt.imread(img_paths[i]), [res[i]] + [gts[i]])
 
     # prepare online update data
     add_update_data(img, gts[0], 0)
@@ -112,10 +114,7 @@ def debug_track_seq(args, model, img_paths, gts):
         img_H, img_W, c = np.shape(img)
         T = time.time()
         # track
-        pre_region = region
-        pre_regions = [pre_region]
-        pre_regions += util.replace_wh(region, res[-5:-6] + res[-2:-1])
-        t = time.time()
+        pre_regions = bh.get_base_regions()
         region, prob = multi_track(model, img, pre_regions=pre_regions, gt=gts[cur])
 
         # region = np.mean([region] + res[-2:], 0)
@@ -124,16 +123,20 @@ def debug_track_seq(args, model, img_paths, gts):
 
         def show_tracking():
             gt = gts[cur]
+            estimate_region = pre_regions[0]
             pre_region = res[cur - 1]
             fig = plt.figure()
             ax = fig.add_subplot(111)
             ax.imshow(img)
             ax.add_patch(patches.Rectangle((region[0], region[1]), region[2], region[3],
-                                           linewidth=3, edgecolor='red', facecolor='none'))
+                                           linewidth=2, edgecolor='red', facecolor='none'))
             ax.add_patch(patches.Rectangle((gt[0], gt[1]), gt[2], gt[3],
-                                           linewidth=1, edgecolor='blue', facecolor='none'))
-            ax.add_patch(patches.Rectangle((pre_region[0], pre_region[1]), pre_region[2], pre_region[3],
                                            linewidth=1, edgecolor='yellow', facecolor='none'))
+            ax.add_patch(patches.Rectangle((pre_region[0], pre_region[1]), pre_region[2], pre_region[3],
+                                           linewidth=1, edgecolor='black', facecolor='none'))
+            ax.add_patch(patches.Rectangle((estimate_region[0], estimate_region[1]),
+                                           estimate_region[2], estimate_region[3],
+                                           linewidth=1, edgecolor='blue', facecolor='none'))
             fig.show()
 
         # print util.overlap_ratio(region, gts[cur]), prob
@@ -144,32 +147,27 @@ def debug_track_seq(args, model, img_paths, gts):
 
             add_update_data(img, region, cur)
 
-            if cur % 10 == 0:
-                if cur < 50:
-                    on_len = 10
-                else:
-                    on_len = 10
+            if cur - last_update > 10:
                 logging.info('| long term update')
-                model = online_update(args, model, on_len)
+                model = online_update(args, model, 20, 2)
+                last_update = cur
+
         else:
             logging.info('| short term update for porb: %.2f' % prob)
-            model = online_update(args, model, 5)
+            if cur - last_update > 5:
+                model = online_update(args, model, 5, 1)
+                last_update = cur
             logging.info('| twice tracking %d.jpg' % cur)
 
-            pre_region = res[cur - 1]
-            # 二次检测时，检查上上次的pre_region，并搜索更大的区域
-            pre_regions = util.replace_wh(region, res[-15:-1:3])
-
-            for ws, hs in zip([0.8, 1.5, 1],
-                              [0.8, 1.5, 1]):
-                pre_regions.append(util.central_bbox(pre_region, 0, 0, ws, hs, img_W, img_H))
-
+            pre_regions = bh.get_twice_base_regions()
             region, prob = multi_track(model, img, pre_regions=pre_regions, gt=gts[cur])
-
-            if prob > 0.6:
-                add_update_data(img, region, cur)
+            if prob < 0.5:
+                region = res[-1]
+                # if prob > 0.6:
+                #     add_update_data(img, region, cur)
 
         # report
+        bh.add_res(region)
         res.append(region)
         probs.append(prob)
         iou = util.overlap_ratio(gts[cur], region)
@@ -187,7 +185,7 @@ def debug_track_seq(args, model, img_paths, gts):
     return res, probs, ious
 
 
-def check_track(model, i, flag=0, pr=None, topK=3):
+def check_track(model, i, flag=0, pr=None, topK=2):
     if pr == None:
         pr = const.gts[i]
 
@@ -206,7 +204,7 @@ def check_track(model, i, flag=0, pr=None, topK=3):
     return probs
 
 
-def get_update_data(frame_len=20):
+def get_update_data(frame_len, step):
     '''
         返回最近frame_len帧 组成的 update_data
     :param frame_len: 长期100，短期20
@@ -215,7 +213,7 @@ def get_update_data(frame_len=20):
     frame_len = min(frame_len, update_data_queue.qsize())
     img_patches, feat_bboxes, labels = [], [], []
 
-    for i in range(1, frame_len + 2):
+    for i in range(1, frame_len + 2, step):
         a, b, c = update_data_queue.queue[-(i % frame_len)]
         img_patches += a
         feat_bboxes += b
@@ -254,7 +252,7 @@ def check_metric(model, data_batches):
         logging.info('|--| check metric %s=%f', name, val)
 
 
-def online_update(args, model, data_len):
+def online_update(args, model, data_len, step):
     '''
         pos sample 只用短期的，因为老旧的负样本是无关的。（如果速度允许的话，为了省事，都更新应该影响不大吧。）
         mdnet：long term len 100F, short term len 20F（感觉短期有点太长了吧，可能大多变化都在几帧之内完成）
@@ -276,7 +274,7 @@ def online_update(args, model, data_len):
     :return:
     '''
     t = time.time()
-    data_batches = datahelper.get_data_batches(get_update_data(data_len))
+    data_batches = datahelper.get_data_batches(get_update_data(data_len, step))
     check_metric(model, data_batches)
     epoch_mc = mx.metric.CompositeEvalMetric()
     epoch_mc.add([extend.PR(), extend.RR(), extend.TrackTopKACC(), extend.SMLoss()])
@@ -300,8 +298,8 @@ def online_update(args, model, data_len):
 
             # 找出最大loss的多更新
             sorted_idx = np.argsort(batch_mc_log)
-            sel = len(batch_idx) - len(data_batches) / 7
-            if sel < len(data_batches) / 10:
+            sel = len(batch_idx) * 1 / 4
+            if sel < len(data_batches) / 20:
                 break
             batch_idx = batch_idx[sorted_idx[-sel:]]
 
@@ -327,35 +325,19 @@ def multi_track(model, img, pre_regions, gt, topK=3):
 
     B, P = [], []
 
-    # bboxes, probs = track(model, img, pre_regions[0], gt, topK=3)
-    # A.append(bboxes)
-    # B.append(probs)
-    # if np.mean(probs) > 0.7:
-    #     opt_img_bbox = np.mean(bboxes, 0)
-    #     opt_score = np.mean(probs)
-    #     logging.getLogger().info('| once hit')
-    #     return opt_img_bbox, opt_score
-    single_track_topK = 3
+    single_track_topK = 2
     for pr in pre_regions:
         # t = time.time()
         bboxes, probs = track(model, img, pr, gt, topK=single_track_topK)
         B += bboxes
         P += probs
-        # logging.info('| %.6f， time for track' % (time.time() - t))
-    # idx = np.array(B).reshape(-1, ).argsort()[-topK * len(pre_regions)::]
-    # x_y_idx = [divmod(i, single_track_topK) for i in idx]
-    # top_bboxes = []
-    # top_probs = []
-    # for x, y in x_y_idx:
-    #     top_bboxes.append(A[x][y, :])
-    #     top_probs.append(B[x][y])
 
     opt_img_bbox, opt_score = util.refine_bbox(B, P, pre_regions[0])
 
     return opt_img_bbox, opt_score
 
 
-def track(model, img, pre_region, gt, topK=3, plotc=False, showc=False, checkc=False):
+def track(model, img, pre_region, gt, topK=2, plotc=False, showc=False, checkc=False):
     pred_data, restore_info = datahelper.get_predict_data(img, pre_region)
     pred_iter = datahelper.get_iter(pred_data)
     [img_patch], [feat_bboxes], [l] = pred_data
@@ -366,11 +348,11 @@ def track(model, img, pre_region, gt, topK=3, plotc=False, showc=False, checkc=F
     img_bboxes = util.restore_bboxes(patch_bboxes, restore_info)
     labels = util.overlap_ratio(gt, img_bboxes)
 
-    def nms(th=0.8):
-        t = time.time()
+    def nms(th=0.85):
+        # t = time.time()
         bbox, idx = NMSuppression(bbs=util.xywh2x1y1x2y2(img_bboxes), probs=np.array(pos_score),
                                   overlapThreshold=th).fast_suppress()
-        logging.getLogger().info('@CHEN->nms:%.4f' % (time.time() - t))
+        # logging.getLogger().info('@CHEN->nms:%.4f' % (time.time() - t))
         return idx
 
     nms_idx = nms(0.7)
@@ -460,9 +442,6 @@ def track(model, img, pre_region, gt, topK=3, plotc=False, showc=False, checkc=F
 
         # show_tracking()
 
-    # check_all_metric(0.5)
-    # check_all_metric(0.7)
-    # check_train_metric()
     if plotc:
         plot()
     if showc:
@@ -486,7 +465,6 @@ def debug_seq():
     const.gts = gts
     const.img_paths = img_paths
 
-    # datahelper.get_predict_data(plt.imread(img_paths[12]), gts[11])
     model, all_params = extend.init_model(args)
 
     logging.getLogger().setLevel(logging.INFO)
@@ -497,30 +475,28 @@ def debug_seq():
 def parse_args():
     parser = argparse.ArgumentParser(description='Train MDNet network')
     parser.add_argument('--gpu', help='GPU device to train with', default=0, type=int)
-    parser.add_argument('--num_epoch_for_offline', default=10, type=int)
+    parser.add_argument('--num_epoch_for_offline', default=5, type=int)
     parser.add_argument('--num_epoch_for_online', default=1, type=int)
 
-    parser.add_argument('--fixed_conv', help='these params of [ conv_i <= ? ] will be fixed', default=3, type=int)
+    parser.add_argument('--fixed_conv', default=3, help='these params of [ conv_i <= ? ] will be fixed', type=int)
     parser.add_argument('--saved_fname', default='conv123fc4fc5', type=str)
     parser.add_argument('--OTB_path', help='OTB folder', default='/media/chen/datasets/OTB', type=str)
-    parser.add_argument('--VOT_path', help='VOT folder', default='/media/chen/datasets/VOT2015', type=str)
+    parser.add_argument('--VOT_path', help='VOT folder', default='/home/chen/vot-toolkit/cmdnet-workspace/sequences',
+                        type=str)
     parser.add_argument('--ROOT_path', help='cmd folder', default='/home/chen/mx-mdnet', type=str)
 
-    parser.add_argument('--wd', default=3e0, help='weight decay', type=float)
+    parser.add_argument('--wd', default=2e0, help='weight decay', type=float)
     parser.add_argument('--momentum', default=0.9, type=float)
     parser.add_argument('--lr_offline', default=1e-5, help='base learning rate', type=float)
-    parser.add_argument('--lr_online', default=3e-5, help='base learning rate', type=float)
+    parser.add_argument('--lr_online', default=4e-4, help='base learning rate', type=float)
 
     args = parser.parse_args()
     return args
 
 
 if __name__ == '__main__':
-    t = time.time()
-    # a = datahelper.get_update_data(plt.imread('/media/chen/datasets/OTB/Liquor/img/0001.jpg'), [256, 152, 73, 210])
-    print time.time() - t
-    t = time.time()
-    a = datahelper.get_update_data(plt.imread('/media/chen/datasets/OTB/Liquor/img/0001.jpg'), [256, 152, 73, 210], 66)
-    print time.time() - t
+    # t = time.time()
+    # a = datahelper.get_update_data(plt.imread('/media/chen/datasets/OTB/Liquor/img/0001.jpg'), [256, 152, 73, 210], 66)
+    # print time.time() - t
     const.check_mc = False
     debug_seq()

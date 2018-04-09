@@ -6,13 +6,97 @@ import copy
 from setting import const
 
 
+class BboxHelper(object):
+    def __init__(self, region):
+        self.history = [region]
+        self.whbase = [region]
+
+    def get_estimate_region(self):
+        history = self.history[-5:]
+        length = len(history)
+        if length < 3:
+            return history[-1]
+
+        v = []
+        history = np.array(history)
+        for i in range(0, length - 1):
+            v.append(history[i + 1, :] - history[i, :])
+        a = []
+        v = np.array(v)
+        for i in range(0, length - 2):
+            a.append(v[i + 1, :] - v[i, :])
+        v = np.mean(v, 0)
+        a = np.mean(a, 0)
+        e_region = np.array(history[-1]) + v + a
+
+        e_region[0] = max(e_region[0], 0)
+        e_region[1] = max(e_region[1], 0)
+        e_region[2] = max(10, min(const.img_W - e_region[0] - 1, e_region[2]))
+        e_region[3] = max(10, min(const.img_W - e_region[1] - 1, e_region[3]))
+        return e_region
+
+    def get_estimate_region2(self):
+        history = self.history[-5:]
+        length = len(history)
+        if length < 3:
+            return history[-1]
+
+        v = []
+        history = np.array(history)
+        for i in range(0, length - 1):
+            v.append((i + 1) * (history[i + 1, :] - history[i, :]))
+        a = []
+        v = np.array(v)
+        for i in range(0, length - 2):
+            a.append((i + 1) * (v[i + 1, :] - v[i, :]))
+        v = np.mean(v, 0) / np.sum(range(1, length))
+        a = np.mean(a, 0) / np.sum(range(1, length - 1))
+        e_region = np.array(history[-1]) + v + a
+
+        e_region[0] = max(e_region[0], 0)
+        e_region[1] = max(e_region[1], 0)
+        e_region[2] = max(15, min(const.img_W - e_region[0] - 1, e_region[2]))
+        e_region[3] = max(15, min(const.img_W - e_region[1] - 1, e_region[3]))
+        return e_region
+
+    def get_base_regions(self):
+
+        pr = self.get_estimate_region()
+        br = [pr, self.history[-1]]
+        br += replace_wh(pr, self.whbase)
+        return br
+
+    def get_twice_base_regions(self):
+        pr = self.history[-1]
+        br = []
+        br += replace_wh(pr, self.whbase)
+        br.append(central_bbox(pr, 1, 0, 1, 1))
+        br.append(central_bbox(pr, -1, 0, 1, 1))
+        br.append(central_bbox(pr, 0, 1, 1, 1))
+        br.append(central_bbox(pr, 0, -1, 1, 1))
+        br.append(central_bbox(pr, 0, 0, 2, 2))
+        br.append(central_bbox(pr, 0, 0, 0.5, 0.5))
+        return br
+
+    def add_res(self, res_region):
+        res_region = np.array(res_region)
+        self.history.append(res_region)
+        wh = np.array(self.whbase)
+        d = wh - res_region
+        ds = np.abs(d[:, 2]) + np.abs(d[:, 3])
+        if ds.min() > res_region[2] / 4. + res_region[3] / 4.:
+            self.whbase.append(res_region)
+            if len(self.whbase) > 3:
+                self.whbase = self.whbase[1:]
+
+
 def refine_bbox(bboxes, probs, pre_region):
     bboxes = np.array(bboxes)
     probs = np.array(probs)
     pre_region = np.array(pre_region)
 
     # 如果最高分过低，直接输出最高的
-    if probs.max() < 0.5:
+    if probs.max() < 0.8:
         return bboxes[probs.argmax(), :], probs.max()
 
     sel = probs.shape[0] / 2 + 1
@@ -26,10 +110,19 @@ def refine_bbox(bboxes, probs, pre_region):
     # 返回最高分且位移不大的
     sel_p = np.argsort(-probs)[:sel]
 
-    for idx in sel_p:
-        if idx in sel_d:
+    # opt_idx = [x for x in sel_p if x in sel_d][:2]
+    # if len(opt_idx) != 0:
+    #     return np.mean(bboxes[opt_idx, :], 0), np.mean(probs[opt_idx])
+    # else:
+    #     # 如果是空集
+    #     return bboxes[probs.argmax(), :], probs.max()
+
+    # for idx in sel_p:
+    #     if idx in sel_d:
+    #         return bboxes[idx, :], probs[idx]
+    for idx in sel_d:
+        if probs[idx] > 0.8:
             return bboxes[idx, :], probs[idx]
-    # 如果是空集
     return bboxes[probs.argmax(), :], probs.max()
 
 
@@ -46,6 +139,8 @@ def replace_wh(xybbox, whbbox):
     '''
     if whbbox == []:
         return []
+    img_W, img_H = const.img_W, const.img_H
+
     x, y, w, h = xybbox
     whbbox = np.array(whbbox)
     whbbox[:, 0] = x + w / 2. - whbbox[:, 2] / 2.
@@ -59,10 +154,11 @@ def bbox_contain(B, b):
     return (X <= x) & (Y <= y) & ((X + W) >= (x + w)) & ((Y + H) >= (y + h))
 
 
-def central_bbox(region, dx, dy, w_f, h_f, img_W, img_H):
+def central_bbox(region, dx, dy, w_f, h_f):
+    img_W, img_H = const.img_W, const.img_H
     x, y, w, h = region
-    W = min(img_W, w_f * w)
-    H = min(img_H, h_f * h)
+    W = min(img_W - 1, w_f * w)
+    H = min(img_H - 1, h_f * h)
     X = min(img_W - W, max(0, x + w / 2. - W / 2. + dx * w))
     Y = min(img_H - H, max(0, y + h / 2. - H / 2. + dy * h))
 

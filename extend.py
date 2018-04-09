@@ -61,7 +61,7 @@ class RR(mx.metric.EvalMetric):
 
 
 class TrackTopKACC(mx.metric.EvalMetric):
-    def __init__(self, topK=5, th=0.6):
+    def __init__(self, topK=5, th=0.7):
         '''
             评价模型输出概率的最大K个样本对应label大于th的比率
         :param topK:
@@ -76,9 +76,11 @@ class TrackTopKACC(mx.metric.EvalMetric):
         pos_scores = scores[:, 1]
         self.topK = min(self.topK, pos_scores.shape[0])
         topK_idx = pos_scores.argsort()[-self.topK::]
+        # 只考虑topK中的被认为是正样本的idx
+        topK_idx = topK_idx[pos_scores[topK_idx] > self.th]
         topK_acc = np.sum(labels[topK_idx] > self.th)
         self.sum_metric += topK_acc
-        self.num_inst += self.topK
+        self.num_inst += topK_idx.shape[0]
 
 
 class SMLoss(mx.metric.EvalMetric):
@@ -244,7 +246,7 @@ def init_model(args):
         mat_path=args.ROOT_path + '/saved/mdnet_otb-vot15_in_py.mat')
     for k in conv123fc4fc5.keys():
         conv123fc4fc5[k] = mx.ndarray.array(conv123fc4fc5.get(k))
-    model.init_params(initializer=mx.initializer.Normal(0.001), arg_params=conv123fc4fc5, allow_missing=True,
+    model.init_params(initializer=mx.initializer.Uniform(0.), arg_params=conv123fc4fc5, allow_missing=True,
                       force_init=False, allow_extra=True)
 
     # else:
