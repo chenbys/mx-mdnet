@@ -57,7 +57,7 @@ class RR(mx.metric.EvalMetric):
         length = np.sum(labels > self.pos_th)
 
         self.sum_metric += hit
-        self.num_inst += length
+        self.num_inst += max(1, length)
 
 
 class TrackTopKACC(mx.metric.EvalMetric):
@@ -80,7 +80,7 @@ class TrackTopKACC(mx.metric.EvalMetric):
         topK_idx = topK_idx[pos_scores[topK_idx] > self.th]
         topK_acc = np.sum(labels[topK_idx] > self.th)
         self.sum_metric += topK_acc
-        self.num_inst += topK_idx.shape[0]
+        self.num_inst += max(1, topK_idx.shape[0])
 
 
 class SMLoss(mx.metric.EvalMetric):
@@ -246,7 +246,7 @@ def init_model(args):
         mat_path=args.ROOT_path + '/saved/mdnet_otb-vot15_in_py.mat')
     for k in conv123fc4fc5.keys():
         conv123fc4fc5[k] = mx.ndarray.array(conv123fc4fc5.get(k))
-    model.init_params(initializer=mx.initializer.Uniform(0.), arg_params=conv123fc4fc5, allow_missing=True,
+    model.init_params(initializer=mx.initializer.Constant(-0.1), arg_params=conv123fc4fc5, allow_missing=True,
                       force_init=False, allow_extra=True)
 
     # else:

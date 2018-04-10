@@ -4,6 +4,8 @@ from scipy.misc import imresize
 import numpy as np
 import copy
 from setting import const
+import matplotlib.pyplot as plt
+import kit
 
 
 class BboxHelper(object):
@@ -27,6 +29,7 @@ class BboxHelper(object):
             a.append(v[i + 1, :] - v[i, :])
         v = np.mean(v, 0)
         a = np.mean(a, 0)
+        v[2] = v[3] = a[2] = a[3] = 0
         e_region = np.array(history[-1]) + v + a
 
         e_region[0] = max(e_region[0], 0)
@@ -62,7 +65,7 @@ class BboxHelper(object):
     def get_base_regions(self):
 
         pr = self.get_estimate_region()
-        br = [pr, self.history[-1]]
+        br = [self.history[-1]]
         br += replace_wh(pr, self.whbase)
         return br
 
@@ -86,7 +89,7 @@ class BboxHelper(object):
         ds = np.abs(d[:, 2]) + np.abs(d[:, 3])
         if ds.min() > res_region[2] / 4. + res_region[3] / 4.:
             self.whbase.append(res_region)
-            if len(self.whbase) > 3:
+            if len(self.whbase) > 5:
                 self.whbase = self.whbase[1:]
 
 
@@ -95,9 +98,17 @@ def refine_bbox(bboxes, probs, pre_region):
     probs = np.array(probs)
     pre_region = np.array(pre_region)
 
+    return bboxes[probs.argmax(), :], probs.max()
+
     # 如果最高分过低，直接输出最高的
-    if probs.max() < 0.8:
+    if probs.max() < 0.9:
         return bboxes[probs.argmax(), :], probs.max()
+
+    bboxes = bboxes[probs > 0.9, :]
+    probs = probs[probs > 0.9]
+
+    if len(probs) < 5:
+        return np.mean(bboxes, 0), np.mean(probs)
 
     sel = probs.shape[0] / 2 + 1
 

@@ -49,15 +49,16 @@ def debug_track_seq(args, model, img_paths, gts):
     img = plt.imread(train_img_path)
     const.img_H, const.img_W, c = img.shape
     sgd = mx.optimizer.SGD(learning_rate=args.lr_offline, wd=args.wd, momentum=args.momentum)
-    sgd.set_lr_mult({'score_bias': 10, 'score_weight': 10})
+    sgd.set_lr_mult({'fc4_bias': 2, 'fc5_bias': 2, 'score_bias': 20, 'score_weight': 10})
     model.init_optimizer(kvstore='local', optimizer=sgd, force_init=True)
 
     data_batches = datahelper.get_data_batches(datahelper.get_train_data(img, train_gt))
     check_metric(model, data_batches)
     logging.info('@CHEN->update %3d.' % len(data_batches))
     epoch_mc = mx.metric.CompositeEvalMetric()
-    epoch_mc.add([extend.PR(), extend.RR(), extend.TrackTopKACC(), extend.SMLoss()])
-    batch_mc = extend.SMLoss()
+    epoch_mc.add([extend.PR(), extend.RR(), extend.TrackTopKACC(), extend.SMLoss(), mx.metric.CrossEntropy()])
+    # batch_mc = extend.SMLoss()
+    batch_mc = mx.metric.CrossEntropy()
     mc_log = []
     for epoch in range(0, args.num_epoch_for_offline):
         t = time.time()
@@ -73,15 +74,15 @@ def debug_track_seq(args, model, img_paths, gts):
                 model.update()
                 model.update_metric(batch_mc, data_batch.label)
                 model.update_metric(epoch_mc, data_batch.label)
-
                 batch_mc_log.append(batch_mc.get_name_value()[0][1])
 
             # 找出最大loss的多更新
             sorted_idx = np.argsort(batch_mc_log)
-            sel = len(batch_idx) * 3 / 4
+            sel = len(batch_idx) * 4 / 5
             if sel < len(data_batches) / 10:
                 break
-            batch_idx = batch_idx[sorted_idx[-sel:]]
+            # batch_idx = batch_idx[sorted_idx[-sel:]]
+            batch_idx = batch_idx[sorted_idx[:sel]]
 
         for name, val in epoch_mc.get_name_value():
             logging.info('|-- %s=%f', name, val)
@@ -90,7 +91,8 @@ def debug_track_seq(args, model, img_paths, gts):
     mc_logs.append(mc_log)
 
     sgd = mx.optimizer.SGD(learning_rate=args.lr_online, wd=args.wd, momentum=args.momentum)
-    sgd.set_lr_mult({'score_bias': 10, 'score_weight': 10})
+    sgd.set_lr_mult({'fc4_bias': 2, 'fc5_bias': 2, 'score_bias': 20, 'score_weight': 10})
+
     model.init_optimizer(kvstore='local', optimizer=sgd, force_init=True)
 
     os.environ['MXNET_CUDNN_AUTOTUNE_DEFAULT'] = '0'
@@ -111,11 +113,13 @@ def debug_track_seq(args, model, img_paths, gts):
     length = len(img_paths)
     for cur in range(1, length):
         img = plt.imread(img_paths[cur])
+        const.img = img
         img_H, img_W, c = np.shape(img)
         T = time.time()
         # track
         pre_regions = bh.get_base_regions()
-        region, prob = multi_track(model, img, pre_regions=pre_regions, gt=gts[cur])
+        B, P = multi_track(model, img, pre_regions=pre_regions, gt=gts[cur])
+        region, prob = util.refine_bbox(B, P, res[-1])
 
         # region = np.mean([region] + res[-2:], 0)
 
@@ -123,7 +127,7 @@ def debug_track_seq(args, model, img_paths, gts):
 
         def show_tracking():
             gt = gts[cur]
-            estimate_region = pre_regions[0]
+            estimate_region = pre_regions[1]
             pre_region = res[cur - 1]
             fig = plt.figure()
             ax = fig.add_subplot(111)
@@ -141,8 +145,6 @@ def debug_track_seq(args, model, img_paths, gts):
 
         # print util.overlap_ratio(region, gts[cur]), prob
         # twice tracking
-        if cur == 154:
-            a = 1
         if (prob > 0.5) & (prob > (probs[-1] - 0.1)):
 
             add_update_data(img, region, cur)
@@ -151,7 +153,6 @@ def debug_track_seq(args, model, img_paths, gts):
                 logging.info('| long term update')
                 model = online_update(args, model, 20, 2)
                 last_update = cur
-
         else:
             logging.info('| short term update for porb: %.2f' % prob)
             if cur - last_update > 5:
@@ -160,12 +161,16 @@ def debug_track_seq(args, model, img_paths, gts):
             logging.info('| twice tracking %d.jpg' % cur)
 
             pre_regions = bh.get_twice_base_regions()
-            region, prob = multi_track(model, img, pre_regions=pre_regions, gt=gts[cur])
+            B, P = multi_track(model, img, pre_regions=pre_regions, gt=gts[cur])
+            region, prob = util.refine_bbox(B, P, res[-1])
+
             if prob < 0.5:
                 region = res[-1]
-                # if prob > 0.6:
-                #     add_update_data(img, region, cur)
-
+            else:
+                add_update_data(img, region, cur)
+        if (cur < 10) & (cur % 2 == 0):
+            model = online_update(args, model, 20, 2)
+            last_update = cur
         # report
         bh.add_res(region)
         res.append(region)
@@ -177,7 +182,7 @@ def debug_track_seq(args, model, img_paths, gts):
         logging.info('| IOU : [ %.2f ], prob:%.5f for tracking on frame %d, cost %4.4f' \
                      % (iou, prob, cur, cost))
         logging.info('^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^')
-        if iou < 0.4:
+        if iou < 0.3:
             a = 1
         if iou == 0:
             a = 1
@@ -243,7 +248,7 @@ def check_metric(model, data_batches):
     if not const.check_mc:
         return
     metric = mx.metric.CompositeEvalMetric()
-    metric.add([extend.PR(), extend.RR(), extend.TrackTopKACC(), extend.SMLoss()])
+    metric.add([extend.PR(), extend.RR(), extend.TrackTopKACC(), extend.SMLoss(), mx.metric.CrossEntropy()])
     metric.reset()
     for data_batch in data_batches:
         model.forward(data_batch, is_train=False)
@@ -254,15 +259,6 @@ def check_metric(model, data_batches):
 
 def online_update(args, model, data_len, step):
     '''
-        pos sample 只用短期的，因为老旧的负样本是无关的。（如果速度允许的话，为了省事，都更新应该影响不大吧。）
-        mdnet：long term len 100F, short term len 20F（感觉短期有点太长了吧，可能大多变化都在几帧之内完成）
-
-        用一个list保存每一帧对应的update_data, 每一帧有几个 batch，每个batch 几个img_patch，每个img_patch 32 pos 32 neg
-
-        long term: every 10 frames
-            利用近长期帧组成 batch, each 32 pos, 96 neg
-        short term: score < 0
-            利用近短期帧组成 batch, each 32 pos, 96 neg
 
     :param args:
     :param model:
@@ -277,8 +273,8 @@ def online_update(args, model, data_len, step):
     data_batches = datahelper.get_data_batches(get_update_data(data_len, step))
     check_metric(model, data_batches)
     epoch_mc = mx.metric.CompositeEvalMetric()
-    epoch_mc.add([extend.PR(), extend.RR(), extend.TrackTopKACC(), extend.SMLoss()])
-    batch_mc = extend.SMLoss()
+    epoch_mc.add([extend.PR(), extend.RR(), extend.TrackTopKACC(), extend.SMLoss(), mx.metric.CrossEntropy()])
+    batch_mc = mx.metric.CrossEntropy()
     for epoch in range(0, args.num_epoch_for_online):
         t = time.time()
         batch_idx = np.arange(0, len(data_batches))
@@ -298,10 +294,10 @@ def online_update(args, model, data_len, step):
 
             # 找出最大loss的多更新
             sorted_idx = np.argsort(batch_mc_log)
-            sel = len(batch_idx) * 1 / 4
+            sel = len(batch_idx) * 3 / 4
             if sel < len(data_batches) / 20:
                 break
-            batch_idx = batch_idx[sorted_idx[-sel:]]
+            batch_idx = batch_idx[sorted_idx[:sel]]
 
         for name, val in epoch_mc.get_name_value():
             logging.info('|-- %s=%f', name, val)
@@ -313,16 +309,6 @@ def online_update(args, model, data_len, step):
 
 
 def multi_track(model, img, pre_regions, gt, topK=3):
-    def show_tracking():
-        fig = plt.figure()
-        ax = fig.add_subplot(111)
-        ax.imshow(img)
-        ax.add_patch(patches.Rectangle((opt_img_bbox[0], opt_img_bbox[1]), opt_img_bbox[2], opt_img_bbox[3],
-                                       linewidth=4, edgecolor='red', facecolor='none'))
-        ax.add_patch(patches.Rectangle((gt[0], gt[1]), gt[2], gt[3],
-                                       linewidth=1, edgecolor='blue', facecolor='none'))
-        fig.show()
-
     B, P = [], []
 
     single_track_topK = 2
@@ -332,9 +318,7 @@ def multi_track(model, img, pre_regions, gt, topK=3):
         B += bboxes
         P += probs
 
-    opt_img_bbox, opt_score = util.refine_bbox(B, P, pre_regions[0])
-
-    return opt_img_bbox, opt_score
+    return B, P
 
 
 def track(model, img, pre_region, gt, topK=2, plotc=False, showc=False, checkc=False):
@@ -475,7 +459,7 @@ def debug_seq():
 def parse_args():
     parser = argparse.ArgumentParser(description='Train MDNet network')
     parser.add_argument('--gpu', help='GPU device to train with', default=0, type=int)
-    parser.add_argument('--num_epoch_for_offline', default=5, type=int)
+    parser.add_argument('--num_epoch_for_offline', default=10, type=int)
     parser.add_argument('--num_epoch_for_online', default=1, type=int)
 
     parser.add_argument('--fixed_conv', default=3, help='these params of [ conv_i <= ? ] will be fixed', type=int)
@@ -485,10 +469,10 @@ def parse_args():
                         type=str)
     parser.add_argument('--ROOT_path', help='cmd folder', default='/home/chen/mx-mdnet', type=str)
 
-    parser.add_argument('--wd', default=2e0, help='weight decay', type=float)
+    parser.add_argument('--wd', default=1e-1, help='weight decay', type=float)
     parser.add_argument('--momentum', default=0.9, type=float)
-    parser.add_argument('--lr_offline', default=1e-5, help='base learning rate', type=float)
-    parser.add_argument('--lr_online', default=4e-4, help='base learning rate', type=float)
+    parser.add_argument('--lr_offline', default=1e-4, help='base learning rate', type=float)
+    parser.add_argument('--lr_online', default=3e-4, help='base learning rate', type=float)
 
     args = parser.parse_args()
     return args
@@ -498,5 +482,5 @@ if __name__ == '__main__':
     # t = time.time()
     # a = datahelper.get_update_data(plt.imread('/media/chen/datasets/OTB/Liquor/img/0001.jpg'), [256, 152, 73, 210], 66)
     # print time.time() - t
-    const.check_mc = False
+    const.check_mc = True
     debug_seq()
