@@ -58,7 +58,7 @@ def online_update(args, model, data_len, step):
     :return:
     '''
     data_batches = datahelper.get_data_batches(get_update_data(data_len, step))
-    batch_mc = extend.SMLoss()
+    batch_mc = extend.ACC()
     for epoch in range(0, args.num_epoch_for_online):
         batch_idx = np.arange(0, len(data_batches))
         while True:

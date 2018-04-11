@@ -80,22 +80,19 @@ class TrackTopKACC(mx.metric.EvalMetric):
         topK_idx = topK_idx[pos_scores[topK_idx] > self.th]
         topK_acc = np.sum(labels[topK_idx] > self.th)
         self.sum_metric += topK_acc
-        self.num_inst += max(1, topK_idx.shape[0])
+        self.num_inst += max(1e-5, topK_idx.shape[0])
 
 
-class SMLoss(mx.metric.EvalMetric):
+class ACC(mx.metric.EvalMetric):
     def __init__(self):
-        super(SMLoss, self).__init__('SMLoss')
+        super(ACC, self).__init__('ACC')
 
     def update(self, labels, preds):
-        labels = labels[0].as_in_context(mx.gpu(0))[0, :]
-        pred = preds[0]
-        loss = mx.ndarray.softmax_cross_entropy(pred, labels).asnumpy()[0]
-        if loss > 7000:
-            print pred.asnumpy()
-            exit(0)
-        self.sum_metric += loss
-        self.num_inst += labels.shape[0]
+        labels = labels[0].as_in_context(mx.gpu(0))
+        scores = preds[0]
+        hit = mx.ndarray.sum(mx.ndarray.argmax(scores, 1) == labels.reshape((-1,)))
+        self.sum_metric += hit.asnumpy()
+        self.num_inst += labels.shape[1]
 
 
 def get_mdnet_conv123_params(mat_path, prefix=''):

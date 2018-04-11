@@ -84,7 +84,7 @@ def get_train_data(img, region):
     return A, B, C
 
 
-def get_update_data(img, gt, cur=0):
+def get_update_data(img, gt, cur, regions, probs):
     '''
         原版mdnet每一帧采50 pos 200 neg
         返回该帧构造出的 9 个img_patch, each 16 pos 32 neg
@@ -95,16 +95,15 @@ def get_update_data(img, gt, cur=0):
     '''
 
     pos_sample_num, neg_sample_num = 50, 200
-    img_H, img_W, c = np.shape(img)
 
     A = list()
     B = list()
     C = list()
     # 伪造一些不准确的pre_region
-    pre_regions = []
+    pre_regions = np.array(regions)[np.array(probs) > 0.5, :].tolist()[:5]
 
-    for ws, hs in zip([0.5, 1, 1, 2, 1, 0.7, 1.5, 0.5, 1, 2],
-                      [0.5, 1, 2, 1, 0.7, 1, 1.5, 1, 0.5, 2]):
+    for ws, hs in zip([0.5, 1, 1, 2, 1, 0.7, 1.5, 2],
+                      [0.5, 1, 2, 1, 0.7, 1, 1.5, 2]):
         pre_regions.append(util.central_bbox(gt, 0, 0, ws, hs))
     pre_regions.append(util.central_bbox(gt, 1, 0, 1, 1))
     pre_regions.append(util.central_bbox(gt, -1, 0, 1, 1))
@@ -115,7 +114,8 @@ def get_update_data(img, gt, cur=0):
         img_patch, restore_info = util.get_img_patch(img, pr)
         X, Y, W, H, patch_W, patch_H = restore_info
         patch_feat_bbox = util.img2feat(util.xywh2x1y1x2y2(np.array([[0, 0, patch_W, patch_H]])))
-        label_patch_bbox = util.transform_bbox(gt, restore_info)
+        label_patch_bbox = np.array(util.transform_bbox(gt, restore_info))
+        label_patch_bbox[2], label_patch_bbox[3] = max(label_patch_bbox[2], 45), max(label_patch_bbox[3], 45)
 
         # if util.bbox_contain([X, Y, W, H], region):
         # 抽样区域包括gt,可以采集正样本

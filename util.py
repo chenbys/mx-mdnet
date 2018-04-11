@@ -8,6 +8,10 @@ import matplotlib.pyplot as plt
 import kit
 
 
+def legal_bbox(bboxes):
+    pass
+
+
 class BboxHelper(object):
     def __init__(self, region):
         self.history = [region]
@@ -107,7 +111,7 @@ def refine_bbox(bboxes, probs, pre_region):
     bboxes = bboxes[probs > 0.9, :]
     probs = probs[probs > 0.9]
 
-    if len(probs) < 5:
+    if len(probs) < 2:
         return np.mean(bboxes, 0), np.mean(probs)
 
     sel = probs.shape[0] / 2 + 1
@@ -121,18 +125,8 @@ def refine_bbox(bboxes, probs, pre_region):
     # 返回最高分且位移不大的
     sel_p = np.argsort(-probs)[:sel]
 
-    # opt_idx = [x for x in sel_p if x in sel_d][:2]
-    # if len(opt_idx) != 0:
-    #     return np.mean(bboxes[opt_idx, :], 0), np.mean(probs[opt_idx])
-    # else:
-    #     # 如果是空集
-    #     return bboxes[probs.argmax(), :], probs.max()
-
-    # for idx in sel_p:
-    #     if idx in sel_d:
-    #         return bboxes[idx, :], probs[idx]
     for idx in sel_d:
-        if probs[idx] > 0.8:
+        if probs[idx] > 0.9:
             return bboxes[idx, :], probs[idx]
     return bboxes[probs.argmax(), :], probs.max()
 
@@ -282,7 +276,7 @@ def xywh2x1y1x2y2(bbox):
     :param bbox: (x,y,w,h)
     :return: (x1,y1,x2,y2)
     '''
-    bbox = copy.deepcopy(bbox)
+    bbox = copy.deepcopy(np.array(bbox))
     bbox[:, 2] = bbox[:, 0] + bbox[:, 2] - 1
     bbox[:, 3] = bbox[:, 1] + bbox[:, 3] - 1
     return bbox
@@ -294,7 +288,7 @@ def x1y2x2y22xywh(bbox):
     :param bbox: (x1,y1,x2,y2)
     :return: (x,y,w,h)
     '''
-    bbox = copy.deepcopy(bbox)
+    bbox = copy.deepcopy(np.array(bbox))
     bbox[:, 2] = bbox[:, 2] - bbox[:, 0] + 1
     bbox[:, 3] = bbox[:, 3] - bbox[:, 1] + 1
     return bbox

@@ -40,7 +40,7 @@ try:
 
     data_batches = datahelper.get_data_batches(datahelper.get_train_data(img, region))
     logging.info('@CHEN->update %3d.' % len(data_batches))
-    batch_mc = extend.SMLoss()
+    batch_mc = extend.ACC()
     for epoch in range(0, args.num_epoch_for_offline):
         batch_idx = np.arange(0, len(data_batches))
         while True:

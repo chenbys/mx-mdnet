@@ -37,7 +37,7 @@ def debug_track_seq(args, model, img_paths, gts):
             pr = gts[c]
         data_batches = datahelper.get_data_batches(datahelper.get_update_data(plt.imread(img_paths[c]), pr, c))
         metric = mx.metric.CompositeEvalMetric()
-        metric.add([extend.PR(), extend.RR(), extend.TrackTopKACC(), extend.SMLoss()])
+        metric.add([extend.PR(), extend.RR(), extend.TrackTopKACC(), extend.ACC()])
         metric.reset()
         for data_batch in data_batches:
             model.forward(data_batch, is_train=False)
@@ -56,7 +56,7 @@ def debug_track_seq(args, model, img_paths, gts):
     check_metric(model, data_batches)
     logging.info('@CHEN->update %3d.' % len(data_batches))
     epoch_mc = mx.metric.CompositeEvalMetric()
-    epoch_mc.add([extend.PR(), extend.RR(), extend.TrackTopKACC(), extend.SMLoss(), mx.metric.CrossEntropy()])
+    epoch_mc.add([extend.PR(), extend.RR(), extend.TrackTopKACC(), extend.ACC(), mx.metric.CrossEntropy()])
     # batch_mc = extend.SMLoss()
     batch_mc = mx.metric.CrossEntropy()
     mc_log = []
@@ -108,7 +108,7 @@ def debug_track_seq(args, model, img_paths, gts):
         kit.show_tracking(plt.imread(img_paths[i]), [res[i]] + [gts[i]])
 
     # prepare online update data
-    add_update_data(img, gts[0], 0)
+    add_update_data(img, gts[0], 0, res, probs)
 
     length = len(img_paths)
     for cur in range(1, length):
@@ -143,11 +143,12 @@ def debug_track_seq(args, model, img_paths, gts):
                                            linewidth=1, edgecolor='blue', facecolor='none'))
             fig.show()
 
-        # print util.overlap_ratio(region, gts[cur]), prob
-        # twice tracking
+        def show_BP(th=0.5):
+            kit.show_tracking(img, np.array(B)[np.array(P) > th])
+
         if (prob > 0.5) & (prob > (probs[-1] - 0.1)):
 
-            add_update_data(img, region, cur)
+            add_update_data(img, region, cur, B, P)
 
             if cur - last_update > 10:
                 logging.info('| long term update')
@@ -167,7 +168,7 @@ def debug_track_seq(args, model, img_paths, gts):
             if prob < 0.5:
                 region = res[-1]
             else:
-                add_update_data(img, region, cur)
+                add_update_data(img, region, cur, B, P)
         if (cur < 10) & (cur % 2 == 0):
             model = online_update(args, model, 20, 2)
             last_update = cur
@@ -226,7 +227,7 @@ def get_update_data(frame_len, step):
     return img_patches, feat_bboxes, labels
 
 
-def add_update_data(img, gt, cur):
+def add_update_data(img, gt, cur, regions, probs):
     '''
         原版mdnet每一帧采50 pos 200 neg
         返回该帧构造出的 4 个img_patch, each 16 pos 32 neg
@@ -234,21 +235,21 @@ def add_update_data(img, gt, cur):
     :param gt:
     :return:
     '''
-    # t = time.time()
-    update_data = datahelper.get_update_data(img, gt, cur)
+    t = time.time()
+    update_data = datahelper.get_update_data(img, gt, cur, regions, probs)
     if update_data_queue.full():
         update_data_queue.get()
     if update_data_queue.empty():
         update_data_queue.put(update_data)
     update_data_queue.put(update_data)
-    # logging.info('| add update data, cost:%.6f' % (time.time() - t))
+    logging.info('| add update data, cost:%.6f' % (time.time() - t))
 
 
 def check_metric(model, data_batches):
     if not const.check_mc:
         return
     metric = mx.metric.CompositeEvalMetric()
-    metric.add([extend.PR(), extend.RR(), extend.TrackTopKACC(), extend.SMLoss(), mx.metric.CrossEntropy()])
+    metric.add([extend.PR(), extend.RR(), extend.TrackTopKACC(), extend.ACC(), mx.metric.CrossEntropy()])
     metric.reset()
     for data_batch in data_batches:
         model.forward(data_batch, is_train=False)
@@ -273,7 +274,7 @@ def online_update(args, model, data_len, step):
     data_batches = datahelper.get_data_batches(get_update_data(data_len, step))
     check_metric(model, data_batches)
     epoch_mc = mx.metric.CompositeEvalMetric()
-    epoch_mc.add([extend.PR(), extend.RR(), extend.TrackTopKACC(), extend.SMLoss(), mx.metric.CrossEntropy()])
+    epoch_mc.add([extend.PR(), extend.RR(), extend.TrackTopKACC(), extend.ACC(), mx.metric.CrossEntropy()])
     batch_mc = mx.metric.CrossEntropy()
     for epoch in range(0, args.num_epoch_for_online):
         t = time.time()
@@ -294,7 +295,7 @@ def online_update(args, model, data_len, step):
 
             # 找出最大loss的多更新
             sorted_idx = np.argsort(batch_mc_log)
-            sel = len(batch_idx) * 3 / 4
+            sel = len(batch_idx) * 1 / 4
             if sel < len(data_batches) / 20:
                 break
             batch_idx = batch_idx[sorted_idx[:sel]]
@@ -318,7 +319,10 @@ def multi_track(model, img, pre_regions, gt, topK=3):
         B += bboxes
         P += probs
 
-    return B, P
+    bbox, idx = NMSuppression(bbs=util.xywh2x1y1x2y2(B), probs=np.array(P),
+                              overlapThreshold=0.6).fast_suppress()
+
+    return np.array(B)[idx].tolist(), np.array(P)[idx].tolist()
 
 
 def track(model, img, pre_region, gt, topK=2, plotc=False, showc=False, checkc=False):
@@ -332,14 +336,14 @@ def track(model, img, pre_region, gt, topK=2, plotc=False, showc=False, checkc=F
     img_bboxes = util.restore_bboxes(patch_bboxes, restore_info)
     labels = util.overlap_ratio(gt, img_bboxes)
 
-    def nms(th=0.85):
+    def nms(th=0.5):
         # t = time.time()
         bbox, idx = NMSuppression(bbs=util.xywh2x1y1x2y2(img_bboxes), probs=np.array(pos_score),
                                   overlapThreshold=th).fast_suppress()
         # logging.getLogger().info('@CHEN->nms:%.4f' % (time.time() - t))
         return idx
 
-    nms_idx = nms(0.7)
+    nms_idx = nms(0.6)
     top_idx = nms_idx[:topK]
 
     # top_idx = pos_score.argsort()[-topK::]
@@ -459,7 +463,7 @@ def debug_seq():
 def parse_args():
     parser = argparse.ArgumentParser(description='Train MDNet network')
     parser.add_argument('--gpu', help='GPU device to train with', default=0, type=int)
-    parser.add_argument('--num_epoch_for_offline', default=10, type=int)
+    parser.add_argument('--num_epoch_for_offline', default=2, type=int)
     parser.add_argument('--num_epoch_for_online', default=1, type=int)
 
     parser.add_argument('--fixed_conv', default=3, help='these params of [ conv_i <= ? ] will be fixed', type=int)
@@ -482,5 +486,5 @@ if __name__ == '__main__':
     # t = time.time()
     # a = datahelper.get_update_data(plt.imread('/media/chen/datasets/OTB/Liquor/img/0001.jpg'), [256, 152, 73, 210], 66)
     # print time.time() - t
-    const.check_mc = True
+    const.check_mc = False
     debug_seq()
