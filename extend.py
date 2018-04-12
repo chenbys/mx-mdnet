@@ -1,4 +1,5 @@
 # -*-coding:utf- 8-*-
+from collections import OrderedDict
 from time import time
 
 import logging
@@ -6,6 +7,77 @@ import mxnet as mx
 import numpy as np
 import matplotlib.pyplot as plt
 import csym
+import kit
+import util
+from setting import const
+import copy
+
+
+def train_with_hnm(model, data_batches, sel_factor=3):
+    hard_batches = data_batches
+    while True:
+        temp_batches = []
+        t = time()
+        for data_batch in hard_batches:
+            model.forward_backward(data_batch)
+            model.update()
+            # model.forward(data_batch, is_train=False)
+
+            # 250,
+            label = data_batch.label[0][0].asnumpy()
+            # shape: 250,2
+            pred = model._exec_group.execs[0].outputs[0]
+            pos_prob = pred.asnumpy()[:, 1]
+
+            # 正样本的idx
+            pos_samples_idx = np.argwhere(label == 1).reshape((-1))
+            pos_num = pos_samples_idx.shape[0] / sel_factor
+            # 正样本的输出分值
+            pos_samples_prob = pos_prob[pos_samples_idx]
+            # 正样本分值排序
+            pos_sel_idx = pos_samples_idx[np.argsort(pos_samples_prob)[:pos_num]]
+
+            # mining idx for hard samples
+            ## topK输出分值的负样本
+            ### 负样本的idx
+            neg_samples_idx = np.argwhere(label == 0).reshape((-1))
+            # neg_samples_idx = neg_samples_idx[np.argwhere(pos_prob[neg_samples_idx] > 0.1).reshape((-1))]
+            neg_num = neg_samples_idx.shape[0] / sel_factor
+
+            ### 负样本的输出分值
+            neg_samples_prob = pos_prob[neg_samples_idx]
+            ### 负样本分值排序
+            neg_sel_idx = neg_samples_idx[np.argsort(neg_samples_prob)[-neg_num:]]
+
+            # 选出的样本的idx
+            sel_idx = np.hstack((pos_sel_idx, neg_sel_idx))
+            if len(sel_idx) < 4:
+                continue
+
+            # 1,3,329,324
+            img_patch = data_batch.data[1]
+
+            # 1,250,5
+            feat_bbox = data_batch.data[0]
+            hard_batch = mx.io.DataBatch([copy.deepcopy(feat_bbox[:, sel_idx, :]), copy.deepcopy(img_patch)],
+                                         [mx.ndarray.array([copy.deepcopy(label[sel_idx])])])
+            temp_batches.append(hard_batch)
+
+            def check_sample(i=neg_sel_idx):
+                ig = np.transpose(img_patch[0].asnumpy(), const.NHW2HWN)
+                fb = feat_bbox[0, i, :].asnumpy()
+                ib = util.feat2img(fb[:, 1:])
+                kit.show_tracking(ig, ib)
+                return pos_prob[i]
+
+            a = 1
+
+        # logging.info('| cost %.6f, batches %d' % (time() - t, len(hard_batches)))
+        if len(temp_batches) < len(data_batches) / 5:
+            break
+        hard_batches = temp_batches
+
+    return model
 
 
 class PR(mx.metric.EvalMetric):
@@ -238,9 +310,11 @@ def init_model(args):
     #     model.init_params(arg_params=conv123, allow_missing=True, force_init=False, allow_extra=True)
 
     # elif args.saved_fname == 'conv123fc4fc5':
-    print '@CHEN->load params from conv123fc4fc5'
+    # conv123fc4fc5 = get_mdnet_conv123fc4fc5fc6_params(
+    #     mat_path=args.ROOT_path + '/saved/mdnet_otb-vot15_in_py_for_conv123fc456.mat')
     conv123fc4fc5 = get_mdnet_conv123fc4fc5_params(
         mat_path=args.ROOT_path + '/saved/mdnet_otb-vot15_in_py.mat')
+
     for k in conv123fc4fc5.keys():
         conv123fc4fc5[k] = mx.ndarray.array(conv123fc4fc5.get(k))
     model.init_params(initializer=mx.initializer.Constant(-0.1), arg_params=conv123fc4fc5, allow_missing=True,

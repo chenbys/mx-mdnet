@@ -48,54 +48,19 @@ def debug_track_seq(args, model, img_paths, gts):
     train_img_path, train_gt = img_paths[0], gts[0]
     img = plt.imread(train_img_path)
     const.img_H, const.img_W, c = img.shape
+
     sgd = mx.optimizer.SGD(learning_rate=args.lr_offline, wd=args.wd, momentum=args.momentum)
     sgd.set_lr_mult({'fc4_bias': 2, 'fc5_bias': 2, 'score_bias': 20, 'score_weight': 10})
     model.init_optimizer(kvstore='local', optimizer=sgd, force_init=True)
 
-    data_batches = datahelper.get_data_batches(datahelper.get_train_data(img, train_gt))
-    check_metric(model, data_batches)
-    logging.info('@CHEN->update %3d.' % len(data_batches))
-    epoch_mc = mx.metric.CompositeEvalMetric()
-    epoch_mc.add([extend.PR(), extend.RR(), extend.TrackTopKACC(), extend.ACC(), mx.metric.CrossEntropy()])
-    # batch_mc = extend.SMLoss()
-    batch_mc = mx.metric.CrossEntropy()
-    mc_log = []
-    for epoch in range(0, args.num_epoch_for_offline):
-        t = time.time()
-        batch_idx = np.arange(0, len(data_batches))
-        epoch_mc.reset()
-        while True:
-            batch_mc_log = []
-
-            for idx in batch_idx:
-                batch_mc.reset()
-                data_batch = data_batches[idx]
-                model.forward_backward(data_batch)
-                model.update()
-                model.update_metric(batch_mc, data_batch.label)
-                model.update_metric(epoch_mc, data_batch.label)
-                batch_mc_log.append(batch_mc.get_name_value()[0][1])
-
-            # 找出最大loss的多更新
-            sorted_idx = np.argsort(batch_mc_log)
-            sel = len(batch_idx) * 4 / 5
-            if sel < len(data_batches) / 10:
-                break
-            # batch_idx = batch_idx[sorted_idx[-sel:]]
-            batch_idx = batch_idx[sorted_idx[:sel]]
-
-        for name, val in epoch_mc.get_name_value():
-            logging.info('|-- %s=%f', name, val)
-
-        logging.info('| epoch %d, cost:%.4f, batches: %d ' % (epoch, time.time() - t, len(data_batches)))
-    mc_logs.append(mc_log)
+    os.environ['MXNET_CUDNN_AUTOTUNE_DEFAULT'] = '0'
+    offline_update(args, model, img, train_gt)
 
     sgd = mx.optimizer.SGD(learning_rate=args.lr_online, wd=args.wd, momentum=args.momentum)
     sgd.set_lr_mult({'fc4_bias': 2, 'fc5_bias': 2, 'score_bias': 20, 'score_weight': 10})
-
     model.init_optimizer(kvstore='local', optimizer=sgd, force_init=True)
-
     os.environ['MXNET_CUDNN_AUTOTUNE_DEFAULT'] = '0'
+
     # res, scores 是保存每一帧的结果位置和给出的是目标的概率的list，包括用来训练的首帧
     res, probs = [gts[0]], [0.8]
     region = gts[0]
@@ -146,7 +111,7 @@ def debug_track_seq(args, model, img_paths, gts):
         def show_BP(th=0.5):
             kit.show_tracking(img, np.array(B)[np.array(P) > th])
 
-        if (prob > 0.5) & (prob > (probs[-1] - 0.1)):
+        if (prob > 0.7) & (prob > (probs[-1] - 0.1)):
 
             add_update_data(img, region, cur, B, P)
 
@@ -157,7 +122,7 @@ def debug_track_seq(args, model, img_paths, gts):
         else:
             logging.info('| short term update for porb: %.2f' % prob)
             if cur - last_update > 5:
-                model = online_update(args, model, 5, 1)
+                model = online_update(args, model, 10, 1)
                 last_update = cur
             logging.info('| twice tracking %d.jpg' % cur)
 
@@ -165,7 +130,7 @@ def debug_track_seq(args, model, img_paths, gts):
             B, P = multi_track(model, img, pre_regions=pre_regions, gt=gts[cur])
             region, prob = util.refine_bbox(B, P, res[-1])
 
-            if prob < 0.5:
+            if prob < 0.7:
                 region = res[-1]
             else:
                 add_update_data(img, region, cur, B, P)
@@ -219,11 +184,18 @@ def get_update_data(frame_len, step):
     frame_len = min(frame_len, update_data_queue.qsize())
     img_patches, feat_bboxes, labels = [], [], []
 
-    for i in range(1, frame_len + 2, step):
-        a, b, c = update_data_queue.queue[-(i % frame_len)]
+    for i in range(1, min(10, frame_len)):
+        a, b, c = update_data_queue.queue[-i]
         img_patches += a
         feat_bboxes += b
         labels += c
+
+    for i in range(1, frame_len - 10, 2):
+        a, b, c = update_data_queue.queue[-(i + 10)]
+        img_patches += a
+        feat_bboxes += b
+        labels += c
+
     return img_patches, feat_bboxes, labels
 
 
@@ -248,6 +220,7 @@ def add_update_data(img, gt, cur, regions, probs):
 def check_metric(model, data_batches):
     if not const.check_mc:
         return
+
     metric = mx.metric.CompositeEvalMetric()
     metric.add([extend.PR(), extend.RR(), extend.TrackTopKACC(), extend.ACC(), mx.metric.CrossEntropy()])
     metric.reset()
@@ -256,56 +229,33 @@ def check_metric(model, data_batches):
         model.update_metric(metric, data_batch.label)
     for name, val in metric.get_name_value():
         logging.info('|--| check metric %s=%f', name, val)
+    logging.info('^^^^^^^^^^^^^^^^^')
+
+
+def offline_update(args, model, img, gt):
+    logging.info('------------- offline update -------------')
+    data_batches = datahelper.get_data_batches(datahelper.get_train_data(img, gt))
+    check_metric(model, data_batches)
+    for epoch in range(0, args.num_epoch_for_offline):
+        t = time.time()
+        model = extend.train_with_hnm(model, data_batches)
+        check_metric(model, data_batches)
+        logging.info('| epoch %d, cost:%.4f, batches: %d ' % (epoch, time.time() - t, len(data_batches)))
+        a = 1
+
+    return model
 
 
 def online_update(args, model, data_len, step):
-    '''
-
-    :param args:
-    :param model:
-    :param img_paths:
-    :param res:
-    :param cur:
-    :param history_len:
-    :param num_epoch:
-    :return:
-    '''
-    t = time.time()
+    logging.info('------------- online update -------------')
     data_batches = datahelper.get_data_batches(get_update_data(data_len, step))
     check_metric(model, data_batches)
-    epoch_mc = mx.metric.CompositeEvalMetric()
-    epoch_mc.add([extend.PR(), extend.RR(), extend.TrackTopKACC(), extend.ACC(), mx.metric.CrossEntropy()])
-    batch_mc = mx.metric.CrossEntropy()
     for epoch in range(0, args.num_epoch_for_online):
         t = time.time()
-        batch_idx = np.arange(0, len(data_batches))
-        epoch_mc.reset()
-        while True:
-            batch_mc_log = []
-
-            for idx in batch_idx:
-                batch_mc.reset()
-                data_batch = data_batches[idx]
-                model.forward_backward(data_batch)
-                model.update()
-                model.update_metric(batch_mc, data_batch.label)
-                model.update_metric(epoch_mc, data_batch.label)
-
-                batch_mc_log.append(batch_mc.get_name_value()[0][1])
-
-            # 找出最大loss的多更新
-            sorted_idx = np.argsort(batch_mc_log)
-            sel = len(batch_idx) * 1 / 4
-            if sel < len(data_batches) / 20:
-                break
-            batch_idx = batch_idx[sorted_idx[:sel]]
-
-        for name, val in epoch_mc.get_name_value():
-            logging.info('|-- %s=%f', name, val)
-
+        extend.train_with_hnm(model, data_batches, sel_factor=4)
         logging.info('| epoch %d, cost:%.4f for %d batches' % (epoch, time.time() - t, len(data_batches)))
-
-    check_metric(model, data_batches)
+        logging.info('^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^')
+        check_metric(model, data_batches)
     return model
 
 
@@ -463,7 +413,7 @@ def debug_seq():
 def parse_args():
     parser = argparse.ArgumentParser(description='Train MDNet network')
     parser.add_argument('--gpu', help='GPU device to train with', default=0, type=int)
-    parser.add_argument('--num_epoch_for_offline', default=2, type=int)
+    parser.add_argument('--num_epoch_for_offline', default=5, type=int)
     parser.add_argument('--num_epoch_for_online', default=1, type=int)
 
     parser.add_argument('--fixed_conv', default=3, help='these params of [ conv_i <= ? ] will be fixed', type=int)
@@ -473,18 +423,15 @@ def parse_args():
                         type=str)
     parser.add_argument('--ROOT_path', help='cmd folder', default='/home/chen/mx-mdnet', type=str)
 
-    parser.add_argument('--wd', default=1e-1, help='weight decay', type=float)
+    parser.add_argument('--wd', default=1e-4, help='weight decay', type=float)
     parser.add_argument('--momentum', default=0.9, type=float)
-    parser.add_argument('--lr_offline', default=1e-4, help='base learning rate', type=float)
-    parser.add_argument('--lr_online', default=3e-4, help='base learning rate', type=float)
+    parser.add_argument('--lr_offline', default=2e-5, help='base learning rate', type=float)
+    parser.add_argument('--lr_online', default=6e-5, help='base learning rate', type=float)
 
     args = parser.parse_args()
     return args
 
 
 if __name__ == '__main__':
-    # t = time.time()
-    # a = datahelper.get_update_data(plt.imread('/media/chen/datasets/OTB/Liquor/img/0001.jpg'), [256, 152, 73, 210], 66)
-    # print time.time() - t
-    const.check_mc = False
+    const.check_mc = True
     debug_seq()

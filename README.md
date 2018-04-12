@@ -2,14 +2,14 @@
 hard minibatch mining
 不同层用不同学习率
 
-
-抽样不使用img_pad,一个batch含1个img_patch，各个batch的img_patch的尺寸不用，该如何设置？
-如果不同的话，new mx.io.NDArrayIter会出错
-
+params init
+MDNet直接load进来的
+如何选择初始化?Uniform, Normal
 
 不update老旧的负样本
 
-birds2 seq
+mod.bind在pycharm中要花51s,无论是Debug还是run
+而在vot-toolkit中3s
 
 
 os.environ['MXNET_CUDNN_AUTOTUNE_DEFAULT'] = 0
@@ -22,8 +22,6 @@ loss降不下去，从0.68一般降到0.35，MDNet一般降到0.16或0.07左右�
 bolt1 338f
     会跟到另一个人，虽然两者的分都很高0.99.
     
-
-
 刚开始对第0帧，1帧输出的分数比较低，0.6,0.7
 随着更新，输出越来越高，到0.9,0.95。对第0帧的输出也变成了0.9了。
 这是过拟合？

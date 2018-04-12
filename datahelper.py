@@ -24,7 +24,7 @@ def get_train_data(img, region):
     :param stride_h:
     :return:
     '''
-    pos_sample_num, neg_sample_num = 50, 200
+    pos_sample_num, neg_sample_num = 64, 256
     img_H, img_W, c = np.shape(img)
 
     A = list()
@@ -32,11 +32,38 @@ def get_train_data(img, region):
     C = list()
     # 伪造一些不准确的pre_region
     pre_regions = []
-    for dx in [-1, 0, 1]:
-        for dy in [-1, 0, 1]:
-            for ws in [0.5, 0.7, 1, 1.5]:
-                for hs in [0.7, 1, 1.2, 2]:
-                    pre_regions.append(util.central_bbox(region, dx, dy, ws, hs))
+    for ws in [0.7, 1, 1.2]:
+        for hs in [0.7, 1, 1.2]:
+            pre_regions.append(util.central_bbox(region, 0, 0, ws, hs))
+
+    pre_regions.append(util.central_bbox(region, 0, 0, 0.5, 0.5))
+    pre_regions.append(util.central_bbox(region, 0, 0, 1.7, 1.7))
+
+    pre_regions.append(util.central_bbox(region, 0, 0, 1.7, 1.2))
+    pre_regions.append(util.central_bbox(region, 0, 0, 1.2, 1.7))
+    pre_regions.append(util.central_bbox(region, 0, 0, 0.5, 0.7))
+    pre_regions.append(util.central_bbox(region, 0, 0, 0.8, 0.9))
+    pre_regions.append(util.central_bbox(region, 0, 0, 1.3, 1.1))
+    pre_regions.append(util.central_bbox(region, 0, 0, 0.6, 1.2))
+    pre_regions.append(util.central_bbox(region, 0, 0, 1.8, 1.8))
+    pre_regions.append(util.central_bbox(region, 0, 0, 0.9, 1.5))
+    pre_regions.append(util.central_bbox(region, 0, 0, 1.5, 0.9))
+
+    pre_regions.append(util.central_bbox(region, 0, -0.5, 0.7, 1))
+    pre_regions.append(util.central_bbox(region, 0.5, 0, 1, 0.7))
+    pre_regions.append(util.central_bbox(region, -0.5, 0, 1.2, 1))
+    pre_regions.append(util.central_bbox(region, 0, 0.5, 1, 1.2))
+
+    pre_regions.append(util.central_bbox(region, 0, -0.5, 1, 1))
+    pre_regions.append(util.central_bbox(region, 0.5, 0, 1, 1))
+    pre_regions.append(util.central_bbox(region, -0.5, 0, 1, 1))
+    pre_regions.append(util.central_bbox(region, 0, 0.5, 1, 1))
+
+    pre_regions.append(util.central_bbox(region, 0, -1, 1, 1))
+    pre_regions.append(util.central_bbox(region, 1, 0, 1, 1))
+    pre_regions.append(util.central_bbox(region, -1, 0, 1, 1))
+    pre_regions.append(util.central_bbox(region, 0, 1, 1, 1))
+
     pre_regions.append(util.central_bbox(region, 0, -2, 1, 1))
     pre_regions.append(util.central_bbox(region, 2, 0, 1, 1))
     pre_regions.append(util.central_bbox(region, -2, 0, 1, 1))
@@ -100,10 +127,10 @@ def get_update_data(img, gt, cur, regions, probs):
     B = list()
     C = list()
     # 伪造一些不准确的pre_region
-    pre_regions = np.array(regions)[np.array(probs) > 0.5, :].tolist()[:5]
-
-    for ws, hs in zip([0.5, 1, 1, 2, 1, 0.7, 1.5, 2],
-                      [0.5, 1, 2, 1, 0.7, 1, 1.5, 2]):
+    # pre_regions = np.array(regions)[np.array(probs) > 0.5, :].tolist()[:5]
+    pre_regions = []
+    for ws, hs in zip([0.5, 1, 1, 2, 1, 0.7, 1.5],
+                      [0.5, 1, 2, 1, 0.7, 1, 1.5]):
         pre_regions.append(util.central_bbox(gt, 0, 0, ws, hs))
     pre_regions.append(util.central_bbox(gt, 1, 0, 1, 1))
     pre_regions.append(util.central_bbox(gt, -1, 0, 1, 1))
