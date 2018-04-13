@@ -30,7 +30,8 @@ def train_with_hnm(model, data_batches, sel_factor=3):
             pos_prob = pred.asnumpy()[:, 1]
 
             # 正样本的idx
-            pos_samples_idx = np.argwhere(label == 1).reshape((-1))
+            pos_samples_idx_ = np.argwhere(label == 1).reshape((-1))
+            pos_samples_idx = pos_samples_idx_[np.argwhere(pos_prob[pos_samples_idx_] < 0.9).reshape((-1))]
             pos_num = pos_samples_idx.shape[0] / sel_factor
             # 正样本的输出分值
             pos_samples_prob = pos_prob[pos_samples_idx]
@@ -40,8 +41,8 @@ def train_with_hnm(model, data_batches, sel_factor=3):
             # mining idx for hard samples
             ## topK输出分值的负样本
             ### 负样本的idx
-            neg_samples_idx = np.argwhere(label == 0).reshape((-1))
-            # neg_samples_idx = neg_samples_idx[np.argwhere(pos_prob[neg_samples_idx] > 0.1).reshape((-1))]
+            neg_samples_idx_ = np.argwhere(label == 0).reshape((-1))
+            neg_samples_idx = neg_samples_idx_[np.argwhere(pos_prob[neg_samples_idx_] > 0.1).reshape((-1))]
             neg_num = neg_samples_idx.shape[0] / sel_factor
 
             ### 负样本的输出分值
@@ -51,7 +52,7 @@ def train_with_hnm(model, data_batches, sel_factor=3):
 
             # 选出的样本的idx
             sel_idx = np.hstack((pos_sel_idx, neg_sel_idx))
-            if len(sel_idx) < 4:
+            if len(sel_idx) < 11:
                 continue
 
             # 1,3,329,324
@@ -72,7 +73,7 @@ def train_with_hnm(model, data_batches, sel_factor=3):
 
             a = 1
 
-        # logging.info('| cost %.6f, batches %d' % (time() - t, len(hard_batches)))
+        logging.info('| cost %.6f, batches %d' % (time() - t, len(hard_batches)))
         if len(temp_batches) < len(data_batches) / 5:
             break
         hard_batches = temp_batches

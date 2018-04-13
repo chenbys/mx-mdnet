@@ -120,23 +120,23 @@ def debug_track_seq(args, model, img_paths, gts):
                 model = online_update(args, model, 20, 2)
                 last_update = cur
         else:
-            logging.info('| short term update for porb: %.2f' % prob)
-            if cur - last_update > 5:
+            if cur - last_update > 1:
+                logging.info('| short term update')
                 model = online_update(args, model, 10, 1)
                 last_update = cur
-            logging.info('| twice tracking %d.jpg' % cur)
 
+            logging.info('| twice tracking %d.jpg for prob: %.6f' % (cur, prob))
             pre_regions = bh.get_twice_base_regions()
             B, P = multi_track(model, img, pre_regions=pre_regions, gt=gts[cur])
             region, prob = util.refine_bbox(B, P, res[-1])
 
-            if prob < 0.7:
+            if prob < 0.5:
                 region = res[-1]
             else:
                 add_update_data(img, region, cur, B, P)
-        if (cur < 10) & (cur % 2 == 0):
-            model = online_update(args, model, 20, 2)
-            last_update = cur
+        # if (cur < 10) & (cur % 2 == 0):
+        #     model = online_update(args, model, 20, 2)
+        #     last_update = cur
         # report
         bh.add_res(region)
         res.append(region)
@@ -156,7 +156,7 @@ def debug_track_seq(args, model, img_paths, gts):
     return res, probs, ious
 
 
-def check_track(model, i, flag=0, pr=None, topK=2):
+def check_track(model, i, flag=0, pr=None, topK=1):
     if pr == None:
         pr = const.gts[i]
 
@@ -214,7 +214,7 @@ def add_update_data(img, gt, cur, regions, probs):
     if update_data_queue.empty():
         update_data_queue.put(update_data)
     update_data_queue.put(update_data)
-    logging.info('| add update data, cost:%.6f' % (time.time() - t))
+    # logging.info('| add update data, cost:%.6f' % (time.time() - t))
 
 
 def check_metric(model, data_batches):
@@ -229,7 +229,7 @@ def check_metric(model, data_batches):
         model.update_metric(metric, data_batch.label)
     for name, val in metric.get_name_value():
         logging.info('|--| check metric %s=%f', name, val)
-    logging.info('^^^^^^^^^^^^^^^^^')
+    logging.info('^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^')
 
 
 def offline_update(args, model, img, gt):
@@ -238,7 +238,7 @@ def offline_update(args, model, img, gt):
     check_metric(model, data_batches)
     for epoch in range(0, args.num_epoch_for_offline):
         t = time.time()
-        model = extend.train_with_hnm(model, data_batches)
+        model = extend.train_with_hnm(model, data_batches, sel_factor=2)
         check_metric(model, data_batches)
         logging.info('| epoch %d, cost:%.4f, batches: %d ' % (epoch, time.time() - t, len(data_batches)))
         a = 1
@@ -394,7 +394,7 @@ def debug_seq():
     args = parse_args()
 
     vot = datahelper.VOTHelper(args.VOT_path)
-    img_paths, gts = vot.get_seq('bolt2')
+    img_paths, gts = vot.get_seq('bag')
 
     first_idx = 0
     img_paths, gts = img_paths[first_idx:], gts[first_idx:]
@@ -413,7 +413,7 @@ def debug_seq():
 def parse_args():
     parser = argparse.ArgumentParser(description='Train MDNet network')
     parser.add_argument('--gpu', help='GPU device to train with', default=0, type=int)
-    parser.add_argument('--num_epoch_for_offline', default=5, type=int)
+    parser.add_argument('--num_epoch_for_offline', default=3, type=int)
     parser.add_argument('--num_epoch_for_online', default=1, type=int)
 
     parser.add_argument('--fixed_conv', default=3, help='these params of [ conv_i <= ? ] will be fixed', type=int)
@@ -423,10 +423,10 @@ def parse_args():
                         type=str)
     parser.add_argument('--ROOT_path', help='cmd folder', default='/home/chen/mx-mdnet', type=str)
 
-    parser.add_argument('--wd', default=1e-4, help='weight decay', type=float)
+    parser.add_argument('--wd', default=2e0, help='weight decay', type=float)
     parser.add_argument('--momentum', default=0.9, type=float)
     parser.add_argument('--lr_offline', default=2e-5, help='base learning rate', type=float)
-    parser.add_argument('--lr_online', default=6e-5, help='base learning rate', type=float)
+    parser.add_argument('--lr_online', default=5e-6, help='base learning rate', type=float)
 
     args = parser.parse_args()
     return args

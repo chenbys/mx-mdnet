@@ -105,11 +105,11 @@ def refine_bbox(bboxes, probs, pre_region):
     return bboxes[probs.argmax(), :], probs.max()
 
     # 如果最高分过低，直接输出最高的
-    if probs.max() < 0.9:
+    if probs.max() < 0.7:
         return bboxes[probs.argmax(), :], probs.max()
 
-    bboxes = bboxes[probs > 0.9, :]
-    probs = probs[probs > 0.9]
+    bboxes = bboxes[probs > 0.7, :]
+    probs = probs[probs > 0.7]
 
     if len(probs) < 2:
         return np.mean(bboxes, 0), np.mean(probs)
@@ -126,7 +126,7 @@ def refine_bbox(bboxes, probs, pre_region):
     sel_p = np.argsort(-probs)[:sel]
 
     for idx in sel_d:
-        if probs[idx] > 0.9:
+        if probs[idx] > 0.7:
             return bboxes[idx, :], probs[idx]
     return bboxes[probs.argmax(), :], probs.max()
 
