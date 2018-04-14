@@ -31,7 +31,7 @@ def train_with_hnm(model, data_batches, sel_factor=3):
 
             # 正样本的idx
             pos_samples_idx_ = np.argwhere(label == 1).reshape((-1))
-            pos_samples_idx = pos_samples_idx_[np.argwhere(pos_prob[pos_samples_idx_] < 0.9).reshape((-1))]
+            pos_samples_idx = pos_samples_idx_[np.argwhere(pos_prob[pos_samples_idx_] < 0.8).reshape((-1))]
             pos_num = pos_samples_idx.shape[0] / sel_factor
             # 正样本的输出分值
             pos_samples_prob = pos_prob[pos_samples_idx]
@@ -52,7 +52,7 @@ def train_with_hnm(model, data_batches, sel_factor=3):
 
             # 选出的样本的idx
             sel_idx = np.hstack((pos_sel_idx, neg_sel_idx))
-            if len(sel_idx) < 11:
+            if len(sel_idx) < 8:
                 continue
 
             # 1,3,329,324
@@ -303,26 +303,14 @@ def init_model(args):
 
     t = time()
     all_params = {}
-    # if args.saved_fname == 'conv123':
-    #     print '@CHEN->load params from conv123'
-    #     conv123 = get_mdnet_conv123_params()
-    #     for k in conv123.keys():
-    #         conv123[k] = mx.ndarray.array(conv123.get(k))
-    #     model.init_params(arg_params=conv123, allow_missing=True, force_init=False, allow_extra=True)
-
-    # elif args.saved_fname == 'conv123fc4fc5':
     # conv123fc4fc5 = get_mdnet_conv123fc4fc5fc6_params(
     #     mat_path=args.ROOT_path + '/saved/mdnet_otb-vot15_in_py_for_conv123fc456.mat')
-    conv123fc4fc5 = get_mdnet_conv123fc4fc5_params(
-        mat_path=args.ROOT_path + '/saved/mdnet_otb-vot15_in_py.mat')
-
+    conv123fc4fc5 = get_mdnet_conv123fc4fc5fc6_params(
+        mat_path=args.ROOT_path + '/saved/mdnet_otb-vot15_in_py_for_conv123fc456.mat')
     for k in conv123fc4fc5.keys():
         conv123fc4fc5[k] = mx.ndarray.array(conv123fc4fc5.get(k))
     model.init_params(initializer=mx.initializer.Constant(-0.1), arg_params=conv123fc4fc5, allow_missing=True,
                       force_init=False, allow_extra=True)
 
-    # else:
-    #     print '@CHEN->init params.'
-    #     model.init_params()
     print('| init params, cost:%.6f' % (time() - t))
     return model, all_params

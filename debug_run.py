@@ -1,5 +1,7 @@
 # -*-coding:utf- 8-*-
 import Queue
+import random
+
 from easydict import EasyDict as edict
 import mxnet as mx
 import argparse
@@ -117,12 +119,12 @@ def debug_track_seq(args, model, img_paths, gts):
 
             if cur - last_update > 10:
                 logging.info('| long term update')
-                model = online_update(args, model, 20, 2)
+                model = online_update(args, model, 50, const.update_batch_num / 8)
                 last_update = cur
         else:
             if cur - last_update > 1:
                 logging.info('| short term update')
-                model = online_update(args, model, 10, 1)
+                model = online_update(args, model, 5, const.update_batch_num)
                 last_update = cur
 
             logging.info('| twice tracking %d.jpg for prob: %.6f' % (cur, prob))
@@ -130,7 +132,7 @@ def debug_track_seq(args, model, img_paths, gts):
             B, P = multi_track(model, img, pre_regions=pre_regions, gt=gts[cur])
             region, prob = util.refine_bbox(B, P, res[-1])
 
-            if prob < 0.5:
+            if prob < 0.7:
                 region = res[-1]
             else:
                 add_update_data(img, region, cur, B, P)
@@ -175,26 +177,22 @@ def check_track(model, i, flag=0, pr=None, topK=1):
     return probs
 
 
-def get_update_data(frame_len, step):
+def get_update_data(frame_len, batch_num):
     '''
         返回最近frame_len帧 组成的 update_data
     :param frame_len: 长期100，短期20
     :return:
     '''
-    frame_len = min(frame_len, update_data_queue.qsize())
+    total = update_data_queue.qsize()
     img_patches, feat_bboxes, labels = [], [], []
 
-    for i in range(1, min(10, frame_len)):
-        a, b, c = update_data_queue.queue[-i]
-        img_patches += a
-        feat_bboxes += b
-        labels += c
-
-    for i in range(1, frame_len - 10, 2):
-        a, b, c = update_data_queue.queue[-(i + 10)]
-        img_patches += a
-        feat_bboxes += b
-        labels += c
+    sel_idx = random.sample(range(0, const.update_batch_num), batch_num)
+    for i in range(1, frame_len):
+        a, b, c = update_data_queue.queue[-(i % total)]
+        for idx in sel_idx:
+            img_patches.append(a[idx])
+            feat_bboxes.append(b[idx])
+            labels.append(c[idx])
 
     return img_patches, feat_bboxes, labels
 
@@ -246,13 +244,13 @@ def offline_update(args, model, img, gt):
     return model
 
 
-def online_update(args, model, data_len, step):
+def online_update(args, model, data_len, batch_num):
     logging.info('------------- online update -------------')
-    data_batches = datahelper.get_data_batches(get_update_data(data_len, step))
+    data_batches = datahelper.get_data_batches(get_update_data(data_len, batch_num))
     check_metric(model, data_batches)
     for epoch in range(0, args.num_epoch_for_online):
         t = time.time()
-        extend.train_with_hnm(model, data_batches, sel_factor=4)
+        extend.train_with_hnm(model, data_batches, sel_factor=3)
         logging.info('| epoch %d, cost:%.4f for %d batches' % (epoch, time.time() - t, len(data_batches)))
         logging.info('^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^')
         check_metric(model, data_batches)
@@ -394,7 +392,7 @@ def debug_seq():
     args = parse_args()
 
     vot = datahelper.VOTHelper(args.VOT_path)
-    img_paths, gts = vot.get_seq('bag')
+    img_paths, gts = vot.get_seq('birds2')
 
     first_idx = 0
     img_paths, gts = img_paths[first_idx:], gts[first_idx:]
@@ -413,7 +411,7 @@ def debug_seq():
 def parse_args():
     parser = argparse.ArgumentParser(description='Train MDNet network')
     parser.add_argument('--gpu', help='GPU device to train with', default=0, type=int)
-    parser.add_argument('--num_epoch_for_offline', default=3, type=int)
+    parser.add_argument('--num_epoch_for_offline', default=2, type=int)
     parser.add_argument('--num_epoch_for_online', default=1, type=int)
 
     parser.add_argument('--fixed_conv', default=3, help='these params of [ conv_i <= ? ] will be fixed', type=int)
@@ -423,10 +421,10 @@ def parse_args():
                         type=str)
     parser.add_argument('--ROOT_path', help='cmd folder', default='/home/chen/mx-mdnet', type=str)
 
-    parser.add_argument('--wd', default=2e0, help='weight decay', type=float)
+    parser.add_argument('--wd', default=6e0, help='weight decay', type=float)
     parser.add_argument('--momentum', default=0.9, type=float)
-    parser.add_argument('--lr_offline', default=2e-5, help='base learning rate', type=float)
-    parser.add_argument('--lr_online', default=5e-6, help='base learning rate', type=float)
+    parser.add_argument('--lr_offline', default=5e-6, help='base learning rate', type=float)
+    parser.add_argument('--lr_online', default=25e-6, help='base learning rate', type=float)
 
     args = parser.parse_args()
     return args

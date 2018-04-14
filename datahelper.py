@@ -24,28 +24,25 @@ def get_train_data(img, region):
     :param stride_h:
     :return:
     '''
-    pos_sample_num, neg_sample_num = 64, 256
-    img_H, img_W, c = np.shape(img)
-
     A = list()
     B = list()
     C = list()
     # 伪造一些不准确的pre_region
     pre_regions = []
-    for i in np.arange(0.5, 2, 0.05):
-        pre_regions.append(util.central_bbox(region, 0, 0, i + 0.1, i - 0.1))
-        pre_regions.append(util.central_bbox(region, 0, 0, i - 0.1, i + 0.1))
+    for i in np.arange(0.7, 1.7, 0.02):
+        pre_regions.append(util.central_bbox(region, 0, 0, i + 0.3, i - 0.2))
+        pre_regions.append(util.central_bbox(region, 0, 0, i - 0.2, i + 0.3))
         pre_regions.append(util.central_bbox(region, 0, 0, i, i))
-    for i in np.arange(0.5, 2, 0.1):
+    for i in np.arange(0.7, 1.7, 0.02):
         pre_regions.append(util.central_bbox(region, 0, -1, i + 0.1, i - 0.1))
         pre_regions.append(util.central_bbox(region, -1, 0, i - 0.1, i + 0.1))
         pre_regions.append(util.central_bbox(region, 1, 0, i - 0.1, i + 0.1))
         pre_regions.append(util.central_bbox(region, 0, 1, i + 0.1, i - 0.1))
-    for i in np.arange(0.5, 2, 0.1):
-        pre_regions.append(util.central_bbox(region, 0, -0.5, i + 0.1, i - 0.1))
-        pre_regions.append(util.central_bbox(region, -0.5, 0, i - 0.1, i + 0.1))
-        pre_regions.append(util.central_bbox(region, 0.5, 0, i - 0.1, i + 0.1))
-        pre_regions.append(util.central_bbox(region, 0, 0.5, i + 0.1, i - 0.1))
+    for i in np.arange(0.7, 1.7, 0.02):
+        pre_regions.append(util.central_bbox(region, 0, -0.5, i + 0.3, i - 0.2))
+        pre_regions.append(util.central_bbox(region, -0.5, 0, i - 0.2, i + 0.3))
+        pre_regions.append(util.central_bbox(region, 0.5, 0, i - 0.2, i + 0.3))
+        pre_regions.append(util.central_bbox(region, 0, 0.5, i + 0.3, i - 0.2))
 
     for pr in pre_regions:
         img_patch, restore_info = util.get_img_patch(img, pr)
@@ -67,21 +64,10 @@ def get_train_data(img, region):
         patch_bboxes = util.feat2img(all_feat_bboxes[:, 1:])
         rat = util.overlap_ratio(label_patch_bbox, patch_bboxes)
 
-        # else:
-        # 抽样区域不完全包括gt，很可能无法采集到正样本
-        # pos
         pos_samples = all_feat_bboxes[rat > const.train_pos_th, :]
-        if len(pos_samples) > pos_sample_num / 3.:
-            pos_select_index = sample.rand_sample(np.arange(0, pos_samples.shape[0]), pos_sample_num)
-            neg_samples = all_feat_bboxes[rat < const.train_neg_th, :]
-            neg_select_index = sample.rand_sample(np.arange(0, neg_samples.shape[0]), neg_sample_num)
-            feat_bboxes, labels = np.vstack((pos_samples[pos_select_index], neg_samples[neg_select_index])), \
-                                  np.hstack((np.ones((pos_sample_num,)), np.zeros((neg_sample_num,))))
-        else:
-            # 没采集到足够的正样本
-            neg_samples = all_feat_bboxes[rat < const.train_neg_th, :]
-            neg_select_index = sample.rand_sample(np.arange(0, neg_samples.shape[0]), pos_sample_num + neg_sample_num)
-            feat_bboxes, labels = neg_samples[neg_select_index], np.zeros((pos_sample_num + neg_sample_num,))
+        neg_samples = all_feat_bboxes[rat < const.train_neg_th, :]
+        feat_bboxes, labels = np.vstack((pos_samples, neg_samples)), \
+                              np.hstack((np.ones((len(pos_samples),)), np.zeros((len(neg_samples)))))
 
         img_patch = img_patch.transpose(const.HWN2NHW)
         A.append(img_patch)
@@ -101,22 +87,21 @@ def get_update_data(img, gt, cur, regions, probs):
     :return:
     '''
 
-    pos_sample_num, neg_sample_num = 64, 256
-
     A = list()
     B = list()
     C = list()
-    # 伪造一些不准确的pre_region
     # pre_regions = np.array(regions)[np.array(probs) > 0.5, :].tolist()[:5]
     pre_regions = []
-    for i in np.arange(0.7, 1.7, 0.2):
-        pre_regions.append(util.central_bbox(gt, 0, 0, i + 0.2, i - 0.2))
-        pre_regions.append(util.central_bbox(gt, 0, 0, i - 0.2, i + 0.2))
+    for i in np.arange(0.7, 1.7, 0.05):
+        pre_regions.append(util.central_bbox(gt, 0, 0, i + 0.3, i - 0.2))
+        pre_regions.append(util.central_bbox(gt, 0, 0, i - 0.2, i + 0.3))
         pre_regions.append(util.central_bbox(gt, 0, 0, i, i))
     pre_regions.append(util.central_bbox(gt, 1, 0, 1, 1))
     pre_regions.append(util.central_bbox(gt, -1, 0, 1, 1))
     pre_regions.append(util.central_bbox(gt, 0, 1, 1, 1))
     pre_regions.append(util.central_bbox(gt, 0, -1, 1, 1))
+
+    const.update_batch_num = len(pre_regions)
 
     for pr in pre_regions:
         img_patch, restore_info = util.get_img_patch(img, pr)
@@ -140,17 +125,9 @@ def get_update_data(img, gt, cur, regions, probs):
 
         pos_samples = all_feat_bboxes[rat > const.update_pos_th, :]
 
-        if len(pos_samples) > 5:
-            pos_select_index = sample.rand_sample(np.arange(0, pos_samples.shape[0]), pos_sample_num)
-            neg_samples = all_feat_bboxes[rat < const.update_neg_th, :]
-            neg_select_index = sample.rand_sample(np.arange(0, neg_samples.shape[0]), neg_sample_num)
-            feat_bboxes, labels = np.vstack((pos_samples[pos_select_index], neg_samples[neg_select_index])), \
-                                  np.hstack((np.ones((pos_sample_num,)), np.zeros((neg_sample_num,))))
-        else:
-            # 没采集到足够的正样本
-            neg_samples = all_feat_bboxes[rat < const.update_neg_th, :]
-            neg_select_index = sample.rand_sample(np.arange(0, neg_samples.shape[0]), pos_sample_num + neg_sample_num)
-            feat_bboxes, labels = neg_samples[neg_select_index], np.zeros((pos_sample_num + neg_sample_num,))
+        neg_samples = all_feat_bboxes[rat < const.update_neg_th, :]
+        feat_bboxes, labels = np.vstack((pos_samples, neg_samples)), \
+                              np.hstack((np.ones((len(pos_samples),)), np.zeros((len(neg_samples)))))
 
         img_patch = img_patch.transpose(const.HWN2NHW)
         A.append(img_patch)
