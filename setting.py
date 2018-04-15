@@ -31,3 +31,5 @@ const.update_pos_th = 0.7
 const.update_neg_th = 0.3
 const.train_pos_th = 0.7
 const.train_neg_th = 0.5
+
+const.check_mc = True

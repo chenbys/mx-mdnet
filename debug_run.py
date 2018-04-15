@@ -319,8 +319,12 @@ def track(model, img, pre_region, gt, topK=2, plotc=False, showc=False, checkc=F
         return (pos_score[i], labels[i])
 
     def plot():
-        plt.plot(pos_score, 'r')
-        plt.plot(labels, 'blue')
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+        ax.plot(pos_score, 'r')
+        ax.plot(labels, 'blue')
+        fig.show()
+        return fig
 
     def show_tracking():
         fig = plt.figure()

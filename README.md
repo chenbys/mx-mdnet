@@ -25,3 +25,9 @@ for epoch in epoches:
     for batch in batches:
         mod.forward_backward(batch)
         mod.update()
+        
+        
+我又不怕死地做了pre_train的代码，发现wd不能设太高．
+在第一帧训练里面，如果wd是5e-4的话，正样本输出都是0.9999999了，太恐怖了．
+设为6e0才能看起来正常地输出0.9,0.8之类的．
+wd设高了不是据说防过拟合嘛．

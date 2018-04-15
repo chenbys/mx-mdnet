@@ -3,179 +3,110 @@ import logging
 import mxnet as mx
 import datahelper
 import extend
-from setting import config, const
-from kit import p
+from setting import const
 import run
 import util
 import numpy as np
 import time
 import easydict
 import copy
+import matplotlib.pyplot as plt
+import os
+import debug_run
 
 
-def train_MD_on_VOT():
-    t = time.time()
+def train_MD_on_OTB():
+    const.check_pre_train = False
+    const.check_mc = False
     args = parse_args()
-    config.p_level = args.p_level
-    if args.gpu == -1:
-        config.ctx = mx.cpu(0)
-    else:
-        config.ctx = mx.gpu(args.gpu)
-    model, all_params = extend.init_model(loss_type=args.loss_type, fixed_conv=args.fixed_conv,
-                                          saved_fname=args.saved_fname)
+    otb = datahelper.OTB_VOT_Helper(args.OTB_path)
+    seq_names = otb.seq_names
+    seq_num = len(seq_names)
+    K = seq_num * args.frame_num
+    model, all_params = extend.init_model(args)
+    sgd = mx.optimizer.SGD(learning_rate=args.lr, wd=args.wd, momentum=args.momentum)
+    sgd.set_lr_mult({'fc4_weight': 10, 'fc4_bias': 10,
+                     'fc5_weight': 10, 'fc5_bias': 10,
+                     'score_bias': 10, 'score_weight': 10})
+    model.init_optimizer(kvstore='local', optimizer=sgd, force_init=True)
+    logging.getLogger().setLevel(logging.INFO)
+    ph = datahelper.ParamsHelper()
+    os.environ['MXNET_CUDNN_AUTOTUNE_DEFAULT'] = '0'
+    begin_k = args.begin_k
+    ph.load_params(model, begin_k, args.saved_prefix)
+    for k in range(begin_k, K):
+        t = time.time()
+        frame_idx, seq_idx = divmod(k, seq_num)
+        # frame_idx = 0
+        seq_name = seq_names[seq_idx]
+        logging.info('')
+        logging.info('| Seq: %s, k:%6d, frame: %4d' % (seq_name, k, frame_idx))
+        img_path, gt = otb.get_data(seq_name, frame_idx)
+        # logging.info(img_path)
+        img = plt.imread(img_path)
+        const.img_H, const.img_W = img.shape[:2]
+        if len(img.shape) == 2:
+            img = np.stack((img, img, img), 2)
 
-    vot = datahelper.VOTHelper(args.VOT_path)
-    if args.log == 0:
-        logging.getLogger().setLevel(logging.DEBUG)
-    else:
-        logging.getLogger().setLevel(logging.ERROR)
-
-    # seq num
-    N = 60
-    # training step num for each seq , one step for one frame, one of K cost 20s for 5 epoch.
-    K = N * args.K
-    for k in range(K):
-        seq_idx = k % 60
-        seq_name = vot.seq_names[seq_idx]
-
-        # load params for MD training
-        arg_params, aux_params = model.get_params()
-        arg_params = extend.get_MD_params(seq_name, arg_params, all_params)
-        model.set_params(arg_params=arg_params, aux_params=aux_params,
-                         allow_missing=True, force_init=True, allow_extra=False)
-
-        # train
-        rep_times, train_iter, val_iter = vot.get_data(k)
-        print '@CHEN->%d iter, in %s, %d repeat times' % (k, seq_name, rep_times)
-        model = one_step_train(args, model, train_iter, end_epoch=args.num_epoch)
-
-        # validate
-        train_res = model.score(train_iter, extend.MDNetIOUACC())
-        val_res = model.score(val_iter, extend.MDNetIOUACC())
-        for name, val in train_res:
-            logging.getLogger().error('@CHEN->train-%s=%f', name, val)
-        for name, val in val_res:
-            logging.getLogger().error('@CHEN->valid-%s=%f', name, val)
-
-        # save params for MD training
-        arg_params, aux_params = model.get_params()
-        all_params[seq_name] = copy.deepcopy(arg_params)
-
-        if (k % (60 * 1) == 0):
-            extend.save_all_params(all_params, k)
-            print 'time cost for 60*3 iter: %f' % (time.time() - t)
+        model = ph.change_params(model, seq_name)
+        data_batches = datahelper.get_data_batches(datahelper.get_pre_train_data(img, gt))
+        check_metric(model, data_batches)
+        for epoch in range(0, args.num_epoch):
             t = time.time()
+            model = extend.train_with_hnm(model, data_batches, sel_factor=2)
+            logging.info('| epoch %d, cost:%.4f, batches: %d ' % (epoch, time.time() - t, len(data_batches)))
+            check_metric(model, data_batches)
+
+            end = 1
+
+        end = 1
+        if const.check_pre_train == True:
+            debug_run.track(model, img, gt, gt, 1, plotc=True)
+        ph.update_params(model, seq_name)
+        logging.info('| time for one iter: %.2f', time.time() - t)
+        if (k + 1) % 100 == 0:
+            ph.save_params(model, k, args.saved_prefix)
+    return
 
 
-def train_SD_on_VOT():
-    args = parse_args()
-    config.p_level = args.p_level
+def check_metric(model, data_batches):
+    if not const.check_mc:
+        return
 
-    if args.gpu == -1:
-        config.ctx = mx.cpu(0)
-    else:
-        config.ctx = mx.gpu(args.gpu)
-    model = extend.init_model(loss_type=args.loss_type, fixed_conv=args.fixed_conv, saved_fname=args.saved_fname)
-
-    vot = datahelper.VOTHelper(args.VOT_path)
-    if args.log == 0:
-        logging.getLogger().setLevel(logging.DEBUG)
-    else:
-        logging.getLogger().setLevel(logging.ERROR)
-
-    N = 5
-    for n in range(N):
-        for seq_name in vot.seq_names:
-            print '@CHEN->%s in %d/%d circ' % (seq_name, n, N)
-            img_list, gt_list = vot.get_seq(seq_name)
-            length = len(img_list)
-            for i in range(length):
-                begin_epoch = 0 + n * 10
-                print '@CHEN->frame:%d/%d' % (i, length)
-                train_iter = datahelper.get_iter(
-                    datahelper.get_train_data(img_list[i], gt_list[i], iou_label=bool(args.loss_type)))
-                val_iter = datahelper.get_iter(
-                    datahelper.get_train_data(img_list[(i + 1) % length], gt_list[(i + 1) % length],
-                                              iou_label=bool(args.loss_type)))
-                model = one_step_train(args, model, train_iter, val_iter, begin_epoch, begin_epoch + args.num_epoch)
-                begin_epoch += args.num_epoch
-
-                # val
-                train_res = model.score(train_iter, extend.MDNetIOUACC())
-                val_res = model.score(val_iter, extend.MDNetIOUACC())
-                for name, val in train_res:
-                    logging.getLogger().error('train-%s=%f', name, val)
-                for name, val in val_res:
-                    logging.getLogger().error('valid-%s=%f', name, val)
-
-                    # try tracking for validation
-                    # res = run.track(model, img_list[(i + 1) % length], gt_list[i])
-                    # print '@CHEN->track on frame %d, iou of res is %.2f' % (
-                    #     i + 1, util.overlap_ratio(res, np.array(gt_list[(i + 1) % length])))
-                    # print res
-                    # print gt_list[(i + 1) % length]
-                    # res2 = run.track(model, img_list[(i) % length], gt_list[(i - 1) % length])
-                    # print '@CHEN->track on frame %d, iou of res is %.2f' % (
-                    #     i, util.overlap_ratio(res2, np.array(gt_list[(i) % length])))
-                    # print res2
-                    # print gt_list[(i) % length]
-            # save and load
-            model.save_params('saved/%s_%dcirc' % (seq_name, n))
-
-
-def one_step_train(args, model, train_iter=None, val_iter=None, begin_epoch=0, end_epoch=50):
-    '''
-
-    :param img_path:
-    :param region:
-    :return:
-    '''
     metric = mx.metric.CompositeEvalMetric()
-    metric.add(extend.MDNetIOUACC(args.iou_acc_th))
-    # metric.add(extend.MDNetIOUACC(args.iou_acc_th * 2))
-    # metric.add(extend.MDNetIOUACC(args.iou_acc_th * 3))
-    metric.add(extend.MDNetIOULoss())
+    metric.add([extend.PR(), extend.RR(), extend.TrackTopKACC(), mx.metric.CrossEntropy()])
+    for data_batch in data_batches:
+        model.forward(data_batch, is_train=False)
+        model.update_metric(metric, data_batch.label)
 
-    # t1 = time.time()
-    model.fit(train_data=train_iter, eval_data=val_iter, optimizer='sgd',
-              optimizer_params={'learning_rate': args.lr,
-                                'wd'           : args.wd,
-                                'momentum'     : args.momentum,
-                                'clip_gradient': 5,
-                                'lr_scheduler' : mx.lr_scheduler.FactorScheduler(
-                                    args.lr_step, args.lr_factor, args.lr_stop)},
-              eval_metric=metric, num_epoch=end_epoch, begin_epoch=begin_epoch,
-              batch_end_callback=mx.callback.Speedometer(1, args.batch_callback_freq))
-    # t2 = time.time()
-    # print '@CHEN->one_step cost %.2f' % (t2 - t1)
-    return model
+    values = metric.get()[1]
+    logging.info('|----| Check metric %.2f,%.2f,%.2f, loss:[%.6f]' %
+                 (values[0], values[1], values[2], values[3]))
 
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Train MDNet network')
-    parser.add_argument('--gpu', help='GPU device to train with', default=2, type=int)
-    parser.add_argument('--num_epoch', help='epoch of training for every frame', default=0, type=int)
-    parser.add_argument('--batch_callback_freq', default=50, type=int)
-    parser.add_argument('--lr', help='base learning rate', default=1e-6, type=float)
-    parser.add_argument('--wd', help='base learning rate', default=0, type=float)
-    parser.add_argument('--OTB_path', help='OTB folder', default='/home/chenjunjie/dataset/OTB', type=str)
-    parser.add_argument('--VOT_path', help='VOT folder', default='/home/chenjunjie/dataset/VOT2015', type=str)
-    parser.add_argument('--p_level', help='print level, default is 0 for debug mode', default=0, type=int)
-    parser.add_argument('--fixed_conv', help='the params before(include) which conv are all fixed', default=0, type=int)
-    parser.add_argument('--loss_type', type=int, default=1,
-                        help='0 for {0,1} corss-entropy, 1 for smooth_l1, 2 for {pos_pred} corss-entropy')
-    parser.add_argument('--lr_step', default=36 * 1, type=int)
-    parser.add_argument('--lr_factor', default=0.9, type=float)
-    parser.add_argument('--lr_stop', default=5e-7, type=float)
-    parser.add_argument('--iou_acc_th', default=0.1, type=float)
-    parser.add_argument('--momentum', default=0, type=float)
-    parser.add_argument('--saved_fname', default=None, type=str)
-    parser.add_argument('--log', default=1, type=int)
-    parser.add_argument('--K', default=5 * 1000, type=int)
+    parser.add_argument('--gpu', help='GPU device to train with', default=0, type=int)
+    parser.add_argument('--begin_k', default=0, help='continue from this k ', type=int)
+    parser.add_argument('--saved_prefix', default='k', help='', type=str)
+
+    parser.add_argument('--num_epoch', default=1, help='epoch for each frame training', type=int)
+    parser.add_argument('--frame_num', default=10, help='train how many frames for each sequence', type=int)
+
+    parser.add_argument('--fixed_conv', default=0, help='these params of [ conv_i <= ? ] will be fixed', type=int)
+    parser.add_argument('--saved_fname', default='conv123fc4fc5', type=str)
+    parser.add_argument('--OTB_path', help='OTB folder', default='/media/chen/datasets/OTB', type=str)
+    parser.add_argument('--VOT_path', help='VOT folder', default='/home/chen/vot-toolkit/cmdnet-workspace/sequences',
+                        type=str)
+
+    parser.add_argument('--ROOT_path', help='cmd folder', default='/home/chen/mx-mdnet', type=str)
+    parser.add_argument('--wd', default=5e-4, help='weight decay', type=float)
+    parser.add_argument('--momentum', default=0.9, type=float)
+    parser.add_argument('--lr', default=1e-5, help='base learning rate', type=float)
 
     args = parser.parse_args()
     return args
 
 
 if __name__ == '__main__':
-    train_MD_on_VOT()
+    train_MD_on_OTB()
