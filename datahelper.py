@@ -183,11 +183,6 @@ def get_pre_train_data(img, region):
         pre_regions.append(util.central_bbox(region, 0, 0, i + 0.3, i - 0.2))
         pre_regions.append(util.central_bbox(region, 0, 0, i - 0.2, i + 0.3))
         pre_regions.append(util.central_bbox(region, 0, 0, i, i))
-    # for i in np.arange(0.7, 1.7, 0.1):
-    #     pre_regions.append(util.central_bbox(region, 0, -1, i + 0.1, i - 0.1))
-    #     pre_regions.append(util.central_bbox(region, -1, 0, i - 0.1, i + 0.1))
-    #     pre_regions.append(util.central_bbox(region, 1, 0, i - 0.1, i + 0.1))
-    #     pre_regions.append(util.central_bbox(region, 0, 1, i + 0.1, i - 0.1))
 
     for pr in pre_regions:
         img_patch, restore_info = util.get_img_patch(img, pr)
@@ -296,16 +291,17 @@ class ParamsHelper(object):
 class OTB_VOT_Helper(object):
     def __init__(self, path='/Users/chenjunjie/workspace/OTB/'):
         self.home_path = path
-        self.seq_names = ['Girl', 'Bird1', 'BlurBody', 'BlurCar2', 'BlurFace', 'BlurOwl', 'Box', 'Car1', 'Car4',
-                          'CarScale', 'Biker', 'ClifBar', 'Crowds', 'Deer', 'Diving', 'DragonBaby', 'Dudek',
-                          'Football', 'Freeman4', 'Human4', 'Human9', 'Ironman', 'Jump', 'Jumping', 'Liquor', 'Panda',
+        self.seq_names = ['BlurCar3', 'BlurCar4', 'Girl', 'Bird1', 'BlurBody', 'BlurCar2', 'BlurFace', 'BlurOwl', 'Box',
+                          'Car1', 'Car4',
+                          'CarScale', 'Biker', 'ClifBar', 'Crowds', 'Deer', 'DragonBaby', 'Dudek',
+                          'Football', 'Human4', 'Human9', 'Ironman', 'Jump', 'Jumping', 'Liquor', 'Panda',
                           'RedTeam', 'Skating1', 'Skiing', 'Surfer', 'Sylvester', 'Trellis', 'Walking', 'Walking2',
                           'Woman', 'Bird2', 'Board', 'Boy', 'Car2', 'Car24', 'Coke', 'Coupon',
                           'Crossing', 'Dancer', 'Dancer2', 'David2', 'David3', 'Dog', 'Dog1', 'Doll', 'FaceOcc1',
                           'FaceOcc2', 'Fish', 'FleetFace', 'Freeman1', 'Gym', 'Human2',
                           'Human7', 'Human8', 'KiteSurf', 'Lemming', 'Man', 'Mhyang', 'MountainBike', 'Rubik', 'Skater',
                           'Skater2', 'Subway', 'Suv', 'Toy', 'Trans', 'Twinnings', 'Vase']
-        # 'BlurCar3', 'BlurCar4'
+        # 'Diving',Freeman4
         # self.seq_names = ['Girl', 'Bird1', 'BlurBody', 'Car1', 'Car4']
         # self.seq_names = ['Girl', 'Bird1', 'BlurBody', 'BlurCar2', 'BlurFace', 'BlurOwl', 'Box', 'Car1', 'Car4',
         #                   'CarScale', 'Biker', 'ClifBar', 'Crowds', 'David', 'Deer', 'Diving', 'DragonBaby', 'Dudek',
@@ -343,9 +339,10 @@ class OTB_VOT_Helper(object):
             x, y, w, h = line.split(',')
             gts.append([float(x), float(y), float(w), float(h)])
         length = len(gts)
-
-        img_paths = [os.path.join(self.home_path, seq_name, 'img', '%0*d.jpg' % (4, idx))
-                     for idx in range(1, length + 1)]
+        img_dir_path = os.path.join(self.home_path, seq_name, 'img')
+        img_paths = [os.path.join(img_dir_path, jpg_file) for jpg_file in os.listdir(img_dir_path)
+                     if jpg_file.endswith('.jpg')]
+        assert len(img_paths) == len(gts), 'num of jpg file and gt bbox must equal: %s' % seq_name
         return img_paths, gts
 
     def get_img(self, seq_name):
