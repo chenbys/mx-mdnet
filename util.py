@@ -68,14 +68,14 @@ class BboxHelper(object):
 
     def get_base_regions(self):
 
-        pr = self.get_estimate_region()
-        br = [self.history[-1]]
-        br += replace_wh(pr, self.whbase)
+        # pr = self.get_estimate_region()
+        br = self.history[-2:-1]
+        br += replace_wh(self.history[-1], self.whbase)
         return br
 
     def get_twice_base_regions(self):
         pr = self.history[-1]
-        br = []
+        br = self.history[-2:]
         br += replace_wh(pr, self.whbase)
         br.append(central_bbox(pr, 1, 0, 1, 1))
         br.append(central_bbox(pr, -1, 0, 1, 1))
@@ -91,9 +91,9 @@ class BboxHelper(object):
         wh = np.array(self.whbase)
         d = wh - res_region
         ds = np.abs(d[:, 2]) + np.abs(d[:, 3])
-        if ds.min() > res_region[2] / 4. + res_region[3] / 4.:
+        if ds.min() > res_region[2] / 2. + res_region[3] / 2.:
             self.whbase.append(res_region)
-            if len(self.whbase) > 5:
+            if len(self.whbase) > 2:
                 self.whbase = self.whbase[1:]
 
 

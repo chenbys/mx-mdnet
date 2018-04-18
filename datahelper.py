@@ -30,16 +30,16 @@ def get_train_data(img, region):
     C = list()
     # 伪造一些不准确的pre_region
     pre_regions = []
-    for i in np.arange(0.7, 1.7, 0.02):
+    for i in np.arange(0.8, 2, 0.05):
         pre_regions.append(util.central_bbox(region, 0, 0, i + 0.3, i - 0.2))
         pre_regions.append(util.central_bbox(region, 0, 0, i - 0.2, i + 0.3))
         pre_regions.append(util.central_bbox(region, 0, 0, i, i))
-    for i in np.arange(0.7, 1.7, 0.02):
+    for i in np.arange(0.8, 1.7, 0.05):
         pre_regions.append(util.central_bbox(region, 0, -1, i + 0.1, i - 0.1))
         pre_regions.append(util.central_bbox(region, -1, 0, i - 0.1, i + 0.1))
         pre_regions.append(util.central_bbox(region, 1, 0, i - 0.1, i + 0.1))
         pre_regions.append(util.central_bbox(region, 0, 1, i + 0.1, i - 0.1))
-    for i in np.arange(0.7, 1.7, 0.02):
+    for i in np.arange(0.8, 1.7, 0.05):
         pre_regions.append(util.central_bbox(region, 0, -0.5, i + 0.3, i - 0.2))
         pre_regions.append(util.central_bbox(region, -0.5, 0, i - 0.2, i + 0.3))
         pre_regions.append(util.central_bbox(region, 0.5, 0, i - 0.2, i + 0.3))
@@ -78,7 +78,7 @@ def get_train_data(img, region):
     return A, B, C
 
 
-def get_update_data(img, gt, cur, regions, probs):
+def get_update_data(img, gt, regions):
     '''
         原版mdnet每一帧采50 pos 200 neg
         返回该帧构造出的 9 个img_patch, each 16 pos 32 neg
@@ -91,18 +91,27 @@ def get_update_data(img, gt, cur, regions, probs):
     A = list()
     B = list()
     C = list()
-    # pre_regions = np.array(regions)[np.array(probs) > 0.5, :].tolist()[:5]
     pre_regions = []
-    for i in np.arange(0.7, 1.7, 0.05):
-        pre_regions.append(util.central_bbox(gt, 0, 0, i + 0.3, i - 0.2))
-        pre_regions.append(util.central_bbox(gt, 0, 0, i - 0.2, i + 0.3))
-        pre_regions.append(util.central_bbox(gt, 0, 0, i, i))
+    pre_regions.append(util.central_bbox(gt, 0, 0, 1, 1))
+    pre_regions.append(util.central_bbox(gt, 0, 0, 0.8, 0.8))
+    pre_regions.append(util.central_bbox(gt, 0, 0, 1.5, 1.5))
+    pre_regions.append(util.central_bbox(gt, 0, 0, 0.6, 0.6))
+    pre_regions.append(util.central_bbox(gt, 0, 0, 1.7, 1.7))
+
+    pre_regions.append(util.central_bbox(gt, 0, 0, 0.7, 1))
+    pre_regions.append(util.central_bbox(gt, 0, 0, 1, 0.7))
+    pre_regions.append(util.central_bbox(gt, 0, 0, 1, 1.5))
+    pre_regions.append(util.central_bbox(gt, 0, 0, 1.5, 1))
+
     pre_regions.append(util.central_bbox(gt, 1, 0, 1, 1))
     pre_regions.append(util.central_bbox(gt, -1, 0, 1, 1))
     pre_regions.append(util.central_bbox(gt, 0, 1, 1, 1))
     pre_regions.append(util.central_bbox(gt, 0, -1, 1, 1))
 
-    const.update_batch_num = len(pre_regions)
+    pre_regions += regions
+    if len(regions) != 2:
+        a = 1
+    const.update_batch_num = 13 + 2
 
     for pr in pre_regions:
         img_patch, restore_info = util.get_img_patch(img, pr)
@@ -179,7 +188,7 @@ def get_pre_train_data(img, region):
     C = list()
     # 伪造一些不准确的pre_region
     pre_regions = []
-    for i in np.arange(0.7, 1.7, 0.1):
+    for i in np.arange(0.7, 2.2, 0.2):
         pre_regions.append(util.central_bbox(region, 0, 0, i + 0.3, i - 0.2))
         pre_regions.append(util.central_bbox(region, 0, 0, i - 0.2, i + 0.3))
         pre_regions.append(util.central_bbox(region, 0, 0, i, i))
@@ -338,10 +347,15 @@ class OTB_VOT_Helper(object):
             line = line.replace(' ', ',')
             x, y, w, h = line.split(',')
             gts.append([float(x), float(y), float(w), float(h)])
-        length = len(gts)
+
         img_dir_path = os.path.join(self.home_path, seq_name, 'img')
-        img_paths = [os.path.join(img_dir_path, jpg_file) for jpg_file in os.listdir(img_dir_path)
+        jpg_files = [jpg_file for jpg_file in os.listdir(img_dir_path)
                      if jpg_file.endswith('.jpg')]
+        fill_len = jpg_files[0].__len__() - 4
+
+        img_nums = [int(num.replace('.jpg', '')) for num in jpg_files]
+        img_nums = sorted(img_nums)
+        img_paths = [os.path.join(img_dir_path, (str(img_num).zfill(fill_len) + '.jpg')) for img_num in img_nums]
         assert len(img_paths) == len(gts), 'num of jpg file and gt bbox must equal: %s' % seq_name
         return img_paths, gts
 

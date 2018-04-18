@@ -35,11 +35,11 @@ def get_mdnet(prefix=''):
 
     fc4 = mx.symbol.Convolution(data=rois, kernel=(3, 3), stride=(1, 1), num_filter=512, name=prefix + 'fc4')
     relu4 = mx.symbol.Activation(data=fc4, act_type='relu', name=prefix + 'relu4')
-    drop4 = mx.symbol.Dropout(data=relu4, p=0.5, name=prefix + 'drop4')
+    drop4 = mx.symbol.Dropout(data=relu4, p=0.7, name=prefix + 'drop4')
 
     fc5 = mx.symbol.Convolution(data=drop4, kernel=(1, 1), stride=(1, 1), num_filter=512, name=prefix + 'fc5')
     relu5 = mx.symbol.Activation(data=fc5, act_type='relu', name=prefix + 'relu5')
-    drop5 = mx.symbol.Dropout(data=relu5, p=0.5, name=prefix + 'drop5')
+    drop5 = mx.symbol.Dropout(data=relu5, p=0.7, name=prefix + 'drop5')
     score = mx.symbol.Convolution(data=drop5, kernel=(1, 1), stride=(1, 1), num_filter=2, name=prefix + 'score')
     score_ = mx.symbol.Reshape(data=score, shape=(-1, 2), name=prefix + 'score_re')
 

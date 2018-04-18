@@ -11,6 +11,7 @@ import kit
 import util
 from setting import const
 import copy
+import os
 
 
 def train_with_hnm(model, data_batches, sel_factor=3):
@@ -302,15 +303,17 @@ def init_model(args):
     print('| mod.bind, cost:%.6f' % (time() - t))
 
     t = time()
-    all_params = {}
     # conv123fc4fc5 = get_mdnet_conv123fc4fc5fc6_params(
     #     mat_path=args.ROOT_path + '/saved/mdnet_otb-vot15_in_py_for_conv123fc456.mat')
-    conv123fc4fc5 = get_mdnet_conv123fc4fc5fc6_params(
-        mat_path=args.ROOT_path + '/saved/mdnet_otb-vot15_in_py_for_conv123fc456.mat')
-    for k in conv123fc4fc5.keys():
-        conv123fc4fc5[k] = mx.ndarray.array(conv123fc4fc5.get(k))
-    model.init_params(initializer=mx.initializer.Constant(-0.1), arg_params=conv123fc4fc5, allow_missing=True,
-                      force_init=False, allow_extra=True)
+    if args.saved_fname.endswith('shared'):
+        model.load_params(os.path.join(args.ROOT_path, args.saved_fname))
+    else:
+        conv123fc4fc5 = get_mdnet_conv123fc4fc5fc6_params(
+            mat_path=args.ROOT_path + '/saved/mdnet_otb-vot15_in_py_for_conv123fc456.mat')
+        for k in conv123fc4fc5.keys():
+            conv123fc4fc5[k] = mx.ndarray.array(conv123fc4fc5.get(k))
+        model.init_params(initializer=mx.initializer.Constant(-0.1), arg_params=conv123fc4fc5, allow_missing=True,
+                          force_init=False, allow_extra=True)
 
     print('| init params, cost:%.6f' % (time() - t))
-    return model, all_params
+    return model

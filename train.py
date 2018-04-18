@@ -13,21 +13,23 @@ import copy
 import matplotlib.pyplot as plt
 import os
 import debug_run
+import kit
 
 
 def train_MD_on_OTB():
     const.check_pre_train = False
     const.check_mc = True
 
-    set_logger()
     args = parse_args()
+    set_logger(args.log_name)
     logging.getLogger().info(str_args(args))
 
     otb = datahelper.OTB_VOT_Helper(args.OTB_path)
+    # otb.get_seq('Board')
     seq_names = otb.seq_names
     seq_num = len(seq_names)
 
-    model, all_params = extend.init_model(args)
+    model = extend.init_model(args)
     sgd = mx.optimizer.SGD(learning_rate=args.lr, wd=args.wd, momentum=args.momentum)
     sgd.set_lr_mult({'fc4_weight': 10, 'fc4_bias': 10,
                      'fc5_weight': 10, 'fc5_bias': 10,
@@ -41,13 +43,13 @@ def train_MD_on_OTB():
     ph = datahelper.ParamsHelper()
     ph.load_params(model, begin_k, args.saved_prefix)
 
-    for k in range(begin_k, begin_k + K):
+    for k in range(begin_k + 1, begin_k + K):
         t = time.time()
         frame_idx, seq_idx = divmod(k, seq_num)
         # frame_idx = 0
         seq_name = seq_names[seq_idx]
         logging.getLogger().info('========================================================')
-        logging.getLogger().info('| Seq: %s, k:%6d, frame: %4d' % (seq_name, k, frame_idx))
+        logging.getLogger().info('| Seq: %10s, k:%6d, frame: %4d' % (seq_name, k, frame_idx))
         img_path, gt = otb.get_data(seq_name, frame_idx)
         img = plt.imread(img_path)
         const.img_H, const.img_W = img.shape[:2]
@@ -93,19 +95,19 @@ def check_metric(model, data_batches):
 
 def str_args(args):
     sd = {}
-    for key in ['begin_k', 'frame_num', 'wd', 'lr', 'momentum']:
+    for key in ['begin_k', 'frame_num', 'wd', 'lr', 'momentum', 'saved_prefix']:
         sd[key] = args.__dict__[key]
     return sd.__str__()
 
 
-def set_logger():
+def set_logger(log_name):
     logger = logging.getLogger()
     logger.setLevel(logging.INFO)
     logging.basicConfig(
         level=logging.INFO,
         format='| %(message)s. %(asctime)s',
         datefmt='%Y-%m-%d %H:%M:%S',
-        filename='pre_train.log',
+        filename=log_name,
         filemode='a')
     # fh = logging.FileHandler('pre_train.log','a')
     # fh.setLevel(logging.DEBUG)
@@ -124,9 +126,11 @@ def set_logger():
 def parse_args():
     parser = argparse.ArgumentParser(description='Train MDNet network')
     parser.add_argument('--gpu', help='GPU device to train with', default=0, type=int)
-    parser.add_argument('--begin_k', default=699, help='continue from this k ', type=int)
+    parser.add_argument('--begin_k', default=15000, help='continue from this k ', type=int)
     parser.add_argument('--frame_num', default=1000, help='train how many frames for each sequence', type=int)
-    parser.add_argument('--saved_prefix', default='k', help='', type=str)
+    parser.add_argument('--saved_prefix', default='larger_wd', help='', type=str)
+    parser.add_argument('--saved_fname', default='conv123fc456', help='', type=str)
+    parser.add_argument('--log_name', default='pre_train_sm_lr.log', help='', type=str)
 
     parser.add_argument('--num_epoch', default=1, help='epoch for each frame training', type=int)
 
@@ -138,7 +142,7 @@ def parse_args():
     parser.add_argument('--ROOT_path', help='cmd folder', default='/home/chen/mx-mdnet', type=str)
     parser.add_argument('--wd', default=5e-4, help='weight decay', type=float)
     parser.add_argument('--momentum', default=0.9, type=float)
-    parser.add_argument('--lr', default=1e-5, help='base learning rate', type=float)
+    parser.add_argument('--lr', default=5e-6, help='base learning rate', type=float)
 
     args = parser.parse_args()
     return args
