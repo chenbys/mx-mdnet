@@ -69,7 +69,7 @@ class BboxHelper(object):
     def get_base_regions(self):
 
         # pr = self.get_estimate_region()
-        br = self.history[-2:-1]
+        br = self.history[-1:]
         br += replace_wh(self.history[-1], self.whbase)
         return br
 
@@ -88,12 +88,13 @@ class BboxHelper(object):
     def add_res(self, res_region):
         res_region = np.array(res_region)
         self.history.append(res_region)
+
         wh = np.array(self.whbase)
         d = wh - res_region
         ds = np.abs(d[:, 2]) + np.abs(d[:, 3])
         if ds.min() > res_region[2] / 2. + res_region[3] / 2.:
             self.whbase.append(res_region)
-            if len(self.whbase) > 2:
+            if len(self.whbase) >= 1:
                 self.whbase = self.whbase[1:]
 
 
@@ -102,11 +103,16 @@ def refine_bbox(bboxes, probs, pre_region):
     probs = np.array(probs)
     pre_region = np.array(pre_region)
 
+    if probs.max() < 0.9:
+        return bboxes[probs.argmax(), :], probs.max()
+
+    bboxes = bboxes[probs > 0.9, :]
+    probs = probs[probs > 0.9]
+
+    return np.mean(bboxes, 0), np.mean(probs)
     return bboxes[probs.argmax(), :], probs.max()
 
     # 如果最高分过低，直接输出最高的
-    if probs.max() < 0.7:
-        return bboxes[probs.argmax(), :], probs.max()
 
     bboxes = bboxes[probs > 0.7, :]
     probs = probs[probs > 0.7]

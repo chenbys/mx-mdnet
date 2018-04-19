@@ -22,19 +22,19 @@ def get_update_data(frame_len, batch_num):
     total = update_data_queue.qsize()
     img_patches, feat_bboxes, labels = [], [], []
 
+    for i in range(1, min(total, 3)):
+        a, b, c = update_data_queue.queue[-i]
+        img_patches += a
+        feat_bboxes += b
+        labels += c
+
     sel_idx = random.sample(range(0, const.update_batch_num), batch_num)
-    for i in range(1, frame_len):
+    for i in range(3, frame_len):
         a, b, c = update_data_queue.queue[-(i % total)]
         for idx in sel_idx:
             img_patches.append(a[idx])
             feat_bboxes.append(b[idx])
             labels.append(c[idx])
-
-    for i in range(1, min(total, 5)):
-        a, b, c = update_data_queue.queue[-i]
-        img_patches += a
-        feat_bboxes += b
-        labels += c
     return img_patches, feat_bboxes, labels
 
 
@@ -65,7 +65,7 @@ def offline_update(args, model, img, gt):
 def online_update(args, model, data_len, batch_num):
     data_batches = datahelper.get_data_batches(get_update_data(data_len, batch_num))
     for epoch in range(0, args.num_epoch_for_online):
-        extend.train_with_hnm(model, data_batches, sel_factor=3)
+        extend.train_with_hnm(model, data_batches, sel_factor=5)
     return model
 
 
@@ -108,16 +108,16 @@ def parse_args():
     parser.add_argument('--num_epoch_for_online', default=1, type=int)
 
     parser.add_argument('--fixed_conv', default=3, help='these params of [ conv_i <= ? ] will be fixed', type=int)
-    parser.add_argument('--saved_fname', default='params/larger_wd_600/shared', type=str)
+    parser.add_argument('--saved_fname', default='params/larger_wd_18000/shared', type=str)
     parser.add_argument('--OTB_path', help='OTB folder', default='/media/chen/datasets/OTB', type=str)
     parser.add_argument('--VOT_path', help='VOT folder', default='/home/chen/vot-toolkit/cmdnet-workspace/sequences',
                         type=str)
     parser.add_argument('--ROOT_path', help='cmd folder', default='/home/chen/mx-mdnet', type=str)
 
-    parser.add_argument('--wd', default=5e-3, help='weight decay', type=float)
+    parser.add_argument('--wd', default=1.5e0, help='weight decay', type=float)
     parser.add_argument('--momentum', default=0.9, type=float)
     parser.add_argument('--lr_offline', default=1e-5, help='base learning rate', type=float)
-    parser.add_argument('--lr_online', default=3e-5, help='base learning rate', type=float)
+    parser.add_argument('--lr_online', default=5e-5, help='base learning rate', type=float)
 
     args = parser.parse_args()
     return args

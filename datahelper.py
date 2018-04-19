@@ -92,10 +92,9 @@ def get_update_data(img, gt, regions):
     B = list()
     C = list()
     pre_regions = []
-    pre_regions.append(util.central_bbox(gt, 0, 0, 1, 1))
-    pre_regions.append(util.central_bbox(gt, 0, 0, 0.8, 0.8))
-    pre_regions.append(util.central_bbox(gt, 0, 0, 1.5, 1.5))
     pre_regions.append(util.central_bbox(gt, 0, 0, 0.6, 0.6))
+    # pre_regions.append(util.central_bbox(gt, 0, 0, 0.8, 0.8))
+    # pre_regions.append(util.central_bbox(gt, 0, 0, 1.2, 1.2))
     pre_regions.append(util.central_bbox(gt, 0, 0, 1.7, 1.7))
 
     pre_regions.append(util.central_bbox(gt, 0, 0, 0.7, 1))
@@ -111,7 +110,7 @@ def get_update_data(img, gt, regions):
     pre_regions += regions
     if len(regions) != 2:
         a = 1
-    const.update_batch_num = 13 + 2
+    const.update_batch_num = 10 + 2
 
     for pr in pre_regions:
         img_patch, restore_info = util.get_img_patch(img, pr)

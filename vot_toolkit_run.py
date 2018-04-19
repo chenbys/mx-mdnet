@@ -46,7 +46,7 @@ try:
     model.init_optimizer(kvstore='local', optimizer=sgd, force_init=True)
     os.environ['MXNET_CUDNN_AUTOTUNE_DEFAULT'] = '0'
 
-    run.add_update_data(img, region)
+    run.add_update_data(img, region, [region, region])
     last_update = -5
     regions, probs = [region], [0.8]
     bh = util.BboxHelper(region)
@@ -64,13 +64,12 @@ try:
         B, P = run.multi_track(model, img, pre_regions=pre_regions)
         region, prob = util.refine_bbox(B, P, regions[-1])
         # twice tracking
-        if (prob > 0.5) & (prob > (probs[-1] - 0.1)):
-
+        if (prob > 0.8) & (prob > (probs[-1] - 0.1)):
             run.add_update_data(img, region, B)
 
             if cur - last_update > 10:
                 logging.info('| long term update')
-                model = run.online_update(args, model, 50, const.update_batch_num / 8)
+                model = run.online_update(args, model, 30, 2)
                 last_update = cur
 
         else:
@@ -78,14 +77,14 @@ try:
 
             if cur - last_update > 1:
                 logging.info('| short term update')
-                model = run.online_update(args, model, 5, const.update_batch_num)
+                model = run.online_update(args, model, 5, 10)
                 last_update = cur
 
             pre_regions = bh.get_twice_base_regions()
             B, P = run.multi_track(model, img, pre_regions=pre_regions)
             region, prob = util.refine_bbox(B, P, regions[-1])
 
-            if prob < 0.8:
+            if prob < 0.6:
                 region = regions[-1]
             else:
                 run.add_update_data(img, region, B)

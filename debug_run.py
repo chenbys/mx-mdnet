@@ -87,7 +87,7 @@ def debug_track_seq(args, model, img_paths, gts):
         pre_regions = bh.get_base_regions()
         B, P = multi_track(model, img, pre_regions=pre_regions, gt=gts[cur])
         region, prob = util.refine_bbox(B, P, res[-1])
-        print 'time for mult-track:%.6f' % (time.time() - T)
+        logging.info('time for mult-track:%.6f' % (time.time() - T))
 
         # region = np.mean([region] + res[-2:], 0)
 
@@ -96,7 +96,7 @@ def debug_track_seq(args, model, img_paths, gts):
         def show_tracking():
             gt = gts[cur]
             # estimate_region = pre_regions[1]
-            pre_region = res[cur - 1]
+            # pre_region = res[cur - 1]
             fig = plt.figure()
             ax = fig.add_subplot(111)
             ax.imshow(img)
@@ -104,8 +104,8 @@ def debug_track_seq(args, model, img_paths, gts):
                                            linewidth=2, edgecolor='red', facecolor='none'))
             ax.add_patch(patches.Rectangle((gt[0], gt[1]), gt[2], gt[3],
                                            linewidth=1, edgecolor='yellow', facecolor='none'))
-            ax.add_patch(patches.Rectangle((pre_region[0], pre_region[1]), pre_region[2], pre_region[3],
-                                           linewidth=1, edgecolor='black', facecolor='none'))
+            # ax.add_patch(patches.Rectangle((pre_region[0], pre_region[1]), pre_region[2], pre_region[3],
+            #                                linewidth=1, edgecolor='black', facecolor='none'))
             # ax.add_patch(patches.Rectangle((estimate_region[0], estimate_region[1]),
             #                                estimate_region[2], estimate_region[3],
             #                                linewidth=1, edgecolor='blue', facecolor='none'))
@@ -117,23 +117,23 @@ def debug_track_seq(args, model, img_paths, gts):
         if (prob > 0.8) & (prob > (probs[-1] - 0.1)):
             t = time.time()
             add_update_data(img, region, B)
-            print 'time for add data:%.6f' % (time.time() - t)
+            logging.info('time for add data:%.6f' % (time.time() - t))
             if cur - last_update > 10:
                 logging.info('| long term update')
                 model = online_update(args, model, 30, 2)
                 last_update = cur
         else:
+            logging.info('| twice tracking %d.jpg for prob: %.6f' % (cur, prob))
             if cur - last_update > 1:
                 logging.info('| short term update')
                 model = online_update(args, model, 5, 10)
                 last_update = cur
 
-            logging.info('| twice tracking %d.jpg for prob: %.6f' % (cur, prob))
             pre_regions = bh.get_twice_base_regions()
             B, P = multi_track(model, img, pre_regions=pre_regions, gt=gts[cur])
             region, prob = util.refine_bbox(B, P, res[-1])
 
-            if prob < 0.8:
+            if prob < 0.6:
                 region = res[-1]
             else:
                 add_update_data(img, region, B)
@@ -188,24 +188,24 @@ def get_update_data(frame_len, batch_num):
     :param frame_len: 长期100，短期20
     :return:
     '''
+    t = time.time()
     total = update_data_queue.qsize()
     img_patches, feat_bboxes, labels = [], [], []
-
-    sel_idx = random.sample(range(0, const.update_batch_num), batch_num)
-    for i in range(1, frame_len):
-        a, b, c = update_data_queue.queue[-(i % total)]
-        for idx in sel_idx:
-            if len(a) <= idx:
-                asd = 1
-            img_patches.append(a[idx])
-            feat_bboxes.append(b[idx])
-            labels.append(c[idx])
 
     for i in range(1, min(total, 3)):
         a, b, c = update_data_queue.queue[-i]
         img_patches += a
         feat_bboxes += b
         labels += c
+
+    sel_idx = random.sample(range(0, const.update_batch_num), batch_num)
+    for i in range(3, frame_len):
+        a, b, c = update_data_queue.queue[-(i % total)]
+        for idx in sel_idx:
+            img_patches.append(a[idx])
+            feat_bboxes.append(b[idx])
+            labels.append(c[idx])
+    logging.info('time for get update data:%.5f' % (time.time() - t))
     return img_patches, feat_bboxes, labels
 
 
@@ -248,7 +248,7 @@ def offline_update(args, model, img, gt):
     check_metric(model, data_batches)
     for epoch in range(0, args.num_epoch_for_offline):
         t = time.time()
-        model = extend.train_with_hnm(model, data_batches, sel_factor=5)
+        model = extend.train_with_hnm(model, data_batches, sel_factor=2)
         check_metric(model, data_batches)
         logging.info('| epoch %d, cost:%.4f, batches: %d ' % (epoch, time.time() - t, len(data_batches)))
         a = 1
@@ -262,7 +262,7 @@ def online_update(args, model, data_len, batch_num):
     check_metric(model, data_batches)
     for epoch in range(0, args.num_epoch_for_online):
         t = time.time()
-        extend.train_with_hnm(model, data_batches, sel_factor=2)
+        extend.train_with_hnm(model, data_batches, sel_factor=5)
         logging.info('|----| epoch %d, cost:%.4f for %d batches' % (epoch, time.time() - t, len(data_batches)))
         check_metric(model, data_batches)
     return model
@@ -273,7 +273,6 @@ def multi_track(model, img, pre_regions, gt, topK=2):
 
     single_track_topK = 2
     for pr in pre_regions:
-        # t = time.time()
         bboxes, probs = track(model, img, pr, gt, topK=single_track_topK)
         B += bboxes
         P += probs
@@ -290,10 +289,17 @@ def multi_track(model, img, pre_regions, gt, topK=2):
 
 
 def track(model, img, pre_region, gt, topK=2, plotc=False, showc=False, checkc=False):
+    # t = time.time()
     pred_data, restore_info = datahelper.get_predict_data(img, pre_region)
+    # logging.info('| tiem for get pred data:%.5f' % (time.time() - t))
+
     pred_iter = datahelper.get_iter(pred_data)
     [img_patch], [feat_bboxes], [l] = pred_data
+
+    # t = time.time()
     res = model.predict(pred_iter).asnumpy()
+    # logging.info('| tiem for get predict:%.5f' % (time.time() - t))
+
     pos_score = res[:, 1]
 
     patch_bboxes = util.feat2img(feat_bboxes[:, 1:])
@@ -414,7 +420,7 @@ def debug_seq():
     vot = datahelper.VOTHelper(args.VOT_path)
     img_paths, gts = vot.get_seq('bolt1')
 
-    first_idx = 30
+    first_idx = 0
     img_paths, gts = img_paths[first_idx:], gts[first_idx:]
     const.img_H, const.img_W, c = np.shape(plt.imread(img_paths[0]))
     datahelper.get_train_data(plt.imread(img_paths[0]), gts[0])
@@ -446,7 +452,7 @@ def parse_args():
     parser.add_argument('--wd', default=1.5e0, help='weight decay', type=float)
     parser.add_argument('--momentum', default=0.9, type=float)
     parser.add_argument('--lr_offline', default=1e-5, help='base learning rate', type=float)
-    parser.add_argument('--lr_online', default=3e-5, help='base learning rate', type=float)
+    parser.add_argument('--lr_online', default=5e-5, help='base learning rate', type=float)
 
     args = parser.parse_args()
     return args

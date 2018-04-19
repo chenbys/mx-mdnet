@@ -53,7 +53,7 @@ def train_with_hnm(model, data_batches, sel_factor=3):
 
             # 选出的样本的idx
             sel_idx = np.hstack((pos_sel_idx, neg_sel_idx))
-            if len(sel_idx) < 8:
+            if len(sel_idx) <= 10:
                 continue
 
             # 1,3,329,324
@@ -74,7 +74,7 @@ def train_with_hnm(model, data_batches, sel_factor=3):
 
             a = 1
 
-        # logging.info('| cost %.6f, batches %d' % (time() - t, len(hard_batches)))
+        logging.info('| cost %.6f, batches %d->%d' % (time() - t, len(hard_batches), len(temp_batches)))
         if len(temp_batches) < len(data_batches) / 5:
             break
         hard_batches = temp_batches

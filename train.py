@@ -41,7 +41,7 @@ def train_MD_on_OTB():
     os.environ['MXNET_CUDNN_AUTOTUNE_DEFAULT'] = '0'
 
     ph = datahelper.ParamsHelper()
-    ph.load_params(model, begin_k, args.saved_prefix)
+    ph.load_params(model, begin_k, args.load_prefix)
 
     for k in range(begin_k + 1, begin_k + K):
         t = time.time()
@@ -73,8 +73,8 @@ def train_MD_on_OTB():
             debug_run.track(model, img, gt, gt, 1, plotc=True)
         ph.update_params(model, seq_name)
         # logging.getLogger('c').info('| time for one iter: %.2f', time.time() - t)
-        if k % 300 == 0:
-            ph.save_params(model, k, args.saved_prefix)
+        if k % args.save_interval == 0:
+            ph.save_params(model, k, args.save_prefix)
     return
 
 
@@ -94,10 +94,10 @@ def check_metric(model, data_batches):
 
 
 def str_args(args):
-    sd = {}
-    for key in ['begin_k', 'frame_num', 'wd', 'lr', 'momentum', 'saved_prefix']:
-        sd[key] = args.__dict__[key]
-    return sd.__str__()
+    # sd = {}
+    # for key in ['begin_k', 'frame_num', 'wd', 'lr', 'momentum', 'saved_prefix']:
+    #     sd[key] = args.__dict__[key]
+    return args.__dict__.__str__()
 
 
 def set_logger(log_name):
@@ -126,11 +126,14 @@ def set_logger(log_name):
 def parse_args():
     parser = argparse.ArgumentParser(description='Train MDNet network')
     parser.add_argument('--gpu', help='GPU device to train with', default=0, type=int)
-    parser.add_argument('--begin_k', default=15000, help='continue from this k ', type=int)
+    parser.add_argument('--begin_k', default=18000, help='continue from this k ', type=int)
     parser.add_argument('--frame_num', default=1000, help='train how many frames for each sequence', type=int)
-    parser.add_argument('--saved_prefix', default='larger_wd', help='', type=str)
+    parser.add_argument('--load_prefix', default='larger_wd', help='', type=str)
+    parser.add_argument('--save_prefix', default='sm_lr', help='', type=str)
     parser.add_argument('--saved_fname', default='conv123fc456', help='', type=str)
-    parser.add_argument('--log_name', default='pre_train_sm_lr.log', help='', type=str)
+    parser.add_argument('--save_interval', default=500, help='', type=int)
+
+    parser.add_argument('--log_name', default='logs/sm_lr.log', help='', type=str)
 
     parser.add_argument('--num_epoch', default=1, help='epoch for each frame training', type=int)
 
@@ -142,7 +145,7 @@ def parse_args():
     parser.add_argument('--ROOT_path', help='cmd folder', default='/home/chen/mx-mdnet', type=str)
     parser.add_argument('--wd', default=5e-4, help='weight decay', type=float)
     parser.add_argument('--momentum', default=0.9, type=float)
-    parser.add_argument('--lr', default=5e-6, help='base learning rate', type=float)
+    parser.add_argument('--lr', default=1e-6, help='base learning rate', type=float)
 
     args = parser.parse_args()
     return args
