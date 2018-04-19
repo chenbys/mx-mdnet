@@ -74,7 +74,7 @@ def train_with_hnm(model, data_batches, sel_factor=3):
 
             a = 1
 
-        logging.info('| cost %.6f, batches %d->%d' % (time() - t, len(hard_batches), len(temp_batches)))
+        # logging.info('| cost %.6f, batches %d->%d' % (time() - t, len(hard_batches), len(temp_batches)))
         if len(temp_batches) < len(data_batches) / 5:
             break
         hard_batches = temp_batches

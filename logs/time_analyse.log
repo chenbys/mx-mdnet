@@ -1,0 +1,38 @@
+
+imread
+
+track
+    get_pred_data
+    predict
+
+add_update_data
+    imresize
+    sample
+
+if update
+
+
+INFO:root:| tiem for get pred data:0.00234
+INFO:root:| tiem for get predict:0.00791
+INFO:root:| tiem for get pred data:0.00216
+INFO:root:| tiem for get predict:0.00789
+INFO:root:time for mult-track:0.023885
+INFO:root:time for add data:0.045575
+INFO:root:| long term update
+INFO:root:|-------------- online update -------------
+INFO:root:time for get update data:0.00006
+INFO:root:|----| check metric 1.00,0.73,1.00, loss:[0.150250]
+INFO:root:|----| epoch 0, cost:2.6466 for 76 batches
+INFO:root:|----| check metric 1.00,0.93,1.00, loss:[0.085089]
+INFO:root:| IOU : [ 0.61 ], prob:0.86287 for tracking on frame 6, cost 5.6391
+INFO:root:^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+INFO:root:| tiem for get pred data:0.00237
+INFO:root:| tiem for get predict:0.01048
+INFO:root:| tiem for get pred data:0.00213
+INFO:root:| tiem for get predict:0.01040
+INFO:root:time for mult-track:0.028733
+INFO:root:time for add data:0.046668
+INFO:root:| IOU : [ 0.55 ], prob:0.94772 for tracking on frame 7, cost 0.0757
+INFO:root:^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+

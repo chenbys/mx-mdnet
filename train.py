@@ -22,6 +22,7 @@ def train_MD_on_OTB():
 
     args = parse_args()
     set_logger(args.log_name)
+    logging.getLogger().info('==================================================================')
     logging.getLogger().info(str_args(args))
 
     otb = datahelper.OTB_VOT_Helper(args.OTB_path)
@@ -48,7 +49,7 @@ def train_MD_on_OTB():
         frame_idx, seq_idx = divmod(k, seq_num)
         # frame_idx = 0
         seq_name = seq_names[seq_idx]
-        logging.getLogger().info('========================================================')
+        logging.getLogger().info('---------------------------------------------------------------')
         logging.getLogger().info('| Seq: %10s, k:%6d, frame: %4d' % (seq_name, k, frame_idx))
         img_path, gt = otb.get_data(seq_name, frame_idx)
         img = plt.imread(img_path)
@@ -126,14 +127,14 @@ def set_logger(log_name):
 def parse_args():
     parser = argparse.ArgumentParser(description='Train MDNet network')
     parser.add_argument('--gpu', help='GPU device to train with', default=0, type=int)
-    parser.add_argument('--begin_k', default=18000, help='continue from this k ', type=int)
+    parser.add_argument('--begin_k', default=19200, help='continue from this k ', type=int)
     parser.add_argument('--frame_num', default=1000, help='train how many frames for each sequence', type=int)
-    parser.add_argument('--load_prefix', default='larger_wd', help='', type=str)
+    parser.add_argument('--save_interval', default=500, help='', type=int)
+    parser.add_argument('--load_prefix', default='sm_lr', help='', type=str)
     parser.add_argument('--save_prefix', default='sm_lr', help='', type=str)
     parser.add_argument('--saved_fname', default='conv123fc456', help='', type=str)
-    parser.add_argument('--save_interval', default=500, help='', type=int)
 
-    parser.add_argument('--log_name', default='logs/sm_lr.log', help='', type=str)
+    parser.add_argument('--log_name', default='logs/sm_lr2.log', help='', type=str)
 
     parser.add_argument('--num_epoch', default=1, help='epoch for each frame training', type=int)
 
@@ -143,9 +144,9 @@ def parse_args():
                         type=str)
 
     parser.add_argument('--ROOT_path', help='cmd folder', default='/home/chen/mx-mdnet', type=str)
-    parser.add_argument('--wd', default=5e-4, help='weight decay', type=float)
+    parser.add_argument('--wd', default=1e-3, help='weight decay', type=float)
     parser.add_argument('--momentum', default=0.9, type=float)
-    parser.add_argument('--lr', default=1e-6, help='base learning rate', type=float)
+    parser.add_argument('--lr', default=1e-5, help='base learning rate', type=float)
 
     args = parser.parse_args()
     return args

@@ -1,6 +1,4 @@
-多GPU有什么操作吗？
-hard minibatch mining
-不同层用不同学习率
+
 
 params init
 MDNet直接load进来的
@@ -31,3 +29,13 @@ for epoch in epoches:
 在第一帧训练里面，如果wd是5e-4的话，正样本输出都是0.9999999了，太恐怖了．
 设为6e0才能看起来正常地输出0.9,0.8之类的．
 wd设高了不是据说防过拟合嘛．
+其实更高的样本检测的出来，只是有些不准确的，更高一点点的分．
+
+pre_train什么时候算收敛
+
+参数怎么设的合适，pre_train wd:5e-4,tracking:1.5e0
+能够很好地过bolt1,ball1,但是birds2和fish4不太好．
+
+hnm做了，效果还行
+
+imresize和feat sample耗时多导致要50ms，实际上predict只需要10ms．总的说来，需要80ms

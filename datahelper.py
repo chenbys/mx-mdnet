@@ -187,7 +187,7 @@ def get_pre_train_data(img, region):
     C = list()
     # 伪造一些不准确的pre_region
     pre_regions = []
-    for i in np.arange(0.7, 2.2, 0.2):
+    for i in np.arange(0.7, 2, 0.1):
         pre_regions.append(util.central_bbox(region, 0, 0, i + 0.3, i - 0.2))
         pre_regions.append(util.central_bbox(region, 0, 0, i - 0.2, i + 0.3))
         pre_regions.append(util.central_bbox(region, 0, 0, i, i))

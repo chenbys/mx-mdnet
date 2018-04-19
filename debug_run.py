@@ -418,7 +418,7 @@ def debug_seq():
     args = parse_args()
 
     vot = datahelper.VOTHelper(args.VOT_path)
-    img_paths, gts = vot.get_seq('bolt1')
+    img_paths, gts = vot.get_seq('birds2')
 
     first_idx = 0
     img_paths, gts = img_paths[first_idx:], gts[first_idx:]
@@ -443,7 +443,7 @@ def parse_args():
     parser.add_argument('--num_epoch_for_online', default=1, type=int)
 
     parser.add_argument('--fixed_conv', default=3, help='these params of [ conv_i <= ? ] will be fixed', type=int)
-    parser.add_argument('--saved_fname', default='params/larger_wd_18000/shared', type=str)
+    parser.add_argument('--saved_fname', default='params/sm_lr_19200/shared', type=str)
     parser.add_argument('--OTB_path', help='OTB folder', default='/media/chen/datasets/OTB', type=str)
     parser.add_argument('--VOT_path', help='VOT folder', default='/home/chen/vot-toolkit/cmdnet-workspace/sequences',
                         type=str)
