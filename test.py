@@ -9,7 +9,6 @@ import datahelper
 from setting import const
 
 
-
 def check_val_data():
     path = '/media/chen/datasets/OTB/Liquor/img/0001.jpg'
     region = [256, 152, 73, 210]
@@ -185,8 +184,27 @@ def test_imresize():
     return
 
 
+def check_feat2img():
+    # x1 y1 x2 y2
+    ib = np.array([[1, 6, 77, 90],
+                   [7, 0, 66, 50],
+                   [94, 78, 187, 234]])
+
+    # x1 y1 x2 y2
+    fb = util.img2feat(ib)
+    fb2 = util.img2feat2(ib)
+
+    # x y w h
+    re_ib_ = util.feat2img(fb)
+    re_ib = util.xywh2x1y1x2y2(re_ib_)
+
+    re_ib2 = util.feat2img2(fb2)
+
+    return
+
+
 if __name__ == '__main__':
-    datahelper.get_predict_data(plt.imread('/media/chen/datasets/OTB/Liquor/img/0001.jpg'), [256, 152, 73, 210])
+    check_feat2img()
 
 '''
     # N time for 1 batch

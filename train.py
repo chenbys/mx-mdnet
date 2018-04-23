@@ -127,14 +127,14 @@ def set_logger(log_name):
 def parse_args():
     parser = argparse.ArgumentParser(description='Train MDNet network')
     parser.add_argument('--gpu', help='GPU device to train with', default=0, type=int)
-    parser.add_argument('--begin_k', default=19200, help='continue from this k ', type=int)
+    parser.add_argument('--begin_k', default=21500, help='continue from this k ', type=int)
     parser.add_argument('--frame_num', default=1000, help='train how many frames for each sequence', type=int)
     parser.add_argument('--save_interval', default=500, help='', type=int)
     parser.add_argument('--load_prefix', default='sm_lr', help='', type=str)
     parser.add_argument('--save_prefix', default='sm_lr', help='', type=str)
     parser.add_argument('--saved_fname', default='conv123fc456', help='', type=str)
 
-    parser.add_argument('--log_name', default='logs/sm_lr2.log', help='', type=str)
+    parser.add_argument('--log_name', default='logs/sm_lr3_more_data.log', help='', type=str)
 
     parser.add_argument('--num_epoch', default=1, help='epoch for each frame training', type=int)
 

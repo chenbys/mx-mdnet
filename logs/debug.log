@@ -1,0 +1,42 @@
+INFO:root:| IOU : [ 0.51 ], prob:0.91567 for tracking on frame 28, cost 0.1072
+INFO:root:^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+INFO:root:| long term update
+INFO:root:|-------------- online update -------------
+INFO:root:|----| check metric 1.00,0.98,1.00, loss:[0.100883]
+INFO:root:|----| epoch 0, cost:6.6117 for 222 batches
+INFO:root:|----| check metric 1.00,1.00,1.00, loss:[0.082221]
+INFO:root:|----| epoch 1, cost:6.3116 for 222 batches
+INFO:root:|----| check metric 1.00,1.00,1.00, loss:[0.104638]
+INFO:root:| IOU : [ 0.50 ], prob:0.90811 for tracking on frame 29, cost 26.0289
+INFO:root:^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+INFO:root:| IOU : [ 0.54 ], prob:0.92878 for tracking on frame 30, cost 0.1407
+INFO:root:^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+INFO:root:| IOU : [ 0.48 ], prob:0.92121 for tracking on frame 31, cost 0.1146
+INFO:root:^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+INFO:root:| IOU : [ 0.45 ], prob:0.91717 for tracking on frame 32, cost 0.1366
+INFO:root:^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+INFO:root:| IOU : [ 0.47 ], prob:0.90204 for tracking on frame 33, cost 0.1427
+INFO:root:^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+INFO:root:| IOU : [ 0.57 ], prob:0.89760 for tracking on frame 34, cost 0.1401
+INFO:root:^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+INFO:root:| IOU : [ 0.45 ], prob:0.88033 for tracking on frame 35, cost 0.1285
+INFO:root:^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+INFO:root:| IOU : [ 0.42 ], prob:0.86210 for tracking on frame 36, cost 0.1443
+INFO:root:^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+INFO:root:| IOU : [ 0.36 ], prob:0.85187 for tracking on frame 37, cost 0.1163
+INFO:root:^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+INFO:root:| IOU : [ 0.45 ], prob:0.86539 for tracking on frame 38, cost 0.1502
+INFO:root:^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+INFO:root:| IOU : [ 0.40 ], prob:0.87502 for tracking on frame 39, cost 0.1219
+INFO:root:^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+INFO:root:| long term update
+INFO:root:|-------------- online update -------------
+INFO:root:|----| check metric 1.00,0.95,1.00, loss:[0.132324]
+INFO:root:|----| epoch 0, cost:7.5498 for 222 batches
+INFO:root:|----| check metric nan,0.00,0.00, loss:[0.436823]
+INFO:root:|----| epoch 1, cost:7.4862 for 222 batches
+INFO:root:|----| check metric nan,0.00,0.00, loss:[0.688039]
+INFO:root:| IOU : [ 0.49 ], prob:0.86913 for tracking on frame 40, cost 28.9497
+INFO:root:^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+fish4

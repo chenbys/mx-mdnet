@@ -1,0 +1,28 @@
+INFO:root:| long term update
+INFO:root:|----| check metric 1.00,0.94,1.00, loss:[0.082754]
+INFO:root:|----| epoch 0, cost:1.5039 for 78 batches
+INFO:root:|----| check metric 1.00,0.61,1.00, loss:[0.097359]
+INFO:root:| IOU : [ 0.64 ], prob:0.84110 for tracking on frame 105, cost 3.9551
+INFO:root:| IOU : [ 0.58 ], prob:0.66654 for tracking on frame 106, cost 0.1775
+INFO:root:| IOU : [ 0.66 ], prob:0.74162 for tracking on frame 107, cost 0.0792
+INFO:root:| IOU : [ 0.52 ], prob:0.73116 for tracking on frame 108, cost 0.0776
+INFO:root:| IOU : [ 0.44 ], prob:0.77960 for tracking on frame 109, cost 0.0785
+INFO:root:| IOU : [ 0.34 ], prob:0.72912 for tracking on frame 110, cost 0.0725
+INFO:root:| IOU : [ 0.58 ], prob:0.82818 for tracking on frame 111, cost 0.0769
+INFO:root:| IOU : [ 0.50 ], prob:0.83756 for tracking on frame 112, cost 0.0820
+INFO:root:| IOU : [ 0.59 ], prob:0.84868 for tracking on frame 113, cost 0.0778
+INFO:root:| IOU : [ 0.45 ], prob:0.84754 for tracking on frame 114, cost 0.0804
+INFO:root:| IOU : [ 0.43 ], prob:0.83116 for tracking on frame 115, cost 0.0842
+INFO:root:| long term update
+INFO:root:|----| check metric 1.00,0.64,1.00, loss:[0.100687]
+INFO:root:| cost 1.142924, batches 78->15
+INFO:root:|----| epoch 0, cost:1.1433 for 78 batches
+INFO:root:|----| check metric 1.00,0.96,1.00, loss:[0.080004]
+INFO:root:| IOU : [ 0.44 ], prob:0.81297 for tracking on frame 116, cost 3.3545
+INFO:root:| IOU : [ 0.31 ], prob:0.87671 for tracking on frame 117, cost 0.0868
+INFO:root:| IOU : [ 0.18 ], prob:0.85004 for tracking on frame 118, cost 0.0967
+实际上，之前的帧检测结果较好，bolt1序列．
+在线更新前的的loss是0.10，说明过拟合不大，更新后loss是0.08，都已经很低了．
+但最致命的就是跟偏了，给出的分却没有降下来．
+
+丢失的这帧是在bolt1序列，bolt混入人群的时候，结果框大了．

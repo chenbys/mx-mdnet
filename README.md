@@ -39,3 +39,5 @@ pre_train什么时候算收敛
 hnm做了，效果还行
 
 imresize和feat sample耗时多导致要50ms，实际上predict只需要10ms．总的说来，需要80ms
+
+检查一下feat_bboxes映射，多１少１就是８像素

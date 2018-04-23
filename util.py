@@ -75,7 +75,7 @@ class BboxHelper(object):
 
     def get_twice_base_regions(self):
         pr = self.history[-1]
-        br = self.history[-2:]
+        br = self.history[-3:-1]
         br += replace_wh(pr, self.whbase)
         br.append(central_bbox(pr, 1, 0, 1, 1))
         br.append(central_bbox(pr, -1, 0, 1, 1))
@@ -103,11 +103,11 @@ def refine_bbox(bboxes, probs, pre_region):
     probs = np.array(probs)
     pre_region = np.array(pre_region)
 
-    if probs.max() < 0.9:
+    if probs.max() < 0.6:
         return bboxes[probs.argmax(), :], probs.max()
 
-    bboxes = bboxes[probs > 0.9, :]
-    probs = probs[probs > 0.9]
+    bboxes = bboxes[probs > 0.6, :]
+    probs = probs[probs > 0.6]
 
     return np.mean(bboxes, 0), np.mean(probs)
     return bboxes[probs.argmax(), :], probs.max()

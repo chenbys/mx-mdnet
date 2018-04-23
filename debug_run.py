@@ -87,7 +87,8 @@ def debug_track_seq(args, model, img_paths, gts):
         pre_regions = bh.get_base_regions()
         B, P = multi_track(model, img, pre_regions=pre_regions, gt=gts[cur])
         region, prob = util.refine_bbox(B, P, res[-1])
-        logging.info('time for mult-track:%.6f' % (time.time() - T))
+
+        # logging.info('time for mult-track:%.6f' % (time.time() - T))
 
         # region = np.mean([region] + res[-2:], 0)
 
@@ -114,20 +115,20 @@ def debug_track_seq(args, model, img_paths, gts):
         def show_BP(th=0.5):
             kit.show_tracking(img, np.array(B)[np.array(P) > th])
 
-        if (prob > 0.8) & (prob > (probs[-1] - 0.1)):
+        if (prob > 0.6) & (prob > (probs[-1] - 0.1)):
             t = time.time()
             add_update_data(img, region, B)
-            logging.info('time for add data:%.6f' % (time.time() - t))
+            # logging.info('time for add data:%.6f' % (time.time() - t))
             if cur - last_update > 10:
                 logging.info('| long term update')
-                model = online_update(args, model, 30, 2)
+                model = online_update(args, model, 15, 5)
                 last_update = cur
         else:
             logging.info('| twice tracking %d.jpg for prob: %.6f' % (cur, prob))
-            if cur - last_update > 1:
+            if cur - last_update > 3:
                 logging.info('| short term update')
-                model = online_update(args, model, 5, 10)
-                last_update = cur
+                model = online_update(args, model, 5, 8)
+                # last_update = cur
 
             pre_regions = bh.get_twice_base_regions()
             B, P = multi_track(model, img, pre_regions=pre_regions, gt=gts[cur])
@@ -138,7 +139,7 @@ def debug_track_seq(args, model, img_paths, gts):
             else:
                 add_update_data(img, region, B)
         # if (cur < 10) & (cur % 2 == 0):
-        #     model = online_update(args, model, 20, 2)
+        #     model = online_update(args, model, 3, 10)
         #     last_update = cur
         # report
         bh.add_res(region)
@@ -150,10 +151,10 @@ def debug_track_seq(args, model, img_paths, gts):
         times.append(cost)
         logging.info('| IOU : [ %.2f ], prob:%.5f for tracking on frame %d, cost %4.4f' \
                      % (iou, prob, cur, cost))
-        logging.info('^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^')
-        if iou < 0.4:
+        # logging.info('^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^')
+        if iou < 0.5:
             a = 1
-        if iou < 0.2:
+        if iou < 0.3:
             a = 1
         if iou == 0:
             a = 1
@@ -188,7 +189,7 @@ def get_update_data(frame_len, batch_num):
     :param frame_len: 长期100，短期20
     :return:
     '''
-    t = time.time()
+    # t = time.time()
     total = update_data_queue.qsize()
     img_patches, feat_bboxes, labels = [], [], []
 
@@ -205,7 +206,7 @@ def get_update_data(frame_len, batch_num):
             img_patches.append(a[idx])
             feat_bboxes.append(b[idx])
             labels.append(c[idx])
-    logging.info('time for get update data:%.5f' % (time.time() - t))
+    # logging.info('time for get update data:%.5f' % (time.time() - t))
     return img_patches, feat_bboxes, labels
 
 
@@ -262,16 +263,16 @@ def online_update(args, model, data_len, batch_num):
     check_metric(model, data_batches)
     for epoch in range(0, args.num_epoch_for_online):
         t = time.time()
-        extend.train_with_hnm(model, data_batches, sel_factor=5)
+        extend.train_with_hnm(model, data_batches, sel_factor=4)
         logging.info('|----| epoch %d, cost:%.4f for %d batches' % (epoch, time.time() - t, len(data_batches)))
         check_metric(model, data_batches)
     return model
 
 
-def multi_track(model, img, pre_regions, gt, topK=2):
+def multi_track(model, img, pre_regions, gt, topK=10):
     B, P = [], []
 
-    single_track_topK = 2
+    single_track_topK = 10
     for pr in pre_regions:
         bboxes, probs = track(model, img, pr, gt, topK=single_track_topK)
         B += bboxes
@@ -289,9 +290,7 @@ def multi_track(model, img, pre_regions, gt, topK=2):
 
 
 def track(model, img, pre_region, gt, topK=2, plotc=False, showc=False, checkc=False):
-    # t = time.time()
     pred_data, restore_info = datahelper.get_predict_data(img, pre_region)
-    # logging.info('| tiem for get pred data:%.5f' % (time.time() - t))
 
     pred_iter = datahelper.get_iter(pred_data)
     [img_patch], [feat_bboxes], [l] = pred_data
@@ -418,7 +417,7 @@ def debug_seq():
     args = parse_args()
 
     vot = datahelper.VOTHelper(args.VOT_path)
-    img_paths, gts = vot.get_seq('birds2')
+    img_paths, gts = vot.get_seq('ball2')  # gymnastics2
 
     first_idx = 0
     img_paths, gts = img_paths[first_idx:], gts[first_idx:]
@@ -439,20 +438,20 @@ def debug_seq():
 def parse_args():
     parser = argparse.ArgumentParser(description='Train MDNet network')
     parser.add_argument('--gpu', help='GPU device to train with', default=0, type=int)
-    parser.add_argument('--num_epoch_for_offline', default=2, type=int)
+    parser.add_argument('--num_epoch_for_offline', default=1, type=int)
     parser.add_argument('--num_epoch_for_online', default=1, type=int)
 
     parser.add_argument('--fixed_conv', default=3, help='these params of [ conv_i <= ? ] will be fixed', type=int)
-    parser.add_argument('--saved_fname', default='params/sm_lr_19200/shared', type=str)
+    parser.add_argument('--saved_fname', default='params/sm_lr_19500/shared', type=str)
     parser.add_argument('--OTB_path', help='OTB folder', default='/media/chen/datasets/OTB', type=str)
     parser.add_argument('--VOT_path', help='VOT folder', default='/home/chen/vot-toolkit/cmdnet-workspace/sequences',
                         type=str)
     parser.add_argument('--ROOT_path', help='cmd folder', default='/home/chen/mx-mdnet', type=str)
 
-    parser.add_argument('--wd', default=1.5e0, help='weight decay', type=float)
+    parser.add_argument('--wd', default=1e0, help='weight decay', type=float)
     parser.add_argument('--momentum', default=0.9, type=float)
     parser.add_argument('--lr_offline', default=1e-5, help='base learning rate', type=float)
-    parser.add_argument('--lr_online', default=5e-5, help='base learning rate', type=float)
+    parser.add_argument('--lr_online', default=3e-5, help='base learning rate', type=float)
 
     args = parser.parse_args()
     return args

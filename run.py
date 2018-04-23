@@ -65,7 +65,7 @@ def offline_update(args, model, img, gt):
 def online_update(args, model, data_len, batch_num):
     data_batches = datahelper.get_data_batches(get_update_data(data_len, batch_num))
     for epoch in range(0, args.num_epoch_for_online):
-        extend.train_with_hnm(model, data_batches, sel_factor=5)
+        extend.train_with_hnm(model, data_batches, sel_factor=2)
     return model
 
 
@@ -108,7 +108,7 @@ def parse_args():
     parser.add_argument('--num_epoch_for_online', default=1, type=int)
 
     parser.add_argument('--fixed_conv', default=3, help='these params of [ conv_i <= ? ] will be fixed', type=int)
-    parser.add_argument('--saved_fname', default='params/larger_wd_18000/shared', type=str)
+    parser.add_argument('--saved_fname', default='params/sm_lr_19500/shared', type=str)
     parser.add_argument('--OTB_path', help='OTB folder', default='/media/chen/datasets/OTB', type=str)
     parser.add_argument('--VOT_path', help='VOT folder', default='/home/chen/vot-toolkit/cmdnet-workspace/sequences',
                         type=str)
@@ -117,7 +117,7 @@ def parse_args():
     parser.add_argument('--wd', default=1.5e0, help='weight decay', type=float)
     parser.add_argument('--momentum', default=0.9, type=float)
     parser.add_argument('--lr_offline', default=1e-5, help='base learning rate', type=float)
-    parser.add_argument('--lr_online', default=5e-5, help='base learning rate', type=float)
+    parser.add_argument('--lr_online', default=3e-5, help='base learning rate', type=float)
 
     args = parser.parse_args()
     return args

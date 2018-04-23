@@ -20,9 +20,9 @@ def train_with_hnm(model, data_batches, sel_factor=3):
         temp_batches = []
         t = time()
         for data_batch in hard_batches:
-            model.forward_backward(data_batch)
-            model.update()
-            # model.forward(data_batch, is_train=False)
+            # model.forward_backward(data_batch)
+            # model.update()
+            model.forward(data_batch, is_train=False)
 
             # 250,
             label = data_batch.label[0][0].asnumpy()
@@ -72,10 +72,13 @@ def train_with_hnm(model, data_batches, sel_factor=3):
                 kit.show_tracking(ig, ib)
                 return pos_prob[i]
 
+            model.forward_backward(hard_batch)
+            model.update()
+
             a = 1
 
-        # logging.info('| cost %.6f, batches %d->%d' % (time() - t, len(hard_batches), len(temp_batches)))
-        if len(temp_batches) < len(data_batches) / 5:
+        logging.info('| cost %.6f, batches %d->%d' % (time() - t, len(hard_batches), len(temp_batches)))
+        if len(temp_batches) < len(data_batches) / 4:
             break
         hard_batches = temp_batches
 
@@ -294,6 +297,9 @@ def init_model(args):
     for i in range(1, args.fixed_conv + 1):
         fixed_param_names.append('conv' + str(i) + '_weight')
         fixed_param_names.append('conv' + str(i) + '_bias')
+
+    # fixed_param_names.append('fc4_weight')
+    # fixed_param_names.append('fc4_bias')
     model = mx.mod.Module(symbol=sym, context=mx.gpu(0), data_names=('feat_bbox', 'image_patch'),
                           label_names=('label',),
                           fixed_param_names=fixed_param_names)

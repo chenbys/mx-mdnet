@@ -30,16 +30,21 @@ def get_train_data(img, region):
     C = list()
     # 伪造一些不准确的pre_region
     pre_regions = []
-    for i in np.arange(0.8, 2, 0.05):
+    for i in np.arange(0.7, 2, 0.1):
         pre_regions.append(util.central_bbox(region, 0, 0, i + 0.3, i - 0.2))
         pre_regions.append(util.central_bbox(region, 0, 0, i - 0.2, i + 0.3))
         pre_regions.append(util.central_bbox(region, 0, 0, i, i))
-    for i in np.arange(0.8, 1.7, 0.05):
+    for i in np.arange(0.7, 2, 0.1):
         pre_regions.append(util.central_bbox(region, 0, -1, i + 0.1, i - 0.1))
         pre_regions.append(util.central_bbox(region, -1, 0, i - 0.1, i + 0.1))
         pre_regions.append(util.central_bbox(region, 1, 0, i - 0.1, i + 0.1))
         pre_regions.append(util.central_bbox(region, 0, 1, i + 0.1, i - 0.1))
-    for i in np.arange(0.8, 1.7, 0.05):
+    for i in np.arange(0.7, 2, 0.1):
+        pre_regions.append(util.central_bbox(region, 0, -2, i + 0.1, i - 0.1))
+        pre_regions.append(util.central_bbox(region, -2, 0, i - 0.1, i + 0.1))
+        pre_regions.append(util.central_bbox(region, 2, 0, i - 0.1, i + 0.1))
+        pre_regions.append(util.central_bbox(region, 0, 2, i + 0.1, i - 0.1))
+    for i in np.arange(0.7, 2, 0.1):
         pre_regions.append(util.central_bbox(region, 0, -0.5, i + 0.3, i - 0.2))
         pre_regions.append(util.central_bbox(region, -0.5, 0, i - 0.2, i + 0.3))
         pre_regions.append(util.central_bbox(region, 0.5, 0, i - 0.2, i + 0.3))
@@ -92,8 +97,8 @@ def get_update_data(img, gt, regions):
     B = list()
     C = list()
     pre_regions = []
-    pre_regions.append(util.central_bbox(gt, 0, 0, 0.6, 0.6))
-    # pre_regions.append(util.central_bbox(gt, 0, 0, 0.8, 0.8))
+    # pre_regions.append(util.central_bbox(gt, 0, 0, 0.6, 0.6))
+    pre_regions.append(util.central_bbox(gt, 0, 0, 0.8, 0.8))
     # pre_regions.append(util.central_bbox(gt, 0, 0, 1.2, 1.2))
     pre_regions.append(util.central_bbox(gt, 0, 0, 1.7, 1.7))
 
@@ -107,7 +112,7 @@ def get_update_data(img, gt, regions):
     pre_regions.append(util.central_bbox(gt, 0, 1, 1, 1))
     pre_regions.append(util.central_bbox(gt, 0, -1, 1, 1))
 
-    pre_regions += regions
+    pre_regions += regions[-2:]
     if len(regions) != 2:
         a = 1
     const.update_batch_num = 10 + 2
@@ -135,6 +140,13 @@ def get_update_data(img, gt, regions):
         pos_samples = all_feat_bboxes[rat > const.update_pos_th, :]
 
         neg_samples = all_feat_bboxes[rat < const.update_neg_th, :]
+        if pos_samples.shape[0] > 50:
+            pos_sel_idx = sample.rand_sample(np.arange(pos_samples.shape[0]), 50)
+            pos_samples = pos_samples[pos_sel_idx]
+        if neg_samples.shape[0] > 300:
+            neg_sel_idx = sample.rand_sample(np.arange(neg_samples.shape[0]), 300)
+            neg_samples = neg_samples[neg_sel_idx]
+
         feat_bboxes, labels = np.vstack((pos_samples, neg_samples)), \
                               np.hstack((np.ones((len(pos_samples),)), np.zeros((len(neg_samples)))))
 
@@ -187,7 +199,7 @@ def get_pre_train_data(img, region):
     C = list()
     # 伪造一些不准确的pre_region
     pre_regions = []
-    for i in np.arange(0.7, 2, 0.1):
+    for i in np.arange(0.6, 2, 0.05):
         pre_regions.append(util.central_bbox(region, 0, 0, i + 0.3, i - 0.2))
         pre_regions.append(util.central_bbox(region, 0, 0, i - 0.2, i + 0.3))
         pre_regions.append(util.central_bbox(region, 0, 0, i, i))
