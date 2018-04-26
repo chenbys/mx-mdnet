@@ -243,10 +243,10 @@ def check_metric(model, data_batches):
                              (values[0], values[1], values[2], values[3]))
 
 
-def check_gt_metric(model, img, gt):
+def check_gt_metric(model, cur):
     if not const.check_mc:
         return
-
+    img, gt = plt.imread(const.img_paths[cur]), const.gts[cur]
     metric = mx.metric.CompositeEvalMetric()
     metric.add([extend.PR(), extend.RR(), extend.TrackTopKACC(), mx.metric.CrossEntropy()])
     data_batches = datahelper.get_data_batches(datahelper.get_train_data(img, gt))
@@ -255,8 +255,8 @@ def check_gt_metric(model, img, gt):
         model.update_metric(metric, data_batch.label)
 
     values = metric.get()[1]
-    logging.getLogger().info('|----| check gt metric %.2f,%.2f,%.2f, loss:[%.6f]' %
-                             (values[0], values[1], values[2], values[3]))
+    logging.getLogger().info('|----| check gt metric on frame %d: %.2f,%.2f,%.2f, loss:[%.6f]' %
+                             (cur, values[0], values[1], values[2], values[3]))
 
 
 def offline_update(args, model, img, gt):
@@ -285,7 +285,7 @@ def online_update(args, model, data_len, batch_num):
     return model
 
 
-def multi_track(model, img, pre_regions, gt, topK=10):
+def multi_track(model, img, pre_regions, gt, topK=5):
     B, P = [], []
 
     single_track_topK = 10
@@ -433,7 +433,7 @@ def debug_seq():
     args = parse_args()
 
     vot = datahelper.VOTHelper(args.VOT_path)
-    img_paths, gts = vot.get_seq('bolt1')  # gymnastics2
+    img_paths, gts = vot.get_seq('ball1')  # gymnastics2
 
     first_idx = 0
     img_paths, gts = img_paths[first_idx:], gts[first_idx:]

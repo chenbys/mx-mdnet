@@ -113,8 +113,6 @@ def get_update_data(img, gt, regions):
     pre_regions.append(util.central_bbox(gt, 0, -1, 1, 1))
 
     pre_regions += regions[-2:]
-    if len(regions) != 2:
-        a = 1
     const.update_batch_num = 10 + 2
 
     for pr in pre_regions:

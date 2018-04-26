@@ -65,14 +65,14 @@ def offline_update(args, model, img, gt):
 def online_update(args, model, data_len, batch_num):
     data_batches = datahelper.get_data_batches(get_update_data(data_len, batch_num))
     for epoch in range(0, args.num_epoch_for_online):
-        extend.train_with_hnm(model, data_batches, sel_factor=2)
+        extend.train_with_hnm(model, data_batches, sel_factor=4)
     return model
 
 
-def multi_track(model, img, pre_regions, topK=3):
+def multi_track(model, img, pre_regions, topK=5):
     B, P = [], []
 
-    single_track_topK = 2
+    single_track_topK = 10
     for pr in pre_regions:
         bboxes, probs = track(model, img, pr, topK=single_track_topK)
         B += bboxes
@@ -104,7 +104,7 @@ def track(model, img, pre_region, topK=2):
 def parse_args():
     parser = argparse.ArgumentParser(description='Train MDNet network')
     parser.add_argument('--gpu', help='GPU device to train with', default=0, type=int)
-    parser.add_argument('--num_epoch_for_offline', default=2, type=int)
+    parser.add_argument('--num_epoch_for_offline', default=1, type=int)
     parser.add_argument('--num_epoch_for_online', default=1, type=int)
 
     parser.add_argument('--fixed_conv', default=3, help='these params of [ conv_i <= ? ] will be fixed', type=int)
@@ -114,7 +114,7 @@ def parse_args():
                         type=str)
     parser.add_argument('--ROOT_path', help='cmd folder', default='/home/chen/mx-mdnet', type=str)
 
-    parser.add_argument('--wd', default=1.5e0, help='weight decay', type=float)
+    parser.add_argument('--wd', default=1e0, help='weight decay', type=float)
     parser.add_argument('--momentum', default=0.9, type=float)
     parser.add_argument('--lr_offline', default=1e-5, help='base learning rate', type=float)
     parser.add_argument('--lr_online', default=3e-5, help='base learning rate', type=float)

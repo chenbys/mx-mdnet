@@ -64,12 +64,12 @@ try:
         B, P = run.multi_track(model, img, pre_regions=pre_regions)
         region, prob = util.refine_bbox(B, P, regions[-1])
         # twice tracking
-        if (prob > 0.5) & (prob > (probs[-1] - 0.1)):
+        if (prob > 0.6) & (prob > (probs[-1] - 0.1)):
             run.add_update_data(img, region, B)
 
             if cur - last_update > 10:
                 logging.info('| long term update')
-                model = run.online_update(args, model, 100, 1)
+                model = run.online_update(args, model, 15, 5)
                 last_update = cur
 
         else:
@@ -77,13 +77,13 @@ try:
 
             if cur - last_update > 3:
                 logging.info('| short term update')
-                model = run.online_update(args, model, 5, 10)
+                model = run.online_update(args, model, 5, 8)
 
             pre_regions = bh.get_twice_base_regions()
             B, P = run.multi_track(model, img, pre_regions=pre_regions)
             region, prob = util.refine_bbox(B, P, regions[-1])
 
-            if prob < 0.5:
+            if prob < 0.6:
                 region = regions[-1]
             else:
                 run.add_update_data(img, region, B)
